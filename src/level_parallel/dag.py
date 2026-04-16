@@ -649,7 +649,13 @@ def extract_tiled_level_plan(
         n_alloc = len(new_writers)
         projected = current_live() - n_freed + n_alloc
 
-        if projected <= max_smem_slots:
+        # Check if this level needs any operand that's in the spill buffer
+        # (alive but not in shared memory). If so, we must insert a boundary
+        # to reload it, even if the projected count would fit.
+        read_set_d = level_read_sets.get(d, set())
+        needs_spill_values = any(s in alive and s not in in_smem for s in read_set_d)
+
+        if projected <= max_smem_slots and not needs_spill_values:
             _process_level_normal(d)
         else:
             # Insert chunk boundary with selective reload for level d.
@@ -676,12 +682,45 @@ def extract_tiled_level_plan(
                 # Wide level: sub-batch.
                 _process_wide_level(d, avail_after_free)
 
-    # Record the final chunk.
+    # Record the final compute chunk.
     chunks.append(ChunkInfo(
         level_start=chunk_start_level,
         level_end=max_level + 1,
         peak_live_slots=chunk_peak,
     ))
+
+    # Ensure output values are in shared memory. If any are in the spill
+    # buffer (produced in earlier chunks, not reloaded for the last chunk),
+    # insert a final boundary to reload them.
+    output_sids = set()
+    for src_ssa, _, _ in raw_outputs:
+        if src_ssa >= 0:
+            output_sids.add(src_ssa)
+    output_needs_reload = sorted(s for s in output_sids if s in alive and s not in in_smem)
+
+    if output_needs_reload:
+        # Spill current smem, reset, reload output values.
+        spill_src, spill_dst = _spill_all_smem()
+        reset_pool()
+        reload_src, reload_dst = _reload_selective(output_needs_reload)
+        # Also reload any output values that were already in smem (now spilled).
+        remaining_outputs = sorted(s for s in output_sids if s in alive and s not in in_smem)
+        if remaining_outputs:
+            rs2, rd2 = _reload_selective(remaining_outputs)
+            reload_src.extend(rs2)
+            reload_dst.extend(rd2)
+
+        boundaries.append(ChunkBoundary(
+            spill_src_slots=spill_src,
+            spill_buffer_pos=spill_dst,
+            reload_buffer_pos=reload_src,
+            reload_dst_slots=reload_dst,
+        ))
+        chunks.append(ChunkInfo(
+            level_start=max_level + 1,
+            level_end=max_level + 1,
+            peak_live_slots=current_live(),
+        ))
 
     for s in free_at_level.get(max_level + 1, []):
         if s in alive:
