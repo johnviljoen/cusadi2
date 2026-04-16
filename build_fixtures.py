@@ -12,15 +12,15 @@ Current fixtures:
     double_integrator_jac      — f(x[2], u[1]) -> jac[2x3], sparse 2-nnz Jacobian
     stage_cost_hess            — f(x[2], u[1]) -> H[3x3], cost Hessian (diag)
     dynamics_defect_jac        — f(x_t[2], u_t[1], x_tp1[2]) -> J[2x5], defect Jacobian
-    panda_aba                  — f(q[9], v[9], tau[9]) -> a[9], Pinocchio ABA (3234 instrs)
-    panda_aba_jac              — f(q[9], v[9], tau[9]) -> J[9x27, 234nz], ABA Jacobian (48k instrs)
+    panda_aba                  — f(q[9], v[9], tau[9]) -> a[9], Pinocchio ABA
+    panda_aba_jac              — f(q,v,tau) -> (ddq_dq, ddq_dv, Minv), analytical ABA derivatives (15k instrs)
     panda_cost_hess            — f(q[9], v[9], tau[9]) -> H[27x27, 27nz], quadratic cost Hessian
-    a1_aba                     — f(q[19], v[18], tau[18]) -> a[18], floating-base ABA (5260 instrs)
-    a1_aba_jac                 — f(q[19], v[18], tau[18]) -> J[18x55, 936nz], ABA Jacobian (150k instrs)
+    a1_aba                     — f(q[19], v[18], tau[18]) -> a[18], floating-base ABA
+    a1_aba_jac                 — f(q,v,tau) -> (ddq_dq, ddq_dv, Minv), analytical ABA derivatives (41k instrs)
     a1_cost_hess               — f(q[19], v[18], tau[18]) -> H[55x55, 55nz], quadratic cost Hessian
     a1_joint_limit_jac         — f(q[19], v[18], tau[18]) -> J[19x55, 19nz], joint limit Jacobian
-    h1_aba                     — f(q[26], v[25], tau[25]) -> a[25], floating-base ABA (9467 instrs)
-    h1_aba_jac                 — f(q[26], v[25], tau[25]) -> J[25x76, 1825nz], ABA Jacobian (364k instrs)
+    h1_aba                     — f(q[26], v[25], tau[25]) -> a[25], floating-base ABA
+    h1_aba_jac                 — f(q,v,tau) -> (ddq_dq, ddq_dv, Minv), analytical ABA derivatives (78k instrs)
     h1_cost_hess               — f(q[26], v[25], tau[25]) -> H[76x76, 76nz], quadratic cost Hessian
     h1_joint_limit_jac         — f(q[26], v[25], tau[25]) -> J[26x76, 26nz], joint limit Jacobian
 """
@@ -142,15 +142,16 @@ def build_panda_fixtures():
     print(f"Saved: {path}")
     _print_fn_info(f_aba)
 
-    z = vertcat(q, v, tau)
-    J_a = jacobian(a, z)
-    f_jac = Function("panda_aba_jac", [q, v, tau], [J_a], ["q", "v", "tau"], ["J"])
+    cdata2 = cmodel.createData()
+    ddq_dq, ddq_dv, ddq_dtau = cpin.computeABADerivatives(cmodel, cdata2, q, v, tau)
+    f_jac = Function("panda_aba_jac", [q, v, tau], [ddq_dq, ddq_dv, ddq_dtau],
+                     ["q", "v", "tau"], ["ddq_dq", "ddq_dv", "ddq_dtau"])
     path = os.path.join(FUNCTION_DIR, "panda_aba_jac.casadi")
     f_jac.save(path)
     print(f"\nSaved: {path}")
     _print_fn_info(f_jac)
 
-    nz = model.nq + model.nv + model.nv
+    z = vertcat(q, v, tau)
     cost = 0.5 * (q.T @ q + v.T @ v + 0.01 * tau.T @ tau)
     H, _ = hessian(cost, z)
     f_cost = Function("panda_cost_hess", [q, v, tau], [H], ["q", "v", "tau"], ["H"])
@@ -189,14 +190,16 @@ def build_a1_fixtures():
     print(f"Saved: {path}")
     _print_fn_info(f_aba)
 
-    z = vertcat(q, v, tau)
-    J_a = jacobian(a, z)
-    f_jac = Function("a1_aba_jac", [q, v, tau], [J_a], ["q", "v", "tau"], ["J"])
+    cdata2 = cmodel.createData()
+    ddq_dq, ddq_dv, ddq_dtau = cpin.computeABADerivatives(cmodel, cdata2, q, v, tau)
+    f_jac = Function("a1_aba_jac", [q, v, tau], [ddq_dq, ddq_dv, ddq_dtau],
+                     ["q", "v", "tau"], ["ddq_dq", "ddq_dv", "ddq_dtau"])
     path = os.path.join(FUNCTION_DIR, "a1_aba_jac.casadi")
     f_jac.save(path)
     print(f"\nSaved: {path}")
     _print_fn_info(f_jac)
 
+    z = vertcat(q, v, tau)
     cost = 0.5 * (q.T @ q + v.T @ v + 0.01 * tau.T @ tau)
     H, _ = hessian(cost, z)
     f_cost = Function("a1_cost_hess", [q, v, tau], [H], ["q", "v", "tau"], ["H"])
@@ -246,14 +249,16 @@ def build_h1_fixtures():
     print(f"Saved: {path}")
     _print_fn_info(f_aba)
 
-    z = vertcat(q, v, tau)
-    J_a = jacobian(a, z)
-    f_jac = Function("h1_aba_jac", [q, v, tau], [J_a], ["q", "v", "tau"], ["J"])
+    cdata2 = cmodel.createData()
+    ddq_dq, ddq_dv, ddq_dtau = cpin.computeABADerivatives(cmodel, cdata2, q, v, tau)
+    f_jac = Function("h1_aba_jac", [q, v, tau], [ddq_dq, ddq_dv, ddq_dtau],
+                     ["q", "v", "tau"], ["ddq_dq", "ddq_dv", "ddq_dtau"])
     path = os.path.join(FUNCTION_DIR, "h1_aba_jac.casadi")
     f_jac.save(path)
     print(f"\nSaved: {path}")
     _print_fn_info(f_jac)
 
+    z = vertcat(q, v, tau)
     cost = 0.5 * (q.T @ q + v.T @ v + 0.01 * tau.T @ tau)
     H, _ = hessian(cost, z)
     f_cost = Function("h1_cost_hess", [q, v, tau], [H], ["q", "v", "tau"], ["H"])
