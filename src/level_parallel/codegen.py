@@ -144,15 +144,18 @@ __global__ void evaluate_kernel(
     __syncthreads();
 
     // --- Compute levels ---
+    // SSA renaming guarantees no slot is both read and written within a level.
+    // The read-phase barrier is unnecessary: each thread reads slots written at
+    // previous levels (already visible from the previous level's barrier) and
+    // writes to a slot no other thread at this level reads.
+    // One __syncthreads() per level (after all chunks) suffices.
     for (int lev = 0; lev < n_levels; lev++) {
         int offset = level_offsets[lev];
         int width = level_widths[lev];
-
-        // Phase 1: read operands into registers
-        double ra = 0.0, rb = 0.0;
-        int my_op = 0, my_out = 0;
         for (int base = 0; base < width; base += block_sz) {
             int idx = base + tid;
+            double ra = 0.0, rb = 0.0;
+            int my_op = 0, my_out = 0;
             if (idx < width) {
                 int g = offset + idx;
                 ra = w[node_in_a[g]];
@@ -160,13 +163,11 @@ __global__ void evaluate_kernel(
                 my_op = node_ops[g];
                 my_out = node_outs[g];
             }
-            __syncthreads();
-            // Phase 2: compute and write
             if (idx < width) {
                 w[my_out] = exec_op(my_op, ra, rb);
             }
-            __syncthreads();
         }
+        __syncthreads();
     }
 
     // --- Write outputs ---
