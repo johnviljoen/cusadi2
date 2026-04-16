@@ -13,6 +13,6 @@ CUSADI_FIGURES_DIR = os.path.join(CUSADI_ROOT_DIR, "figures")
 sys.path.insert(0, CUSADI_BUILD_DIR)
 from .CusadiFunction import CusadiFunction
 from .CusadiOperations import OP_CUDA_DICT, OP_PYTORCH_DICT, OP_CUDA_DICT_ORIG
-from .generateCUDACode import generateCUDACodeDouble, generateCUDACodeFloat, generateCMakeLists, generateCUDACodeV3
+from .generateCUDACode import generateCUDACodeDouble, generateCUDACodeFloat, generateCMakeLists, generateCUDACodeV3, generateCUDACode2D
 from .generatePytorchCode import generatePytorchCode
 from .benchmark_functions import *

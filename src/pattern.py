@@ -10,15 +10,88 @@ only; assembly is a single reshape.
 This implements the "host-side pre-compute" design adopted after the C0
 read-through: kernels never compute or write index arrays, and cuDSS gets
 a fixed sparsity pattern that it analyzes once.
+
+CusadiFunction2D wraps the 2D-launch kernel (grid.x=batch, grid.y*block=pattern).
+PatternAssembler uses it when batch_size > 0 to evaluate across both axes.
 """
 
-from typing import Tuple
+import ctypes
+import os
+from typing import List, Tuple
 
 import casadi
 import numpy as np
 import torch
 
+from src import CUSADI_BUILD_DIR
 from src.CusadiFunction import CusadiFunction
+
+
+class CusadiFunction2D:
+    """Thin wrapper for 2D-launch kernels (batch × pattern instances).
+
+    Loads lib{fn_name}_2d.so and calls evaluate(inputs, work, outputs,
+    batch_size, n_instances) with the 5-arg C interface.
+
+    Memory layout is flat: total = batch_size * n_instances.
+    Instance (b, p) lives at flat index b * n_instances + p.
+    """
+
+    def __init__(self, fn_casadi: casadi.Function, batch_size: int, n_instances: int):
+        lib_filepath = os.path.join(CUSADI_BUILD_DIR, f"lib{fn_casadi.name()}_2d.so")
+        self.fn_casadi = fn_casadi
+        self.batch_size = batch_size
+        self.n_instances = n_instances
+        self._total = batch_size * n_instances
+        self._device = "cuda"
+
+        self._fn_library = ctypes.CDLL(lib_filepath)
+        self._fn_library.evaluate.restype = ctypes.c_float
+
+        self._input_tensors = [
+            torch.zeros(self._total, fn_casadi.nnz_in(i),
+                        device=self._device, dtype=torch.double).contiguous()
+            for i in range(fn_casadi.n_in())
+        ]
+        self._output_tensors = [
+            torch.zeros(self._total, fn_casadi.nnz_out(i),
+                        device=self._device, dtype=torch.double).contiguous()
+            for i in range(fn_casadi.n_out())
+        ]
+        self._work_tensor = torch.zeros(
+            self._total, fn_casadi.sz_w(),
+            device=self._device, dtype=torch.double).contiguous()
+
+        self._input_ptrs = torch.zeros(
+            fn_casadi.n_in(), device="cuda", dtype=torch.int64).contiguous()
+        self._output_ptrs = torch.zeros(
+            fn_casadi.n_out(), device="cuda", dtype=torch.int64).contiguous()
+        for i in range(fn_casadi.n_in()):
+            self._input_ptrs[i] = self._input_tensors[i].data_ptr()
+        for i in range(fn_casadi.n_out()):
+            self._output_ptrs[i] = self._output_tensors[i].data_ptr()
+
+        self.outputs_sparse = self._output_tensors
+
+    def evaluate(self, inputs: List[torch.Tensor]):
+        for i in range(self.fn_casadi.n_out()):
+            self._output_tensors[i].zero_()
+        self._work_tensor.zero_()
+
+        for i in range(self.fn_casadi.n_in()):
+            self._input_tensors[i] = inputs[i]
+            self._input_ptrs[i] = inputs[i].data_ptr()
+
+        fn_input = ctypes.cast(
+            self._input_ptrs.data_ptr(), ctypes.POINTER(ctypes.c_int))
+        fn_output = ctypes.cast(
+            self._output_ptrs.data_ptr(), ctypes.POINTER(ctypes.c_int))
+        fn_work = ctypes.cast(
+            self._work_tensor.data_ptr(), ctypes.POINTER(ctypes.c_double))
+
+        self.eval_time = self._fn_library.evaluate(
+            fn_input, fn_work, fn_output,
+            self.batch_size, self.n_instances)
 
 
 class PatternAssembler:
@@ -32,14 +105,6 @@ class PatternAssembler:
         col_offsets: np.ndarray,
         out_idx: int = 0,
     ):
-        """
-        Args:
-            casadi_fn: the pattern body (e.g., a stage-cost Jacobian).
-            n_instances: how many times this pattern appears in the problem.
-            row_offsets: (n_instances,) int — global row offset per instance.
-            col_offsets: (n_instances,) int — global col offset per instance.
-            out_idx: which output of casadi_fn carries the sparse matrix.
-        """
         self.casadi_fn = casadi_fn
         self.n_instances = n_instances
         self.out_idx = out_idx
@@ -66,34 +131,51 @@ class PatternAssembler:
             + np.repeat(col_off, self.nnz_per_instance)
         )
 
-    def assemble_values(self, cusadi_fn: CusadiFunction) -> np.ndarray:
-        """Extract the values from an evaluated CusadiFunction.
+    def assemble_values_flat(self, output_tensor: torch.Tensor) -> np.ndarray:
+        """Flatten an (n_instances, nnz_per_instance) output tensor to 1D."""
+        return output_tensor.detach().cpu().numpy().astype(np.float64).reshape(-1)
 
-        Returns a 1D float64 array of shape (total_nnz,) ordered consistently
-        with global_rows and global_cols: instance 0's nnz values first,
-        then instance 1's, etc.
+    def assemble_values_batched(
+        self, output_tensor: torch.Tensor, batch_size: int
+    ) -> np.ndarray:
+        """Reshape a (batch_size*n_instances, nnz_per_instance) output tensor
+        to (batch_size, total_nnz) — one row of COO values per batch instance.
         """
-        vals = cusadi_fn.outputs_sparse[self.out_idx]
-        return vals.detach().cpu().numpy().astype(np.float64).reshape(-1)
-
-    def get_global_coo(
-        self, cusadi_fn: CusadiFunction
-    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """Full COO triplet: (global_rows, global_cols, global_vals)."""
-        return (self.global_rows, self.global_cols, self.assemble_values(cusadi_fn))
+        flat = output_tensor.detach().cpu().numpy().astype(np.float64)
+        return flat.reshape(batch_size, self.n_instances, -1).reshape(
+            batch_size, self.total_nnz)
 
     def evaluate_and_assemble(
         self, inputs: list
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """Build a CusadiFunction, evaluate it, and return the global COO.
+        """1D launch (C3 path): n_instances as batch, no outer batch axis.
 
-        Args:
-            inputs: list of CUDA double tensors shaped (n_instances, nnz_in[i]).
-
-        Returns:
-            (global_rows, global_cols, global_vals) numpy arrays.
+        Returns (global_rows, global_cols, global_vals) numpy arrays.
         """
         fn = CusadiFunction(self.casadi_fn, self.n_instances)
         fn.evaluate(inputs)
         torch.cuda.synchronize()
-        return self.get_global_coo(fn)
+        vals = self.assemble_values_flat(fn.outputs_sparse[self.out_idx])
+        return (self.global_rows, self.global_cols, vals)
+
+    def evaluate_and_assemble_2d(
+        self, inputs: list, batch_size: int
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """2D launch (C3.5 path): batch_size × n_instances.
+
+        Args:
+            inputs: list of CUDA double tensors shaped
+                    (batch_size * n_instances, nnz_in[i]).
+            batch_size: number of independent problem instances.
+
+        Returns:
+            (global_rows, global_cols, batched_vals) where:
+            - global_rows, global_cols: (total_nnz,) — shared across batch
+            - batched_vals: (batch_size, total_nnz) — per-batch values
+        """
+        fn = CusadiFunction2D(self.casadi_fn, batch_size, self.n_instances)
+        fn.evaluate(inputs)
+        torch.cuda.synchronize()
+        vals = self.assemble_values_batched(
+            fn.outputs_sparse[self.out_idx], batch_size)
+        return (self.global_rows, self.global_cols, vals)
