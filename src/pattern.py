@@ -17,11 +17,12 @@ PatternAssembler uses it when batch_size > 0 to evaluate across both axes.
 
 import ctypes
 import os
-from typing import List, Tuple
+from typing import Dict, List, Tuple
 
 import casadi
 import numpy as np
 import torch
+from scipy.sparse import coo_matrix
 
 from src import CUSADI_BUILD_DIR
 from src.CusadiFunction import CusadiFunction
@@ -179,3 +180,61 @@ class PatternAssembler:
         vals = self.assemble_values_batched(
             fn.outputs_sparse[self.out_idx], batch_size)
         return (self.global_rows, self.global_cols, vals)
+
+
+class ProblemAssembler:
+    """Multi-pattern COO assembly with duplicate-entry handling.
+
+    Takes multiple PatternAssemblers, concatenates their global COO arrays,
+    and provides conversion to dense/CSR with duplicate summing (as cuDSS
+    does during COO→CSR conversion).
+    """
+
+    def __init__(self, patterns: Dict[str, PatternAssembler], matrix_shape: Tuple[int, int]):
+        self.patterns = patterns
+        self.matrix_shape = matrix_shape
+        self.total_nnz = sum(p.total_nnz for p in patterns.values())
+
+        all_rows = [p.global_rows for p in patterns.values()]
+        all_cols = [p.global_cols for p in patterns.values()]
+        self.global_rows = np.concatenate(all_rows)
+        self.global_cols = np.concatenate(all_cols)
+
+    def assemble_dense(self, pattern_values: Dict[str, np.ndarray]) -> np.ndarray:
+        """Assemble a dense matrix from per-pattern value arrays.
+
+        Duplicate (row, col) entries are summed, matching cuDSS COO→CSR behavior.
+
+        Args:
+            pattern_values: {pattern_name: values_1d} matching self.patterns keys.
+                Each values_1d has shape (total_nnz_for_that_pattern,).
+
+        Returns:
+            Dense matrix of self.matrix_shape with duplicates summed.
+        """
+        all_vals = np.concatenate(
+            [pattern_values[name] for name in self.patterns])
+        M = coo_matrix(
+            (all_vals, (self.global_rows, self.global_cols)),
+            shape=self.matrix_shape,
+        )
+        return M.toarray()
+
+    def assemble_dense_batched(
+        self, pattern_values: Dict[str, np.ndarray], batch_size: int
+    ) -> np.ndarray:
+        """Assemble dense matrices for each batch instance.
+
+        Args:
+            pattern_values: {name: (batch_size, total_nnz)} per pattern.
+
+        Returns:
+            (batch_size, n_rows, n_cols) dense array with duplicates summed.
+        """
+        result = np.zeros(
+            (batch_size, self.matrix_shape[0], self.matrix_shape[1]),
+            dtype=np.float64)
+        for b in range(batch_size):
+            vals_b = {name: v[b] for name, v in pattern_values.items()}
+            result[b] = self.assemble_dense(vals_b)
+        return result
