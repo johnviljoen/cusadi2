@@ -128,7 +128,7 @@ __global__ void evaluate_kernel_tiled(
     const int block_sz = blockDim.x;
     if (inst >= total_instances) return;
 
-    double * spill = spill_buffer + inst * spill_stride;
+    double * spill = spill_buffer + (long long)inst * spill_stride;
 
     // --- Init: load constants and inputs (chunk 0) ---
     for (int i = tid; i < n_consts; i += block_sz)
