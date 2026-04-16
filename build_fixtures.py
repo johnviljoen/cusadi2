@@ -12,10 +12,21 @@ Current fixtures:
     double_integrator_jac      — f(x[2], u[1]) -> jac[2x3], sparse 2-nnz Jacobian
     stage_cost_hess            — f(x[2], u[1]) -> H[3x3], cost Hessian (diag)
     dynamics_defect_jac        — f(x_t[2], u_t[1], x_tp1[2]) -> J[2x5], defect Jacobian
+    panda_aba                  — f(q[9], v[9], tau[9]) -> a[9], Pinocchio ABA (3234 instrs)
+    panda_aba_jac              — f(q[9], v[9], tau[9]) -> J[9x27, 234nz], ABA Jacobian (48k instrs)
+    panda_cost_hess            — f(q[9], v[9], tau[9]) -> H[27x27, 27nz], quadratic cost Hessian
 """
 
 import os
 from casadi import SX, Function, hessian, jacobian, vertcat, diag
+
+HAS_PINOCCHIO = False
+try:
+    from robot_descriptions.loaders.pinocchio import load_robot_description
+    import pinocchio.casadi as cpin
+    HAS_PINOCCHIO = True
+except ImportError:
+    pass
 
 FUNCTION_DIR = os.path.join(os.path.dirname(__file__), "src", "casadi_functions")
 
@@ -97,7 +108,53 @@ def build_trajectory_patterns():
     _print_fn_info(f_jac)
 
 
+def build_panda_fixtures():
+    """Build ABA forward dynamics + Jacobian + cost Hessian for the Panda 7-DOF.
+
+    Requires pinocchio with CasADi support and robot_descriptions.
+    """
+    if not HAS_PINOCCHIO:
+        print("Skipping Panda fixtures: pinocchio.casadi or robot_descriptions not available")
+        return
+
+    robot = load_robot_description("panda_description")
+    model = robot.model
+    cmodel = cpin.Model(model)
+    cdata = cmodel.createData()
+    print(f"Panda model: nq={model.nq}, nv={model.nv}")
+
+    q = SX.sym("q", model.nq)
+    v = SX.sym("v", model.nv)
+    tau = SX.sym("tau", model.nv)
+
+    a = cpin.aba(cmodel, cdata, q, v, tau)
+    f_aba = Function("panda_aba", [q, v, tau], [a], ["q", "v", "tau"], ["a"])
+    path = os.path.join(FUNCTION_DIR, "panda_aba.casadi")
+    f_aba.save(path)
+    print(f"Saved: {path}")
+    _print_fn_info(f_aba)
+
+    z = vertcat(q, v, tau)
+    J_a = jacobian(a, z)
+    f_jac = Function("panda_aba_jac", [q, v, tau], [J_a], ["q", "v", "tau"], ["J"])
+    path = os.path.join(FUNCTION_DIR, "panda_aba_jac.casadi")
+    f_jac.save(path)
+    print(f"\nSaved: {path}")
+    _print_fn_info(f_jac)
+
+    nz = model.nq + model.nv + model.nv
+    cost = 0.5 * (q.T @ q + v.T @ v + 0.01 * tau.T @ tau)
+    H, _ = hessian(cost, z)
+    f_cost = Function("panda_cost_hess", [q, v, tau], [H], ["q", "v", "tau"], ["H"])
+    path = os.path.join(FUNCTION_DIR, "panda_cost_hess.casadi")
+    f_cost.save(path)
+    print(f"\nSaved: {path}")
+    _print_fn_info(f_cost)
+
+
 if __name__ == "__main__":
     build_double_integrator()
     print()
     build_trajectory_patterns()
+    print()
+    build_panda_fixtures()
