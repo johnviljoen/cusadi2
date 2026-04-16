@@ -15,6 +15,10 @@ Current fixtures:
     panda_aba                  — f(q[9], v[9], tau[9]) -> a[9], Pinocchio ABA (3234 instrs)
     panda_aba_jac              — f(q[9], v[9], tau[9]) -> J[9x27, 234nz], ABA Jacobian (48k instrs)
     panda_cost_hess            — f(q[9], v[9], tau[9]) -> H[27x27, 27nz], quadratic cost Hessian
+    a1_aba                     — f(q[19], v[18], tau[18]) -> a[18], floating-base ABA (5260 instrs)
+    a1_aba_jac                 — f(q[19], v[18], tau[18]) -> J[18x55, 936nz], ABA Jacobian (150k instrs)
+    a1_cost_hess               — f(q[19], v[18], tau[18]) -> H[55x55, 55nz], quadratic cost Hessian
+    a1_joint_limit_jac         — f(q[19], v[18], tau[18]) -> J[19x55, 19nz], joint limit Jacobian
 """
 
 import os
@@ -152,9 +156,65 @@ def build_panda_fixtures():
     _print_fn_info(f_cost)
 
 
+def build_a1_fixtures():
+    """Build ABA + Jacobian + cost Hessian + joint limits for the Unitree A1 quadruped.
+
+    Floating-base model: nq=19 (3 pos + 4 quat + 12 joints), nv=18 (6 + 12).
+    Requires pinocchio with CasADi support and robot_descriptions.
+    """
+    if not HAS_PINOCCHIO:
+        print("Skipping A1 fixtures: pinocchio.casadi or robot_descriptions not available")
+        return
+
+    import pinocchio as pin
+
+    robot = load_robot_description("a1_description", root_joint=pin.JointModelFreeFlyer())
+    model = robot.model
+    cmodel = cpin.Model(model)
+    cdata = cmodel.createData()
+    print(f"A1 model: nq={model.nq}, nv={model.nv} (floating base)")
+
+    q = SX.sym("q", model.nq)
+    v = SX.sym("v", model.nv)
+    tau = SX.sym("tau", model.nv)
+
+    a = cpin.aba(cmodel, cdata, q, v, tau)
+    f_aba = Function("a1_aba", [q, v, tau], [a], ["q", "v", "tau"], ["a"])
+    path = os.path.join(FUNCTION_DIR, "a1_aba.casadi")
+    f_aba.save(path)
+    print(f"Saved: {path}")
+    _print_fn_info(f_aba)
+
+    z = vertcat(q, v, tau)
+    J_a = jacobian(a, z)
+    f_jac = Function("a1_aba_jac", [q, v, tau], [J_a], ["q", "v", "tau"], ["J"])
+    path = os.path.join(FUNCTION_DIR, "a1_aba_jac.casadi")
+    f_jac.save(path)
+    print(f"\nSaved: {path}")
+    _print_fn_info(f_jac)
+
+    cost = 0.5 * (q.T @ q + v.T @ v + 0.01 * tau.T @ tau)
+    H, _ = hessian(cost, z)
+    f_cost = Function("a1_cost_hess", [q, v, tau], [H], ["q", "v", "tau"], ["H"])
+    path = os.path.join(FUNCTION_DIR, "a1_cost_hess.casadi")
+    f_cost.save(path)
+    print(f"\nSaved: {path}")
+    _print_fn_info(f_cost)
+
+    J_limit = jacobian(q, z)
+    f_limit = Function("a1_joint_limit_jac", [q, v, tau], [J_limit],
+                       ["q", "v", "tau"], ["J"])
+    path = os.path.join(FUNCTION_DIR, "a1_joint_limit_jac.casadi")
+    f_limit.save(path)
+    print(f"\nSaved: {path}")
+    _print_fn_info(f_limit)
+
+
 if __name__ == "__main__":
     build_double_integrator()
     print()
     build_trajectory_patterns()
     print()
     build_panda_fixtures()
+    print()
+    build_a1_fixtures()
