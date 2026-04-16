@@ -1,81 +1,244 @@
 """
-Level-parallel CUDA codegen using SSA-renamed DAG (Option C).
+Level-parallel CUDA codegen: data-driven dispatch.
 
-Emits a kernel where one CUDA block evaluates one function instance.
-Threads within a block cooperate across topological levels of the DAG.
-Work vector lives in shared memory; __syncthreads() between levels.
+Instead of unrolling one code branch per DAG node (which produces massive .cu
+files and 60+ minute compile times), we emit a single fixed-size kernel template
+that reads per-node operation metadata from arrays in global memory.
 
-Within each level, the read-then-write two-phase pattern is used:
-  Phase 1: all threads read their inputs from shared memory into registers.
+The kernel body is ~80 lines of CUDA regardless of function size. Per-function
+data (op types, operand indices, constants, level structure) is computed from
+the LevelPlan at setup time and uploaded to GPU once.
+
+Within each level, the two-phase read-then-write pattern is used:
+  Phase 1: each thread reads its input operands from shared memory into registers.
   __syncthreads()
-  Phase 2: all threads compute and write results to shared memory.
+  Phase 2: each thread dispatches on op_id, computes, and writes to shared memory.
   __syncthreads()
-
-Because SSA renaming guarantees no two nodes at the same level write to the
-same slot, Phase 2 has no write-write conflicts. Phase 1's snapshot read
-(before any writes) prevents read-write conflicts. Together, the two-phase
-pattern + SSA renaming makes each level fully data-race free.
 """
 
-import textwrap
+import os
 
-from casadi import (OP_SQ, OP_ASSIGN,
-                    OP_ADD, OP_SUB, OP_MUL, OP_DIV, OP_NEG,
-                    OP_EXP, OP_LOG, OP_POW, OP_CONSTPOW, OP_SQRT, OP_TWICE,
-                    OP_SIN, OP_COS, OP_TAN, OP_ASIN, OP_ACOS, OP_ATAN, OP_ATAN2,
-                    OP_SINH, OP_COSH, OP_TANH, OP_ASINH, OP_ACOSH, OP_ATANH,
-                    OP_LT, OP_LE, OP_EQ, OP_NE, OP_NOT, OP_AND, OP_OR,
-                    OP_FLOOR, OP_CEIL, OP_FMOD, OP_FABS, OP_SIGN, OP_COPYSIGN,
-                    OP_IF_ELSE_ZERO, OP_ERF, OP_FMIN, OP_FMAX, OP_INV)
+from src.level_parallel.dag import LevelPlan
 
-from src.level_parallel.dag import LevelPlan, Level
 
-_OP_WRITE = {
-    OP_ASSIGN:       "w[{o}] = ra;",
-    OP_ADD:          "w[{o}] = ra + rb;",
-    OP_SUB:          "w[{o}] = ra - rb;",
-    OP_MUL:          "w[{o}] = ra * rb;",
-    OP_DIV:          "w[{o}] = ra / rb;",
-    OP_NEG:          "w[{o}] = -ra;",
-    OP_EXP:          "w[{o}] = exp(ra);",
-    OP_LOG:          "w[{o}] = log(ra);",
-    OP_POW:          "w[{o}] = pow(ra, rb);",
-    OP_CONSTPOW:     "w[{o}] = pow(ra, rb);",
-    OP_SQRT:         "w[{o}] = sqrt(ra);",
-    OP_SQ:           "w[{o}] = ra * ra;",
-    OP_TWICE:        "w[{o}] = 2.0 * ra;",
-    OP_SIN:          "w[{o}] = sin(ra);",
-    OP_COS:          "w[{o}] = cos(ra);",
-    OP_TAN:          "w[{o}] = tan(ra);",
-    OP_ASIN:         "w[{o}] = asin(ra);",
-    OP_ACOS:         "w[{o}] = acos(ra);",
-    OP_ATAN:         "w[{o}] = atan(ra);",
-    OP_ATAN2:        "w[{o}] = atan2(ra, rb);",
-    OP_LT:           "w[{o}] = (double)(ra < rb);",
-    OP_LE:           "w[{o}] = (double)(ra <= rb);",
-    OP_EQ:           "w[{o}] = (double)(ra == rb);",
-    OP_NE:           "w[{o}] = (double)(ra != rb);",
-    OP_NOT:          "w[{o}] = (double)(!ra);",
-    OP_AND:          "w[{o}] = (double)(ra && rb);",
-    OP_OR:           "w[{o}] = (double)(ra || rb);",
-    OP_FLOOR:        "w[{o}] = floor(ra);",
-    OP_CEIL:         "w[{o}] = ceil(ra);",
-    OP_FMOD:         "w[{o}] = fmod(ra, rb);",
-    OP_FABS:         "w[{o}] = fabs(ra);",
-    OP_SIGN:         "w[{o}] = (ra > 0.0) - (ra < 0.0);",
-    OP_COPYSIGN:     "w[{o}] = copysign(ra, rb);",
-    OP_IF_ELSE_ZERO: "w[{o}] = (ra == 0.0) ? 0.0 : rb;",
-    OP_ERF:          "w[{o}] = erf(ra);",
-    OP_FMIN:         "w[{o}] = fmin(ra, rb);",
-    OP_FMAX:         "w[{o}] = fmax(ra, rb);",
-    OP_INV:          "w[{o}] = 1.0 / ra;",
-    OP_SINH:         "w[{o}] = sinh(ra);",
-    OP_COSH:         "w[{o}] = cosh(ra);",
-    OP_TANH:         "w[{o}] = tanh(ra);",
-    OP_ASINH:        "w[{o}] = asinh(ra);",
-    OP_ACOSH:        "w[{o}] = acosh(ra);",
-    OP_ATANH:        "w[{o}] = atanh(ra);",
+KERNEL_TEMPLATE = r"""
+// AUTOMATICALLY GENERATED: level-parallel data-driven kernel
+#include <cuda_runtime.h>
+#include <math.h>
+#include <cstdio>
+
+#define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
+__host__ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=true) {
+    if (code != cudaSuccess) {
+        fprintf(stderr,"GPUassert: %s %s %d\n", cudaGetErrorString(code), file, line);
+        if (abort) exit(code);
+    }
 }
+
+// CasADi op IDs — must match casadi/core/calculus.hpp exactly
+enum CasadiOp {
+    OP_ASSIGN=0, OP_ADD, OP_SUB, OP_MUL, OP_DIV, OP_NEG,     // 0-5
+    OP_EXP, OP_LOG, OP_POW, OP_CONSTPOW, OP_SQRT, OP_SQ,     // 6-11
+    OP_TWICE, OP_SIN, OP_COS, OP_TAN, OP_ASIN, OP_ACOS,      // 12-17
+    OP_ATAN,                                                    // 18
+    OP_LT, OP_LE, OP_EQ, OP_NE, OP_NOT, OP_AND, OP_OR,       // 19-25
+    OP_FLOOR, OP_CEIL, OP_FMOD, OP_FABS, OP_SIGN, OP_COPYSIGN,// 26-31
+    OP_IF_ELSE_ZERO, OP_ERF, OP_FMIN, OP_FMAX, OP_INV,        // 32-36
+    OP_SINH, OP_COSH, OP_TANH, OP_ASINH, OP_ACOSH, OP_ATANH,  // 37-42
+    OP_ATAN2                                                    // 43
+};
+
+__device__ __forceinline__ double exec_op(int op, double a, double b) {
+    switch (op) {
+        case OP_ASSIGN:       return a;
+        case OP_ADD:          return a + b;
+        case OP_SUB:          return a - b;
+        case OP_MUL:          return a * b;
+        case OP_DIV:          return a / b;
+        case OP_NEG:          return -a;
+        case OP_EXP:          return exp(a);
+        case OP_LOG:          return log(a);
+        case OP_POW:          return pow(a, b);
+        case OP_CONSTPOW:     return pow(a, b);
+        case OP_SQRT:         return sqrt(a);
+        case OP_SQ:           return a * a;
+        case OP_TWICE:        return 2.0 * a;
+        case OP_SIN:          return sin(a);
+        case OP_COS:          return cos(a);
+        case OP_TAN:          return tan(a);
+        case OP_ASIN:         return asin(a);
+        case OP_ACOS:         return acos(a);
+        case OP_ATAN:         return atan(a);
+        case OP_FMIN:         return fmin(a, b);
+        case OP_FMAX:         return fmax(a, b);
+        case OP_INV:          return 1.0 / a;
+        case OP_SINH:         return sinh(a);
+        case OP_COSH:         return cosh(a);
+        case OP_TANH:         return tanh(a);
+        case OP_ASINH:        return asinh(a);
+        case OP_ACOSH:        return acosh(a);
+        case OP_ATANH:        return atanh(a);
+        case OP_ATAN2:        return atan2(a, b);
+        case OP_LT:           return (double)(a < b);
+        case OP_LE:           return (double)(a <= b);
+        case OP_EQ:           return (double)(a == b);
+        case OP_NE:           return (double)(a != b);
+        case OP_NOT:          return (double)(!a);
+        case OP_AND:          return (double)((bool)a && (bool)b);
+        case OP_OR:           return (double)((bool)a || (bool)b);
+        case OP_IF_ELSE_ZERO: return (a == 0.0) ? 0.0 : b;
+        case OP_FLOOR:        return floor(a);
+        case OP_CEIL:         return ceil(a);
+        case OP_FMOD:         return fmod(a, b);
+        case OP_FABS:         return fabs(a);
+        case OP_SIGN:         return (a > 0.0) - (a < 0.0);
+        case OP_COPYSIGN:     return copysign(a, b);
+        case OP_ERF:          return erf(a);
+        default:              return 0.0;
+    }
+}
+
+__global__ void evaluate_kernel(
+        const double * const * __restrict__ inputs,
+        double ** __restrict__ outputs,
+        const int total_instances,
+        // Init data
+        const int n_consts,
+        const int * __restrict__ const_slots,
+        const double * __restrict__ const_vals,
+        const int n_inputs,
+        const int * __restrict__ input_slots,
+        const int * __restrict__ input_args,
+        const int * __restrict__ input_elems,
+        const int * __restrict__ nnz_in,
+        // Compute data
+        const int n_levels,
+        const int * __restrict__ level_offsets,
+        const int * __restrict__ level_widths,
+        const int * __restrict__ node_ops,
+        const int * __restrict__ node_outs,
+        const int * __restrict__ node_in_a,
+        const int * __restrict__ node_in_b,
+        // Output data
+        const int n_outputs,
+        const int * __restrict__ out_slots,
+        const int * __restrict__ out_args,
+        const int * __restrict__ out_elems,
+        const int * __restrict__ nnz_out) {
+
+    extern __shared__ double w[];
+    const int inst = blockIdx.x;
+    const int tid = threadIdx.x;
+    const int block_sz = blockDim.x;
+    if (inst >= total_instances) return;
+
+    // --- Init: load constants ---
+    for (int i = tid; i < n_consts; i += block_sz) {
+        w[const_slots[i]] = const_vals[i];
+    }
+    // --- Init: load external inputs ---
+    for (int i = tid; i < n_inputs; i += block_sz) {
+        int arg = input_args[i];
+        w[input_slots[i]] = inputs[arg][inst * nnz_in[arg] + input_elems[i]];
+    }
+    __syncthreads();
+
+    // --- Compute levels ---
+    for (int lev = 0; lev < n_levels; lev++) {
+        int offset = level_offsets[lev];
+        int width = level_widths[lev];
+
+        // Phase 1: read operands into registers
+        double ra = 0.0, rb = 0.0;
+        int my_op = 0, my_out = 0;
+        for (int base = 0; base < width; base += block_sz) {
+            int idx = base + tid;
+            if (idx < width) {
+                int g = offset + idx;
+                ra = w[node_in_a[g]];
+                rb = w[node_in_b[g]];
+                my_op = node_ops[g];
+                my_out = node_outs[g];
+            }
+            __syncthreads();
+            // Phase 2: compute and write
+            if (idx < width) {
+                w[my_out] = exec_op(my_op, ra, rb);
+            }
+            __syncthreads();
+        }
+    }
+
+    // --- Write outputs ---
+    for (int i = tid; i < n_outputs; i += block_sz) {
+        int arg = out_args[i];
+        outputs[arg][inst * nnz_out[arg] + out_elems[i]] = w[out_slots[i]];
+    }
+}
+
+extern "C" {
+
+float evaluate_lp(
+        const double *inputs[],
+        double *outputs[],
+        const int total_instances,
+        const int block_size,
+        const int shared_bytes,
+        // Init
+        const int n_consts,
+        const int *const_slots,
+        const double *const_vals,
+        const int n_inputs,
+        const int *input_slots,
+        const int *input_args,
+        const int *input_elems,
+        const int *nnz_in,
+        // Compute
+        const int n_levels,
+        const int *level_offsets,
+        const int *level_widths,
+        const int *node_ops,
+        const int *node_outs,
+        const int *node_in_a,
+        const int *node_in_b,
+        // Outputs
+        const int n_outputs,
+        const int *out_slots,
+        const int *out_args,
+        const int *out_elems,
+        const int *nnz_out) {
+
+    dim3 grid(total_instances);
+    dim3 block(block_size);
+    float milliseconds;
+    cudaEvent_t start, stop;
+    cudaEventCreate(&start);
+    cudaEventCreate(&stop);
+    cudaEventRecord(start, 0);
+    evaluate_kernel<<<grid, block, shared_bytes>>>(
+        inputs, outputs, total_instances,
+        n_consts, const_slots, const_vals,
+        n_inputs, input_slots, input_args, input_elems, nnz_in,
+        n_levels, level_offsets, level_widths,
+        node_ops, node_outs, node_in_a, node_in_b,
+        n_outputs, out_slots, out_args, out_elems, nnz_out);
+    cudaEventRecord(stop, 0);
+    cudaEventSynchronize(stop);
+    cudaEventElapsedTime(&milliseconds, start, stop);
+    gpuErrchk(cudaPeekAtLastError());
+    gpuErrchk(cudaDeviceSynchronize());
+    return milliseconds / 1000.0f;
+}
+
+int configure_shared_memory(int shared_bytes) {
+    cudaFuncSetAttribute(evaluate_kernel,
+                         cudaFuncAttributeMaxDynamicSharedMemorySize,
+                         shared_bytes);
+    return 0;
+}
+
+} // extern "C"
+"""
 
 
 def pick_block_size(plan: LevelPlan) -> int:
@@ -89,189 +252,9 @@ def pick_block_size(plan: LevelPlan) -> int:
     return bs
 
 
-def _emit_read(node) -> str:
-    a = node.ssa_inputs[0] if len(node.ssa_inputs) >= 1 else 0
-    b = node.ssa_inputs[1] if len(node.ssa_inputs) >= 2 else 0
-    if len(node.ssa_inputs) >= 2:
-        return f"ra = w[{a}]; rb = w[{b}];"
-    elif len(node.ssa_inputs) >= 1:
-        return f"ra = w[{a}];"
-    return ""
-
-
-def _emit_write(node) -> str:
-    tmpl = _OP_WRITE.get(node.op_id)
-    if tmpl is None:
-        raise ValueError(f"Unknown op_id {node.op_id} at instruction {node.instr_idx}")
-    return tmpl.format(o=node.ssa_out)
-
-
-def _emit_level(level: Level, block_size: int) -> str:
-    """Emit read-sync-write code for one compute level."""
-    width = level.width
-    lines = []
-
-    def _emit_chunk(nodes, chunk_width, chunk_label):
-        has_binary = any(len(n.ssa_inputs) >= 2 for n in nodes)
-        lines.append(f"    {{ // L{level.depth} {chunk_label}: {chunk_width} ops")
-        if has_binary:
-            lines.append(f"    double ra = 0.0, rb = 0.0;")
-        else:
-            lines.append(f"    double ra = 0.0;")
-        if chunk_width <= 4:
-            for i, node in enumerate(nodes):
-                lines.append(f"    if (tid == {i}) {{ {_emit_read(node)} }}")
-        else:
-            lines.append(f"    if (tid < {chunk_width}) {{")
-            lines.append(f"        switch (tid) {{")
-            for i, node in enumerate(nodes):
-                lines.append(f"        case {i}: {_emit_read(node)} break;")
-            lines.append(f"        }}")
-            lines.append(f"    }}")
-        lines.append(f"    __syncthreads();")
-        if chunk_width <= 4:
-            for i, node in enumerate(nodes):
-                lines.append(f"    if (tid == {i}) {{ {_emit_write(node)} }}")
-        else:
-            lines.append(f"    if (tid < {chunk_width}) {{")
-            lines.append(f"        switch (tid) {{")
-            for i, node in enumerate(nodes):
-                lines.append(f"        case {i}: {_emit_write(node)} break;")
-            lines.append(f"        }}")
-            lines.append(f"    }}")
-        lines.append(f"    }} // end L{level.depth} {chunk_label}")
-
-    if width <= block_size:
-        _emit_chunk(level.nodes, width, "")
-    else:
-        n_chunks = (width + block_size - 1) // block_size
-        for c in range(n_chunks):
-            start = c * block_size
-            end = min(start + block_size, width)
-            _emit_chunk(level.nodes[start:end], end - start, f"chunk {c}/{n_chunks}")
-            if c < n_chunks - 1:
-                lines.append(f"    __syncthreads();")
-
-    return "\n".join(lines)
-
-
-def generate_level_parallel_cuda(plan: LevelPlan, filepath: str,
-                                  block_size: int, debug_mode: bool = True):
-    """Emit a level-parallel .cu file from an SSA-renamed LevelPlan."""
-    shared_bytes = plan.peak_live_slots * 8
-
-    with open(filepath, "w") as out:
-        out.write("// AUTOMATICALLY GENERATED CODE FOR CUSADI (level-parallel, Option C)\n")
-        out.write(textwrap.dedent("""
-#include <cuda_runtime.h>
-#include <math.h>
-#include <iostream>
-"""))
-        out.write(f"__constant__ int nnz_in[] = {{{','.join(map(str, plan.nnz_in))}}};\n")
-        out.write(f"__constant__ int nnz_out[] = {{{','.join(map(str, plan.nnz_out))}}};\n")
-        out.write(textwrap.dedent(r"""
-#define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
-inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=true) {
-    if (code != cudaSuccess) {
-        fprintf(stderr,"GPUassert: %s %s %d\n", cudaGetErrorString(code), file, line);
-        if (abort) exit(code);
-    }
-}
-"""))
-
-        # Kernel
-        out.write(f"""
-__global__ void evaluate_kernel(
-        const double * const * __restrict__ inputs,
-        double ** __restrict__ outputs,
-        const int total_instances) {{
-
-    extern __shared__ double w[];
-    const int inst = blockIdx.x;
-    const int tid = threadIdx.x;
-    if (inst >= total_instances) return;
-
-""")
-
-        # Init: constants and inputs into shared memory
-        init_items = []
-        for c in plan.constants:
-            init_items.append(('const', c))
-        for im in plan.input_mappings:
-            init_items.append(('input', im))
-        n_init = len(init_items)
-
-        if n_init > 0:
-            out.write(f"    // === Init: {n_init} slots (consts + inputs) ===\n")
-            for chunk_start in range(0, n_init, block_size):
-                chunk_end = min(chunk_start + n_init - chunk_start, n_init)
-                actual_end = min(chunk_start + block_size, n_init)
-                for i, (kind, item) in enumerate(init_items[chunk_start:actual_end]):
-                    tid_idx = i
-                    if kind == 'const':
-                        out.write(f"    if (tid == {tid_idx}) w[{item.ssa_slot}] = {item.value:.17e};\n")
-                    else:
-                        out.write(f"    if (tid == {tid_idx}) w[{item.ssa_slot}] = "
-                                  f"inputs[{item.input_arg}][inst * nnz_in[{item.input_arg}] + {item.element_idx}];\n")
-                if actual_end < n_init:
-                    out.write("    __syncthreads();\n")
-            out.write("    __syncthreads();\n\n")
-
-        # Compute levels
-        for level in plan.compute_levels:
-            out.write(_emit_level(level, block_size))
-            out.write("\n    __syncthreads();\n\n")
-
-        # Output writes
-        out.write("    // === Outputs ===\n")
-        for out_arg in range(plan.n_outputs):
-            mappings = [om for om in plan.output_mappings if om.output_arg == out_arg]
-            n_om = len(mappings)
-            for chunk_start in range(0, n_om, block_size):
-                chunk_end = min(chunk_start + block_size, n_om)
-                for i, om in enumerate(mappings[chunk_start:chunk_end]):
-                    out.write(f"    if (tid == {i}) outputs[{out_arg}]"
-                              f"[inst * nnz_out[{out_arg}] + {om.element_idx}] = w[{om.ssa_slot}];\n")
-                if chunk_end < n_om:
-                    out.write("    __syncthreads();\n")
-        out.write("}\n")
-
-        # C interface
-        out.write(f'\n\nextern "C" {{\n')
-        out.write(f"""
-float evaluate(const double *inputs[],
-               double *work_unused,
-               double *outputs[],
-               const int total_instances) {{
-    const int blockSize = {block_size};
-    const int sharedMem = {shared_bytes};
-    dim3 grid(total_instances);
-    dim3 block(blockSize);
-    float milliseconds;
-    cudaEvent_t start, stop;
-    cudaEventCreate(&start);
-    cudaEventCreate(&stop);
-    cudaEventRecord(start, 0);
-    evaluate_kernel<<<grid, block, sharedMem>>>(inputs, outputs, total_instances);
-    cudaEventRecord(stop, 0);
-    cudaEventSynchronize(stop);
-    cudaEventElapsedTime(&milliseconds, start, stop);
-""")
-        if debug_mode:
-            out.write("    gpuErrchk(cudaPeekAtLastError());\n")
-            out.write("    gpuErrchk(cudaDeviceSynchronize());\n")
-        out.write("    return milliseconds / 1000.0f;\n")
-        out.write("}\n")
-
-        # Set shared memory attribute helper
-        out.write(f"""
-int configure_shared_memory() {{
-    cudaFuncSetAttribute(evaluate_kernel,
-                         cudaFuncAttributeMaxDynamicSharedMemorySize,
-                         {shared_bytes});
-    return 0;
-}}
-""")
-        out.write("\n}\n")
-
+def write_kernel_source(filepath: str):
+    """Write the fixed kernel template to a .cu file."""
+    os.makedirs(os.path.dirname(filepath) or ".", exist_ok=True)
+    with open(filepath, "w") as f:
+        f.write(KERNEL_TEMPLATE)
     return filepath

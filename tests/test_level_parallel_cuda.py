@@ -1,10 +1,8 @@
 """
-Phase 2 validation: level-parallel CUDA kernels vs CasADi CPU oracle.
+Phase 2 validation: data-driven level-parallel CUDA kernels vs CasADi CPU oracle.
 
-End-to-end: extract DAG → codegen .cu → cmake → compile → load .so → validate.
-
-Uses the existing validation harness (src/validation.py) through
-CusadiLevelParallelFunction which provides the same interface as CusadiFunction.
+End-to-end: write fixed kernel .cu → cmake → compile once → load .so →
+upload LevelPlan data → validate per function.
 """
 
 import argparse
@@ -19,49 +17,50 @@ import torch
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from src import CUSADI_ROOT_DIR, CUSADI_FUNCTION_DIR, CUSADI_BUILD_DIR, CUSADI_CODEGEN_DIR
-from src.level_parallel.dag import extract_level_plan, verify_level_plan_parallel
-from src.level_parallel.codegen import generate_level_parallel_cuda, pick_block_size
+from src.level_parallel.dag import extract_level_plan
+from src.level_parallel.codegen import write_kernel_source
 from src.level_parallel.function import CusadiLevelParallelFunction
-from src.generateCUDACode import generateCMakeLists
 
 
-def compile_level_parallel(fn_name: str, cu_filepath: str):
-    """Compile a single level-parallel .cu file via cmake."""
-    cmake_filepath = os.path.join(CUSADI_ROOT_DIR, "CMakeLists.txt")
-    lib_name = f"{fn_name}_lp"
+KERNEL_LIB_NAME = "level_parallel_kernel"
 
-    with open(cmake_filepath, "w") as f:
-        f.write("cmake_minimum_required(VERSION 3.15)\n")
-        f.write("project(CusADi LANGUAGES CXX CUDA)\n")
-        f.write("""
+
+def compile_kernel():
+    """Compile the fixed kernel template once."""
+    os.makedirs(CUSADI_CODEGEN_DIR, exist_ok=True)
+    cu_path = os.path.join(CUSADI_CODEGEN_DIR, f"{KERNEL_LIB_NAME}.cu")
+    write_kernel_source(cu_path)
+
+    cmake_path = os.path.join(CUSADI_ROOT_DIR, "CMakeLists.txt")
+    rel_cu = os.path.relpath(cu_path, CUSADI_ROOT_DIR)
+
+    with open(cmake_path, "w") as f:
+        f.write(f"""cmake_minimum_required(VERSION 3.15)
+project(CusADi LANGUAGES CXX CUDA)
 include(CheckLanguage)
 check_language(CUDA)
 if(CMAKE_CUDA_COMPILER)
     enable_language(CUDA)
-    include_directories(${CUDA_INCLUDE_DIRS})
-    message("CUDA found")
+    include_directories(${{CUDA_INCLUDE_DIRS}})
 endif()
 if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
     set(CMAKE_CUDA_ARCHITECTURES 89)
 endif()
 set(CMAKE_CXX_STANDARD 11)
-set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS}; -O3 --use_fast_math)
-
-include_directories(${CMAKE_CURRENT_SOURCE_DIR})
-
+set(CUDA_NVCC_FLAGS ${{CUDA_NVCC_FLAGS}}; -O3 --use_fast_math)
+include_directories(${{CMAKE_CURRENT_SOURCE_DIR}})
+set(LP_SOURCE {rel_cu})
+add_library({KERNEL_LIB_NAME} SHARED ${{LP_SOURCE}})
+target_link_libraries({KERNEL_LIB_NAME})
 """)
-        rel_cu = os.path.relpath(cu_filepath, CUSADI_ROOT_DIR)
-        src_var = lib_name.upper() + "_SOURCE"
-        f.write(f"set({src_var} {rel_cu})\n")
-        f.write(f"add_library({lib_name} SHARED ${{{src_var}}})\n")
-        f.write(f"target_link_libraries({lib_name})\n")
 
     os.makedirs(CUSADI_BUILD_DIR, exist_ok=True)
+    t0 = time.time()
     status = os.system(f"cd {CUSADI_BUILD_DIR} && cmake .. 2>&1 && make -j 2>&1")
-    if status != 0:
-        print("COMPILATION FAILED")
-        return False
-    return True
+    elapsed = time.time() - t0
+    ok = status == 0
+    print(f"  Kernel compile: {elapsed:.1f}s {'ok' if ok else 'FAIL'}")
+    return ok
 
 
 def validate_against_oracle(fn_casadi, num_instances=8, atol=1e-10, rtol=1e-10, seed=0):
@@ -76,8 +75,7 @@ def validate_against_oracle(fn_casadi, num_instances=8, atol=1e-10, rtol=1e-10, 
         for i in range(fn_casadi.n_in())
     ]
 
-    # GPU: level-parallel kernel
-    lp_fn = CusadiLevelParallelFunction(fn_casadi, num_instances)
+    lp_fn = CusadiLevelParallelFunction(fn_casadi, num_instances, lib_name=KERNEL_LIB_NAME)
     lp_fn.evaluate(inputs)
     torch.cuda.synchronize()
 
@@ -86,7 +84,6 @@ def validate_against_oracle(fn_casadi, num_instances=8, atol=1e-10, rtol=1e-10, 
         for i in range(fn_casadi.n_out())
     ]
 
-    # CPU: CasADi oracle
     cpu_outs = []
     for i_out in range(fn_casadi.n_out()):
         cpu_outs.append(np.zeros((num_instances, fn_casadi.nnz_out(i_out)), dtype=np.float64))
@@ -99,7 +96,6 @@ def validate_against_oracle(fn_casadi, num_instances=8, atol=1e-10, rtol=1e-10, 
         for i_out in range(fn_casadi.n_out()):
             cpu_outs[i_out][n, :] = np.asarray(results[i_out].nonzeros(), dtype=np.float64)
 
-    # Compare
     all_pass = True
     for i_out in range(fn_casadi.n_out()):
         abs_err = np.abs(cpu_outs[i_out] - gpu_outs[i_out])
@@ -134,33 +130,15 @@ def test_function(name, atol=1e-10):
 
     f = casadi.Function.load(path)
 
-    # Phase 1: extract + verify in Python
     t0 = time.time()
     plan = extract_level_plan(f)
     t_extract = time.time() - t0
+    from src.level_parallel.codegen import pick_block_size
     block_size = pick_block_size(plan)
     print(f"  DAG: {plan.total_compute_ops} ops, {plan.n_compute_levels} levels, "
           f"block_size={block_size}, peak_live={plan.peak_live_slots}, "
-          f"shared_mem={plan.shared_mem_bytes/1024:.1f}KB")
+          f"shared_mem={plan.shared_mem_bytes/1024:.1f}KB  ({t_extract:.2f}s)")
 
-    # Phase 2: codegen
-    os.makedirs(CUSADI_CODEGEN_DIR, exist_ok=True)
-    cu_path = os.path.join(CUSADI_CODEGEN_DIR, f"{name}_lp.cu")
-    t0 = time.time()
-    generate_level_parallel_cuda(plan, cu_path, block_size, debug_mode=True)
-    t_codegen = time.time() - t0
-    cu_size = os.path.getsize(cu_path)
-    print(f"  Codegen: {t_codegen:.2f}s, {cu_size/1024:.0f} KB .cu file")
-
-    # Compile
-    t0 = time.time()
-    ok = compile_level_parallel(name, cu_path)
-    t_compile = time.time() - t0
-    print(f"  Compile: {t_compile:.1f}s {'ok' if ok else 'FAIL'}")
-    if not ok:
-        return False
-
-    # Validate
     print(f"  Validation (8 instances, atol={atol:.0e}):")
     passed = validate_against_oracle(f, num_instances=8, atol=atol)
     print(f"  Result: {'PASS' if passed else 'FAIL'}")
@@ -179,6 +157,10 @@ def main():
         "a1_aba_jac_analytical": 1e-8,
         "h1_aba_jac_analytical": 1e-8,
     }
+
+    print("Compiling data-driven kernel (one-time)...")
+    if not compile_kernel():
+        sys.exit(1)
 
     if args.fn == "all":
         test_list = list(targets.items())
