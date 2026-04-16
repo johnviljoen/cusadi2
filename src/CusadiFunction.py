@@ -23,6 +23,8 @@ class CusadiFunction:
     _fn_input = []
     _fn_work = []
     _fn_output = []
+    _coo_rows = []
+    _coo_cols = []
 
     # ! Public methods:
     def __init__(self, fn_casadi, num_instances):
@@ -57,6 +59,19 @@ class CusadiFunction:
                                        self.outputs_sparse[out_idx].reshape(-1), 
                                        dim_dense).to_dense()
     
+    def get_coo(self, out_idx=0):
+        """Return (rows, cols, values) for the given output.
+
+        rows, cols: int64 tensors of shape (nnz,) on CUDA — the sparsity
+                    pattern, identical for every batch instance.  Built once
+                    in _setup() from fn_casadi.sparsity_out().get_triplet().
+        values:     float64 tensor of shape (num_instances, nnz) on CUDA —
+                    the per-instance nonzero values from the last evaluate().
+        """
+        return (self._coo_rows[out_idx],
+                self._coo_cols[out_idx],
+                self.outputs_sparse[out_idx])
+
     def checkInputDimensions(self, inputs):
         self.input_CPU = [tensor[0, :].cpu().numpy() for tensor in inputs]
         try :
@@ -93,6 +108,14 @@ class CusadiFunction:
         self.inputs_sparse = self._input_tensors
         self.outputs_sparse = self._output_tensors
         self.outputs_dense = self._output_tensors_dense
+        self._coo_rows = []
+        self._coo_cols = []
+        for i in range(self.fn_casadi.n_out()):
+            rows, cols = self.fn_casadi.sparsity_out(i).get_triplet()
+            self._coo_rows.append(
+                torch.tensor(rows, device=self._device, dtype=torch.int64))
+            self._coo_cols.append(
+                torch.tensor(cols, device=self._device, dtype=torch.int64))
 
     def _prepareInputTensor(self, inputs):
         for i in range(self.fn_casadi.n_in()):

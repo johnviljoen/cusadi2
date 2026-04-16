@@ -129,6 +129,18 @@ def _sparsity_triplets(f: casadi.Function) -> List[Tuple[np.ndarray, np.ndarray]
     return triplets
 
 
+def _compare_coo_indices(
+    oracle_rows: np.ndarray, oracle_cols: np.ndarray,
+    gpu_rows: np.ndarray, gpu_cols: np.ndarray,
+) -> bool:
+    return (
+        oracle_rows.shape == gpu_rows.shape
+        and oracle_cols.shape == gpu_cols.shape
+        and np.array_equal(oracle_rows, gpu_rows)
+        and np.array_equal(oracle_cols, gpu_cols)
+    )
+
+
 def _compare_output(
     output_idx: int,
     cpu_values: np.ndarray,
@@ -139,10 +151,12 @@ def _compare_output(
     atol: float,
     rtol: float,
     max_mismatches: int,
+    coo_indices_ok: bool = True,
 ) -> OutputResult:
     expected_nnz = int(rows.shape[0])
     sparsity_ok = (
-        cpu_values.shape == gpu_values.shape
+        coo_indices_ok
+        and cpu_values.shape == gpu_values.shape
         and cpu_values.shape[1] == expected_nnz
         and rows.shape == cols.shape
     )
@@ -243,6 +257,7 @@ def validate_function(
 
     cpu_outs = _cpu_oracle(f, inputs)
 
+    cusadi_fn = None
     if use_cuda:
         cusadi_fn = CusadiFunction(f, num_instances)
         cusadi_fn.evaluate(inputs)
@@ -258,18 +273,26 @@ def validate_function(
 
     per_output: List[OutputResult] = []
     for i in range(f.n_out()):
-        rows, cols = triplets[i]
+        oracle_rows, oracle_cols = triplets[i]
+        coo_ok = True
+        if cusadi_fn is not None:
+            gpu_r, gpu_c, _ = cusadi_fn.get_coo(i)
+            coo_ok = _compare_coo_indices(
+                oracle_rows, oracle_cols,
+                gpu_r.cpu().numpy(), gpu_c.cpu().numpy(),
+            )
         shape = (f.size1_out(i), f.size2_out(i))
         per_output.append(_compare_output(
             output_idx=i,
             cpu_values=cpu_outs[i],
             gpu_values=gpu_outs[i],
-            rows=rows,
-            cols=cols,
+            rows=oracle_rows,
+            cols=oracle_cols,
             shape=shape,
             atol=atol,
             rtol=rtol,
             max_mismatches=max_mismatches,
+            coo_indices_ok=coo_ok,
         ))
 
     return ValidationReport(
