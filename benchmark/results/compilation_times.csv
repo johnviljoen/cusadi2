@@ -1,0 +1,7 @@
+function,method,compile_time_s,status
+all,level_parallel,0.0,OK
+fn_1e1,sequential,1.1,OK
+fn_1e2,sequential,1.1,OK
+fn_1e3,sequential,1.6,OK
+fn_1e4,sequential,10.8,OK
+fn_1e5,sequential,322.8,OK
