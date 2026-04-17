@@ -35,6 +35,10 @@ def main() -> None:
     ap.add_argument("--out", required=True)
     ap.add_argument("--n_warmup", type=int, default=N_WARMUP)
     ap.add_argument("--n_evals", type=int, default=N_EVALS)
+    ap.add_argument("--with_contact", action="store_true",
+                    help="Enable MJX contact dynamics. Swaps unsupported CYLINDER geoms "
+                         "(MJX rejects cylinder-box pairs) to CAPSULE and keeps contype/"
+                         "conaffinity active. Default: contacts disabled.")
     args = ap.parse_args()
 
     if args.dtype == "fp64":
@@ -53,13 +57,24 @@ def main() -> None:
     print(f"[mjx] robot={args.robot}  dtype={args.dtype}  jax {jax.__version__}  "
           f"devices={jax.devices()}")
 
-    # Load model, disable collisions (we measure forward dyn / ABA only)
+    # Load model
     if args.robot == "a1":
         m = mj_load("a1_mj_description")
     else:
         m = mj_load("h1_mj_description")
-    m.geom_contype[:] = 0
-    m.geom_conaffinity[:] = 0
+    if args.with_contact:
+        # MJX rejects cylinder-box collisions. Swap CYLINDER(5) -> CAPSULE(3)
+        # (same radius + half-length parametrisation so the swap is drop-in),
+        # keep contype/conaffinity active.
+        n_swapped = int((m.geom_type == 5).sum())
+        m.geom_type[m.geom_type == 5] = 3
+        n_active = int(((m.geom_contype != 0) | (m.geom_conaffinity != 0)).sum())
+        print(f"[mjx] contact ENABLED: swapped {n_swapped} cylinders->capsules, "
+              f"{n_active} contact-active geoms")
+    else:
+        m.geom_contype[:] = 0
+        m.geom_conaffinity[:] = 0
+        print(f"[mjx] contact DISABLED (geom_contype = geom_conaffinity = 0)")
     print(f"[mjx] model: nq={m.nq}  nv={m.nv}  nu={m.nu}")
 
     mx = mjx.put_model(m)
@@ -143,6 +158,7 @@ def main() -> None:
     out_dict = {
         "robot": args.robot,
         "dtype": args.dtype,
+        "with_contact": args.with_contact,
         "nq": int(m.nq), "nv": int(m.nv), "nu": int(m.nu),
         "n_warmup": args.n_warmup,
         "n_evals": args.n_evals,
