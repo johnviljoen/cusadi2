@@ -231,6 +231,55 @@ float evaluate_lp(
     return milliseconds / 1000.0f;
 }
 
+// Stream-aware variant for XLA / JAX FFI integration.
+// Launches on the caller-supplied stream; no host-side synchronization —
+// XLA's stream ordering guarantees downstream ops wait on this launch.
+// Returns 0 on success, or the integer value of the cudaError_t on failure.
+int evaluate_lp_stream(
+        const double *inputs[],
+        double *outputs[],
+        const int total_instances,
+        const int block_size,
+        const int shared_bytes,
+        // Init
+        const int n_consts,
+        const int *const_slots,
+        const double *const_vals,
+        const int n_inputs,
+        const int *input_slots,
+        const int *input_args,
+        const int *input_elems,
+        const int *nnz_in,
+        // Compute
+        const int n_levels,
+        const int *level_offsets,
+        const int *level_widths,
+        const int *node_ops,
+        const int *node_outs,
+        const int *node_in_a,
+        const int *node_in_b,
+        // Outputs
+        const int n_outputs,
+        const int *out_slots,
+        const int *out_args,
+        const int *out_elems,
+        const int *nnz_out,
+        // Stream
+        cudaStream_t stream) {
+
+    dim3 grid(total_instances);
+    dim3 block(block_size);
+    evaluate_kernel<<<grid, block, shared_bytes, stream>>>(
+        inputs, outputs, total_instances,
+        n_consts, const_slots, const_vals,
+        n_inputs, input_slots, input_args, input_elems, nnz_in,
+        n_levels, level_offsets, level_widths,
+        node_ops, node_outs, node_in_a, node_in_b,
+        n_outputs, out_slots, out_args, out_elems, nnz_out);
+    cudaError_t err = cudaPeekAtLastError();
+    return (int)err;
+}
+
 int configure_shared_memory(int shared_bytes) {
     cudaFuncSetAttribute(evaluate_kernel,
                          cudaFuncAttributeMaxDynamicSharedMemorySize,
