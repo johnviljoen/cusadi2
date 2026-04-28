@@ -28,6 +28,7 @@ from src.level_parallel.dag import (
 )
 from src.level_parallel.codegen import (
     pick_block_size, write_kernel_source, write_tiled_kernel_source,
+    write_stage_kernel_source,
 )
 from src.level_parallel.function import (
     CusadiLevelParallelFunction, CusadiTiledLevelParallelFunction,
@@ -116,18 +117,32 @@ def _ensure_tiled_kernel():
     _cmake_build_lp_kernels()
 
 
+def _ensure_stage_kernel():
+    """Ensure the stage LP kernel .so is compiled."""
+    so = os.path.join(CUSADI_BUILD_DIR, "liblevel_parallel_stage_kernel.so")
+    if os.path.exists(so):
+        return
+    os.makedirs(CUSADI_CODEGEN_DIR, exist_ok=True)
+    cu = os.path.join(CUSADI_CODEGEN_DIR, "level_parallel_stage_kernel.cu")
+    write_stage_kernel_source(cu)
+    _cmake_build_lp_kernels()
+
+
 def _cmake_build_lp_kernels():
     """Write CMakeLists and build both LP kernels."""
     os.makedirs(CUSADI_BUILD_DIR, exist_ok=True)
     os.makedirs(CUSADI_CODEGEN_DIR, exist_ok=True)
 
-    # Ensure both .cu files exist
+    # Ensure all three .cu files exist
     lp_cu = os.path.join(CUSADI_CODEGEN_DIR, "level_parallel_kernel.cu")
     tiled_cu = os.path.join(CUSADI_CODEGEN_DIR, "level_parallel_tiled_kernel.cu")
+    stage_cu = os.path.join(CUSADI_CODEGEN_DIR, "level_parallel_stage_kernel.cu")
     if not os.path.exists(lp_cu):
         write_kernel_source(lp_cu)
     if not os.path.exists(tiled_cu):
         write_tiled_kernel_source(tiled_cu)
+    if not os.path.exists(stage_cu):
+        write_stage_kernel_source(stage_cu)
 
     cmake_path = os.path.join(CUSADI_ROOT_DIR, "CMakeLists.txt")
     with open(cmake_path, "w") as f:
@@ -144,6 +159,8 @@ def _cmake_build_lp_kernels():
             add_library(level_parallel_kernel SHARED ${LP_SOURCE})
             set(LP_TILED_SOURCE codegen/level_parallel_tiled_kernel.cu)
             add_library(level_parallel_tiled_kernel SHARED ${LP_TILED_SOURCE})
+            set(LP_STAGE_SOURCE codegen/level_parallel_stage_kernel.cu)
+            add_library(level_parallel_stage_kernel SHARED ${LP_STAGE_SOURCE})
         """))
 
     result = subprocess.run(

@@ -163,6 +163,33 @@ def build_lp_fn(fn_casadi, N: int, max_smem_slots: int = 12000):
     return lp, tiled_plan, "tiled"
 
 
+def build_stage_lp_fn(f_stage, num_instances: int, n_stages: int,
+                      input_specs, output_specs):
+    """Return (StageLP_instance, plan).
+
+    Stage compilation: f_stage's level plan is extracted once and replicated
+    across the (num_instances × n_stages) launch grid. Per-arg `input_specs`
+    and `output_specs` declare how each argument is indexed along the stage
+    axis (STAGE / SHARED / COUPLED).
+
+    Tiling on the per-stage program is not yet supported — caller should
+    ensure peak_live_slots fits in shared memory (which is the typical case
+    for MPC/OCP stage residuals; structural repetition is what makes stage
+    compilation worthwhile in the first place).
+    """
+    from src.level_parallel.stage import CusadiStageLevelParallelFunction
+    from src.level_parallel.dag import extract_level_plan
+
+    plan = extract_level_plan(f_stage)
+    lp = CusadiStageLevelParallelFunction(
+        f_stage, num_instances, n_stages,
+        input_specs=input_specs,
+        output_specs=output_specs,
+        lib_name="level_parallel_stage_kernel",
+    )
+    return lp, plan
+
+
 # -----------------------------------------------------------------------------
 # Formatting
 # -----------------------------------------------------------------------------
