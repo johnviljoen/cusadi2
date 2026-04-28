@@ -1,0 +1,3 @@
+/home/john/code/cusadi/build_sequential/CMakeFiles/fn_1e5.dir
+/home/john/code/cusadi/build_sequential/CMakeFiles/edit_cache.dir
+/home/john/code/cusadi/build_sequential/CMakeFiles/rebuild_cache.dir

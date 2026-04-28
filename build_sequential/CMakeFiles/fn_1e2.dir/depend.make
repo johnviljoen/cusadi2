@@ -1,0 +1,2 @@
+# Empty dependencies file for fn_1e2.
+# This may be replaced when dependencies are built.
