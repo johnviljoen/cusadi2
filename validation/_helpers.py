@@ -135,12 +135,36 @@ def load_casadi_fn(path_or_name: str):
         "\n  ".join(candidates))
 
 
-def make_random_inputs(fn_casadi, N: int, seed: int = 42) -> List:
+def make_random_inputs(fn_casadi, N: int, seed: int = 42, *,
+                       normalize_freeflyer_quat: bool = False) -> List:
+    """Random batched inputs for a CasADi function.
+
+    `normalize_freeflyer_quat=True` assumes input arg 0 is a Pinocchio
+    free-flyer configuration `q` with layout (pos[0:3], quat[3:7], joints[7:nq])
+    and rescales each batch row's quaternion to unit length. Use for
+    floating-base robot fixtures (a1_*, h1_*, talos_*) — without it, random
+    `N(0, 1)` quaternions have norm ~2 and downstream rotation matrices have
+    entries ~4× identity, which inflates analytical Jacobians by 10+ orders
+    of magnitude. Defense correctness numbers reported on un-normalised
+    random inputs look catastrophic in absolute terms even though relative
+    error is still at fp64 unit roundoff. See defense notes for details.
+    """
     import torch
     g = torch.Generator(device="cuda").manual_seed(seed)
-    return [torch.randn(N, fn_casadi.nnz_in(i), device="cuda",
-                        dtype=torch.double, generator=g).contiguous()
-            for i in range(fn_casadi.n_in())]
+    inputs = [torch.randn(N, fn_casadi.nnz_in(i), device="cuda",
+                          dtype=torch.double, generator=g).contiguous()
+              for i in range(fn_casadi.n_in())]
+    if normalize_freeflyer_quat:
+        if not inputs:
+            raise ValueError("normalize_freeflyer_quat=True but function has no inputs")
+        q = inputs[0]
+        if q.shape[1] < 7:
+            raise ValueError(
+                f"normalize_freeflyer_quat=True but input 0 has only "
+                f"{q.shape[1]} elements (need ≥7 for free-flyer quat at [3:7])")
+        norms = q[:, 3:7].norm(dim=1, keepdim=True).clamp_min(1e-12)
+        q[:, 3:7] = q[:, 3:7] / norms
+    return inputs
 
 
 # -----------------------------------------------------------------------------
@@ -188,6 +212,99 @@ def build_stage_lp_fn(f_stage, num_instances: int, n_stages: int,
         lib_name="level_parallel_stage_kernel",
     )
     return lp, plan
+
+
+def build_hybrid_stage_lp_fn(f_stage, num_instances: int, n_stages: int,
+                              input_specs, output_specs,
+                              chunk_size="auto",
+                              smem_budget_bytes=None):
+    """Return (HybridLP_instance, chunked_plan, chunk_size).
+
+    Hybrid stage compilation. blockIdx.y indexes a chunk of `chunk_size`
+    consecutive stages of f_stage; threads cooperate on the chunked DAG
+    inside each block. chunk_size=1 collapses to pure stage-LP;
+    chunk_size=n_stages is the unrolled-LP equivalent.
+
+    chunk_size="auto" runs auto_tune_chunk_size, picking the largest
+    divisor of n_stages whose chunked plan fits in shared memory.
+    """
+    from src.level_parallel.stage import (CusadiHybridStageLevelParallelFunction,
+                                           auto_tune_chunk_size)
+
+    if chunk_size == "auto":
+        chunk_size = auto_tune_chunk_size(
+            f_stage, n_stages, input_specs,
+            smem_budget_bytes=smem_budget_bytes,
+        )
+
+    lp = CusadiHybridStageLevelParallelFunction(
+        f_stage, num_instances, n_stages,
+        input_specs=input_specs,
+        output_specs=output_specs,
+        chunk_size=chunk_size,
+        lib_name="level_parallel_chunk_kernel",
+    )
+    return lp, lp._plan, chunk_size
+
+
+def build_smart_stage_lp_fn(f_stage, num_instances: int, n_stages: int,
+                             input_specs, output_specs,
+                             smem_budget_bytes=None,
+                             verbose: bool = False):
+    """Return (HybridLP_instance, chunked_plan, decision).
+
+    Smart auto-dispatch entry point. Inspects f_stage and the device,
+    then picks a chunk_size that should be near-optimal for the
+    (problem, hardware) combination. Decision rules:
+
+      1. f_stage > device smem  → raise (would need tiled-stage path)
+      2. has any COUPLED input  → maximize c (operand reuse pays)
+      3. tiny per-stage program → maximize c (amortise launch overhead)
+      4. otherwise               → c=1 (heavy independent stages)
+
+    The returned DispatchDecision carries the rationale (per-stage
+    smem, device smem, has_coupled, auto_max_c, picked c, plain-text
+    reason) so callers can log / surface it.
+    """
+    from src.level_parallel.stage import (CusadiHybridStageLevelParallelFunction,
+                                           CusadiTiledStageLevelParallelFunction,
+                                           smart_pick_chunk_size)
+    from src.level_parallel.dag import extract_level_plan
+
+    # Extract f_stage's plan ONCE here and pass it through; otherwise it's
+    # re-extracted in smart_pick_chunk_size, again in auto_tune_chunk_size,
+    # and again in the wrapper's __init__ — three full passes over a 78k-instr
+    # function adds up to ~80 s on H1 jac.
+    per_stage_plan = extract_level_plan(f_stage)
+
+    decision = smart_pick_chunk_size(
+        f_stage, n_stages, input_specs,
+        smem_budget_bytes=smem_budget_bytes,
+        per_stage_plan=per_stage_plan,
+    )
+    if verbose:
+        print(f"[smart-dispatch] f_stage={f_stage.name()}, N={n_stages}: "
+              f"mode={decision.mode}, chunk_size={decision.chunk_size}")
+        print(f"[smart-dispatch] {decision.reason}")
+
+    if decision.mode == "tiled-stage":
+        lp = CusadiTiledStageLevelParallelFunction(
+            f_stage, num_instances, n_stages,
+            input_specs=input_specs,
+            output_specs=output_specs,
+            lib_name="level_parallel_stage_tiled_kernel",
+        )
+        return lp, lp._plan, decision
+
+    lp = CusadiHybridStageLevelParallelFunction(
+        f_stage, num_instances, n_stages,
+        input_specs=input_specs,
+        output_specs=output_specs,
+        chunk_size=decision.chunk_size,
+        lib_name="level_parallel_chunk_kernel",
+        per_stage_plan=per_stage_plan,
+    )
+    return lp, lp._plan, decision
 
 
 # -----------------------------------------------------------------------------

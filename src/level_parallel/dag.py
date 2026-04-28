@@ -311,12 +311,16 @@ def _compute_liveness(raw_constants, raw_inputs, raw_compute, raw_outputs, total
         for ds in dep_ssas:
             if ds >= 0 and d > ssa_last_read_level[ds]:
                 ssa_last_read_level[ds] = d
-    for src_ssa, _, _ in raw_outputs:
-        if src_ssa >= 0:
-            max_compute_level = max((d for _, _, _, _, d, _ in raw_compute), default=0)
-            out_level = max_compute_level + 1
-            if out_level > ssa_last_read_level[src_ssa]:
-                ssa_last_read_level[src_ssa] = out_level
+    # Hoisted: max compute level is invariant across the output-mapping loop.
+    # Recomputing it inside the loop turns a linear pass into N×M (was 142M
+    # genexpr calls / 22 s for H1's 1.8k outputs × 78k instructions).
+    if raw_compute:
+        max_compute_level = max(d for _, _, _, _, d, _ in raw_compute)
+        out_level = max_compute_level + 1
+        for src_ssa, _, _ in raw_outputs:
+            if src_ssa >= 0:
+                if out_level > ssa_last_read_level[src_ssa]:
+                    ssa_last_read_level[src_ssa] = out_level
 
     for s in range(total_ssa):
         if ssa_last_read_level[s] < ssa_produced_level[s]:

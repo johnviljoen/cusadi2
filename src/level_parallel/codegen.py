@@ -860,6 +860,641 @@ int configure_stage_shared_memory(int shared_bytes) {
 """
 
 
+CHUNK_KERNEL_TEMPLATE = r"""
+// AUTOMATICALLY GENERATED: chunked stage-aware level-parallel data-driven kernel.
+//
+// One block processes one chunk of `chunk_size` consecutive stages of f_stage.
+// blockIdx.y indexes the chunk; threads cooperate over the (already stamped)
+// chunk-DAG inside the block. The level-DAG plan is built on f_chunk =
+// stamp(f_stage, chunk_size); only the I/O indexing differs from the stage
+// kernel, replacing per-stage stride with per-chunk stride.
+//
+// Per-input-arg metadata (length n_in of f_chunk, analogous arrays for outputs):
+//   in_stage_mode[arg]   ∈ {0=STAGE, 1=SHARED, 2=COUPLED}
+//   in_chunk_offset[arg] : added to chunk_idx*chunk_size when mode==COUPLED
+//                          (mirrors the original spec.offset, e.g. +1 for x_{k+1})
+//   in_total_stages[arg] : full extent of buffer along stage axis:
+//                            STAGE   → n_stages
+//                            SHARED  → 1
+//                            COUPLED → n_stages + span
+//   in_nnz_per_stage[arg]: f_stage's per-stage nnz_in[arg]
+//                          (NOT f_chunk's nnz_in, which is chunk_size× this)
+#include <cuda_runtime.h>
+#include <math.h>
+#include <cstdio>
+
+#define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
+__host__ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=true) {
+    if (code != cudaSuccess) {
+        fprintf(stderr,"GPUassert: %s %s %d\n", cudaGetErrorString(code), file, line);
+        if (abort) exit(code);
+    }
+}
+
+enum CasadiOp {
+    OP_ASSIGN=0, OP_ADD, OP_SUB, OP_MUL, OP_DIV, OP_NEG,
+    OP_EXP, OP_LOG, OP_POW, OP_CONSTPOW, OP_SQRT, OP_SQ,
+    OP_TWICE, OP_SIN, OP_COS, OP_TAN, OP_ASIN, OP_ACOS,
+    OP_ATAN,
+    OP_LT, OP_LE, OP_EQ, OP_NE, OP_NOT, OP_AND, OP_OR,
+    OP_FLOOR, OP_CEIL, OP_FMOD, OP_FABS, OP_SIGN, OP_COPYSIGN,
+    OP_IF_ELSE_ZERO, OP_ERF, OP_FMIN, OP_FMAX, OP_INV,
+    OP_SINH, OP_COSH, OP_TANH, OP_ASINH, OP_ACOSH, OP_ATANH,
+    OP_ATAN2
+};
+
+__device__ __forceinline__ double exec_op(int op, double a, double b) {
+    switch (op) {
+        case OP_ASSIGN:       return a;
+        case OP_ADD:          return a + b;
+        case OP_SUB:          return a - b;
+        case OP_MUL:          return a * b;
+        case OP_DIV:          return a / b;
+        case OP_NEG:          return -a;
+        case OP_EXP:          return exp(a);
+        case OP_LOG:          return log(a);
+        case OP_POW:          return pow(a, b);
+        case OP_CONSTPOW:     return pow(a, b);
+        case OP_SQRT:         return sqrt(a);
+        case OP_SQ:           return a * a;
+        case OP_TWICE:        return 2.0 * a;
+        case OP_SIN:          return sin(a);
+        case OP_COS:          return cos(a);
+        case OP_TAN:          return tan(a);
+        case OP_ASIN:         return asin(a);
+        case OP_ACOS:         return acos(a);
+        case OP_ATAN:         return atan(a);
+        case OP_FMIN:         return fmin(a, b);
+        case OP_FMAX:         return fmax(a, b);
+        case OP_INV:          return 1.0 / a;
+        case OP_SINH:         return sinh(a);
+        case OP_COSH:         return cosh(a);
+        case OP_TANH:         return tanh(a);
+        case OP_ASINH:        return asinh(a);
+        case OP_ACOSH:        return acosh(a);
+        case OP_ATANH:        return atanh(a);
+        case OP_ATAN2:        return atan2(a, b);
+        case OP_LT:           return (double)(a < b);
+        case OP_LE:           return (double)(a <= b);
+        case OP_EQ:           return (double)(a == b);
+        case OP_NE:           return (double)(a != b);
+        case OP_NOT:          return (double)(!a);
+        case OP_AND:          return (double)((bool)a && (bool)b);
+        case OP_OR:           return (double)((bool)a || (bool)b);
+        case OP_IF_ELSE_ZERO: return (a == 0.0) ? 0.0 : b;
+        case OP_FLOOR:        return floor(a);
+        case OP_CEIL:         return ceil(a);
+        case OP_FMOD:         return fmod(a, b);
+        case OP_FABS:         return fabs(a);
+        case OP_SIGN:         return (a > 0.0) - (a < 0.0);
+        case OP_COPYSIGN:     return copysign(a, b);
+        case OP_ERF:          return erf(a);
+        default:              return 0.0;
+    }
+}
+
+__global__ void evaluate_chunk_kernel(
+        const double * const * __restrict__ inputs,
+        double ** __restrict__ outputs,
+        const int total_instances,
+        const int n_chunks,
+        const int chunk_size,
+        // Init data
+        const int n_consts,
+        const int * __restrict__ const_slots,
+        const double * __restrict__ const_vals,
+        const int n_inputs,
+        const int * __restrict__ input_slots,
+        const int * __restrict__ input_args,
+        const int * __restrict__ input_elems,
+        const int * __restrict__ in_stage_mode,
+        const int * __restrict__ in_chunk_offset,
+        const int * __restrict__ in_total_stages,
+        const int * __restrict__ in_nnz_per_stage,
+        // Compute data
+        const int n_levels,
+        const int * __restrict__ level_offsets,
+        const int * __restrict__ level_widths,
+        const int * __restrict__ node_ops,
+        const int * __restrict__ node_outs,
+        const int * __restrict__ node_in_a,
+        const int * __restrict__ node_in_b,
+        // Output data
+        const int n_outputs,
+        const int * __restrict__ out_slots,
+        const int * __restrict__ out_args,
+        const int * __restrict__ out_elems,
+        const int * __restrict__ out_stage_mode,
+        const int * __restrict__ out_total_stages,
+        const int * __restrict__ out_nnz_per_stage) {
+
+    extern __shared__ double w[];
+    const int inst      = blockIdx.x;
+    const int chunk_idx = blockIdx.y;
+    const int tid       = threadIdx.x;
+    const int block_sz  = blockDim.x;
+    if (inst >= total_instances || chunk_idx >= n_chunks) return;
+
+    // --- Init: load constants ---
+    for (int i = tid; i < n_consts; i += block_sz) {
+        w[const_slots[i]] = const_vals[i];
+    }
+
+    // --- Init: load external inputs (chunk-aware indexing) ---
+    // For STAGE/COUPLED args, the chunk reads stages
+    //   [chunk_idx*chunk_size + offset, chunk_idx*chunk_size + offset + extent)
+    // where extent = chunk_size for STAGE, chunk_size + span for COUPLED. The
+    // per-mapping element_idx (from f_chunk's plan) already encodes the
+    // (inner_stage, elem_within_stage) slot inside that extent.
+    for (int i = tid; i < n_inputs; i += block_sz) {
+        int arg  = input_args[i];
+        int mode = in_stage_mode[arg];
+        int chunk_start = (mode == 1) ? 0
+                        : (chunk_idx * chunk_size + in_chunk_offset[arg]);
+        long long base = ((long long)inst * in_total_stages[arg] + chunk_start)
+                          * in_nnz_per_stage[arg];
+        w[input_slots[i]] = inputs[arg][base + input_elems[i]];
+    }
+    __syncthreads();
+
+    // --- Compute levels (identical to untiled LP / stage kernel) ---
+    for (int lev = 0; lev < n_levels; lev++) {
+        int offset = level_offsets[lev];
+        int width = level_widths[lev];
+        for (int base = 0; base < width; base += block_sz) {
+            int idx = base + tid;
+            double ra = 0.0, rb = 0.0;
+            int my_op = 0, my_out = 0;
+            if (idx < width) {
+                int g = offset + idx;
+                ra = w[node_in_a[g]];
+                rb = w[node_in_b[g]];
+                my_op = node_ops[g];
+                my_out = node_outs[g];
+            }
+            if (idx < width) {
+                w[my_out] = exec_op(my_op, ra, rb);
+            }
+        }
+        __syncthreads();
+    }
+
+    // --- Write outputs (chunk-aware indexing; outputs are STAGE only) ---
+    for (int i = tid; i < n_outputs; i += block_sz) {
+        int arg  = out_args[i];
+        int mode = out_stage_mode[arg];
+        int chunk_start = (mode == 1) ? 0 : (chunk_idx * chunk_size);
+        long long base = ((long long)inst * out_total_stages[arg] + chunk_start)
+                          * out_nnz_per_stage[arg];
+        outputs[arg][base + out_elems[i]] = w[out_slots[i]];
+    }
+}
+
+extern "C" {
+
+float evaluate_lp_chunk(
+        const double *inputs[],
+        double *outputs[],
+        const int total_instances,
+        const int n_chunks,
+        const int chunk_size,
+        const int block_size,
+        const int shared_bytes,
+        const int n_consts,
+        const int *const_slots,
+        const double *const_vals,
+        const int n_inputs,
+        const int *input_slots,
+        const int *input_args,
+        const int *input_elems,
+        const int *in_stage_mode,
+        const int *in_chunk_offset,
+        const int *in_total_stages,
+        const int *in_nnz_per_stage,
+        const int n_levels,
+        const int *level_offsets,
+        const int *level_widths,
+        const int *node_ops,
+        const int *node_outs,
+        const int *node_in_a,
+        const int *node_in_b,
+        const int n_outputs,
+        const int *out_slots,
+        const int *out_args,
+        const int *out_elems,
+        const int *out_stage_mode,
+        const int *out_total_stages,
+        const int *out_nnz_per_stage) {
+
+    dim3 grid(total_instances, n_chunks);
+    dim3 block(block_size);
+    float milliseconds;
+    cudaEvent_t start, stop;
+    cudaEventCreate(&start);
+    cudaEventCreate(&stop);
+    cudaEventRecord(start, 0);
+    evaluate_chunk_kernel<<<grid, block, shared_bytes>>>(
+        inputs, outputs, total_instances, n_chunks, chunk_size,
+        n_consts, const_slots, const_vals,
+        n_inputs, input_slots, input_args, input_elems,
+        in_stage_mode, in_chunk_offset, in_total_stages, in_nnz_per_stage,
+        n_levels, level_offsets, level_widths,
+        node_ops, node_outs, node_in_a, node_in_b,
+        n_outputs, out_slots, out_args, out_elems,
+        out_stage_mode, out_total_stages, out_nnz_per_stage);
+    cudaEventRecord(stop, 0);
+    cudaEventSynchronize(stop);
+    cudaEventElapsedTime(&milliseconds, start, stop);
+    gpuErrchk(cudaPeekAtLastError());
+    gpuErrchk(cudaDeviceSynchronize());
+    return milliseconds / 1000.0f;
+}
+
+int evaluate_lp_chunk_stream(
+        const double *inputs[],
+        double *outputs[],
+        const int total_instances,
+        const int n_chunks,
+        const int chunk_size,
+        const int block_size,
+        const int shared_bytes,
+        const int n_consts,
+        const int *const_slots,
+        const double *const_vals,
+        const int n_inputs,
+        const int *input_slots,
+        const int *input_args,
+        const int *input_elems,
+        const int *in_stage_mode,
+        const int *in_chunk_offset,
+        const int *in_total_stages,
+        const int *in_nnz_per_stage,
+        const int n_levels,
+        const int *level_offsets,
+        const int *level_widths,
+        const int *node_ops,
+        const int *node_outs,
+        const int *node_in_a,
+        const int *node_in_b,
+        const int n_outputs,
+        const int *out_slots,
+        const int *out_args,
+        const int *out_elems,
+        const int *out_stage_mode,
+        const int *out_total_stages,
+        const int *out_nnz_per_stage,
+        cudaStream_t stream) {
+
+    dim3 grid(total_instances, n_chunks);
+    dim3 block(block_size);
+    evaluate_chunk_kernel<<<grid, block, shared_bytes, stream>>>(
+        inputs, outputs, total_instances, n_chunks, chunk_size,
+        n_consts, const_slots, const_vals,
+        n_inputs, input_slots, input_args, input_elems,
+        in_stage_mode, in_chunk_offset, in_total_stages, in_nnz_per_stage,
+        n_levels, level_offsets, level_widths,
+        node_ops, node_outs, node_in_a, node_in_b,
+        n_outputs, out_slots, out_args, out_elems,
+        out_stage_mode, out_total_stages, out_nnz_per_stage);
+    cudaError_t err = cudaPeekAtLastError();
+    return (int)err;
+}
+
+int configure_chunk_shared_memory(int shared_bytes) {
+    cudaFuncSetAttribute(evaluate_chunk_kernel,
+                         cudaFuncAttributeMaxDynamicSharedMemorySize,
+                         shared_bytes);
+    return 0;
+}
+
+} // extern "C"
+"""
+
+
+STAGE_TILED_KERNEL_TEMPLATE = r"""
+// AUTOMATICALLY GENERATED: stage-aware tiled level-parallel kernel.
+//
+// Closes the regime where a single f_stage's working set exceeds the
+// device's shared memory budget. Each block processes one (instance,
+// stage_chunk) pair; chunk_size is implicitly 1 along the stage axis
+// (fusing multiple too-big stages would only worsen the smem problem),
+// so n_stage_chunks == n_stages here. Within the block, the per-stage
+// DAG is tiled over `n_tiles` chunks with spill/reload at boundaries —
+// identical mechanism to the standalone tiled kernel.
+//
+// blockIdx.x : batch instance
+// blockIdx.y : stage index (== stage_chunk_idx since chunk_size==1)
+//
+// Spill buffer layout: (total_instances, n_stages, spill_stride).
+#include <cuda_runtime.h>
+#include <math.h>
+#include <cstdio>
+
+#define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
+__host__ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=true) {
+    if (code != cudaSuccess) {
+        fprintf(stderr,"GPUassert: %s %s %d\n", cudaGetErrorString(code), file, line);
+        if (abort) exit(code);
+    }
+}
+
+enum CasadiOp {
+    OP_ASSIGN=0, OP_ADD, OP_SUB, OP_MUL, OP_DIV, OP_NEG,
+    OP_EXP, OP_LOG, OP_POW, OP_CONSTPOW, OP_SQRT, OP_SQ,
+    OP_TWICE, OP_SIN, OP_COS, OP_TAN, OP_ASIN, OP_ACOS,
+    OP_ATAN,
+    OP_LT, OP_LE, OP_EQ, OP_NE, OP_NOT, OP_AND, OP_OR,
+    OP_FLOOR, OP_CEIL, OP_FMOD, OP_FABS, OP_SIGN, OP_COPYSIGN,
+    OP_IF_ELSE_ZERO, OP_ERF, OP_FMIN, OP_FMAX, OP_INV,
+    OP_SINH, OP_COSH, OP_TANH, OP_ASINH, OP_ACOSH, OP_ATANH,
+    OP_ATAN2
+};
+
+__device__ __forceinline__ double exec_op(int op, double a, double b) {
+    switch (op) {
+        case OP_ASSIGN:       return a;
+        case OP_ADD:          return a + b;
+        case OP_SUB:          return a - b;
+        case OP_MUL:          return a * b;
+        case OP_DIV:          return a / b;
+        case OP_NEG:          return -a;
+        case OP_EXP:          return exp(a);
+        case OP_LOG:          return log(a);
+        case OP_POW:          return pow(a, b);
+        case OP_CONSTPOW:     return pow(a, b);
+        case OP_SQRT:         return sqrt(a);
+        case OP_SQ:           return a * a;
+        case OP_TWICE:        return 2.0 * a;
+        case OP_SIN:          return sin(a);
+        case OP_COS:          return cos(a);
+        case OP_TAN:          return tan(a);
+        case OP_ASIN:         return asin(a);
+        case OP_ACOS:         return acos(a);
+        case OP_ATAN:         return atan(a);
+        case OP_FMIN:         return fmin(a, b);
+        case OP_FMAX:         return fmax(a, b);
+        case OP_INV:          return 1.0 / a;
+        case OP_SINH:         return sinh(a);
+        case OP_COSH:         return cosh(a);
+        case OP_TANH:         return tanh(a);
+        case OP_ASINH:        return asinh(a);
+        case OP_ACOSH:        return acosh(a);
+        case OP_ATANH:        return atanh(a);
+        case OP_ATAN2:        return atan2(a, b);
+        case OP_LT:           return (double)(a < b);
+        case OP_LE:           return (double)(a <= b);
+        case OP_EQ:           return (double)(a == b);
+        case OP_NE:           return (double)(a != b);
+        case OP_NOT:          return (double)(!a);
+        case OP_AND:          return (double)((bool)a && (bool)b);
+        case OP_OR:           return (double)((bool)a || (bool)b);
+        case OP_IF_ELSE_ZERO: return (a == 0.0) ? 0.0 : b;
+        case OP_FLOOR:        return floor(a);
+        case OP_CEIL:         return ceil(a);
+        case OP_FMOD:         return fmod(a, b);
+        case OP_FABS:         return fabs(a);
+        case OP_SIGN:         return (a > 0.0) - (a < 0.0);
+        case OP_COPYSIGN:     return copysign(a, b);
+        case OP_ERF:          return erf(a);
+        default:              return 0.0;
+    }
+}
+
+__global__ void evaluate_stage_tiled_kernel(
+        const double * const * __restrict__ inputs,
+        double ** __restrict__ outputs,
+        const int total_instances,
+        const int n_stages,
+        // Init data
+        const int n_consts,
+        const int * __restrict__ const_slots,
+        const double * __restrict__ const_vals,
+        const int n_inputs,
+        const int * __restrict__ input_slots,
+        const int * __restrict__ input_args,
+        const int * __restrict__ input_elems,
+        // Stage-axis indexing for inputs (per-arg, length n_in of f_stage)
+        const int * __restrict__ in_stage_mode,
+        const int * __restrict__ in_chunk_offset,
+        const int * __restrict__ in_total_stages,
+        const int * __restrict__ in_nnz_per_stage,
+        // Level data (per-stage DAG, possibly very large)
+        const int n_levels,
+        const int * __restrict__ level_offsets,
+        const int * __restrict__ level_widths,
+        const int * __restrict__ node_ops,
+        const int * __restrict__ node_outs,
+        const int * __restrict__ node_in_a,
+        const int * __restrict__ node_in_b,
+        // Output data
+        const int n_outputs,
+        const int * __restrict__ out_slots,
+        const int * __restrict__ out_args,
+        const int * __restrict__ out_elems,
+        const int * __restrict__ out_stage_mode,
+        const int * __restrict__ out_total_stages,
+        const int * __restrict__ out_nnz_per_stage,
+        // Tiling data — same as standalone tiled kernel
+        double * __restrict__ spill_buffer,
+        const int spill_stride,
+        const int n_tiles,
+        const int * __restrict__ chunk_lev_start,
+        const int * __restrict__ chunk_lev_end,
+        const int * __restrict__ bnd_spill_off,
+        const int * __restrict__ bnd_spill_cnt,
+        const int * __restrict__ bnd_spill_smem,
+        const int * __restrict__ bnd_spill_pos,
+        const int * __restrict__ bnd_reload_off,
+        const int * __restrict__ bnd_reload_cnt,
+        const int * __restrict__ bnd_reload_smem,
+        const int * __restrict__ bnd_reload_pos,
+        const int * __restrict__ lev_sb_off,
+        const int * __restrict__ lev_sb_cnt,
+        const int * __restrict__ sb_spill_smem,
+        const int * __restrict__ sb_spill_pos) {
+
+    extern __shared__ double w[];
+    const int inst  = blockIdx.x;
+    const int stage = blockIdx.y;
+    const int tid   = threadIdx.x;
+    const int block_sz = blockDim.x;
+    if (inst >= total_instances || stage >= n_stages) return;
+
+    // Spill buffer is per-(instance, stage). chunk_size==1 so n_stage_chunks
+    // == n_stages and we offset by (inst * n_stages + stage) * spill_stride.
+    double * spill = spill_buffer
+                   + ((long long)inst * n_stages + stage) * spill_stride;
+
+    // --- Init: load constants ---
+    for (int i = tid; i < n_consts; i += block_sz)
+        w[const_slots[i]] = const_vals[i];
+
+    // --- Init: load external inputs (stage-aware indexing) ---
+    for (int i = tid; i < n_inputs; i += block_sz) {
+        int arg  = input_args[i];
+        int mode = in_stage_mode[arg];
+        int chunk_start = (mode == 1) ? 0
+                        : (stage + in_chunk_offset[arg]);
+        long long base = ((long long)inst * in_total_stages[arg] + chunk_start)
+                          * in_nnz_per_stage[arg];
+        w[input_slots[i]] = inputs[arg][base + input_elems[i]];
+    }
+    __syncthreads();
+
+    // --- Tiled compute (identical to evaluate_kernel_tiled) ---
+    for (int tile = 0; tile < n_tiles; tile++) {
+        if (tile > 0) {
+            int bi = tile - 1;
+            int roff = bnd_reload_off[bi];
+            int rcnt = bnd_reload_cnt[bi];
+            for (int i = tid; i < rcnt; i += block_sz)
+                w[bnd_reload_smem[roff + i]] = spill[bnd_reload_pos[roff + i]];
+            __syncthreads();
+        }
+
+        for (int lev = chunk_lev_start[tile]; lev < chunk_lev_end[tile]; lev++) {
+            int offset = level_offsets[lev];
+            int width = level_widths[lev];
+
+            for (int base = 0; base < width; base += block_sz) {
+                int idx = base + tid;
+                double ra = 0.0, rb = 0.0;
+                int my_op = 0, my_out = 0;
+                if (idx < width) {
+                    int g = offset + idx;
+                    ra = w[node_in_a[g]];
+                    rb = w[node_in_b[g]];
+                    my_op = node_ops[g];
+                    my_out = node_outs[g];
+                }
+                __syncthreads();
+                if (idx < width) {
+                    w[my_out] = exec_op(my_op, ra, rb);
+                }
+                __syncthreads();
+            }
+
+            int sb_cnt = lev_sb_cnt[lev];
+            if (sb_cnt > 0) {
+                int sb_off = lev_sb_off[lev];
+                for (int i = tid; i < sb_cnt; i += block_sz)
+                    spill[sb_spill_pos[sb_off + i]] = w[sb_spill_smem[sb_off + i]];
+                __syncthreads();
+            }
+        }
+
+        if (tile < n_tiles - 1) {
+            int soff = bnd_spill_off[tile];
+            int scnt = bnd_spill_cnt[tile];
+            for (int i = tid; i < scnt; i += block_sz)
+                spill[bnd_spill_pos[soff + i]] = w[bnd_spill_smem[soff + i]];
+            __syncthreads();
+        }
+    }
+
+    // --- Write outputs (stage-aware indexing) ---
+    for (int i = tid; i < n_outputs; i += block_sz) {
+        int arg  = out_args[i];
+        int mode = out_stage_mode[arg];
+        int chunk_start = (mode == 1) ? 0 : stage;
+        long long base = ((long long)inst * out_total_stages[arg] + chunk_start)
+                          * out_nnz_per_stage[arg];
+        outputs[arg][base + out_elems[i]] = w[out_slots[i]];
+    }
+}
+
+extern "C" {
+
+float evaluate_lp_stage_tiled(
+        const double *inputs[],
+        double *outputs[],
+        const int total_instances,
+        const int n_stages,
+        const int block_size,
+        const int shared_bytes,
+        const int n_consts,
+        const int *const_slots,
+        const double *const_vals,
+        const int n_inputs,
+        const int *input_slots,
+        const int *input_args,
+        const int *input_elems,
+        const int *in_stage_mode,
+        const int *in_chunk_offset,
+        const int *in_total_stages,
+        const int *in_nnz_per_stage,
+        const int n_levels,
+        const int *level_offsets,
+        const int *level_widths,
+        const int *node_ops,
+        const int *node_outs,
+        const int *node_in_a,
+        const int *node_in_b,
+        const int n_outputs,
+        const int *out_slots,
+        const int *out_args,
+        const int *out_elems,
+        const int *out_stage_mode,
+        const int *out_total_stages,
+        const int *out_nnz_per_stage,
+        double *spill_buffer,
+        const int spill_stride,
+        const int n_tiles,
+        const int *chunk_lev_start,
+        const int *chunk_lev_end,
+        const int *bnd_spill_off,
+        const int *bnd_spill_cnt,
+        const int *bnd_spill_smem,
+        const int *bnd_spill_pos,
+        const int *bnd_reload_off,
+        const int *bnd_reload_cnt,
+        const int *bnd_reload_smem,
+        const int *bnd_reload_pos,
+        const int *lev_sb_off,
+        const int *lev_sb_cnt,
+        const int *sb_spill_smem,
+        const int *sb_spill_pos) {
+
+    dim3 grid(total_instances, n_stages);
+    dim3 block(block_size);
+    float milliseconds;
+    cudaEvent_t start, stop;
+    cudaEventCreate(&start);
+    cudaEventCreate(&stop);
+    cudaEventRecord(start, 0);
+    evaluate_stage_tiled_kernel<<<grid, block, shared_bytes>>>(
+        inputs, outputs, total_instances, n_stages,
+        n_consts, const_slots, const_vals,
+        n_inputs, input_slots, input_args, input_elems,
+        in_stage_mode, in_chunk_offset, in_total_stages, in_nnz_per_stage,
+        n_levels, level_offsets, level_widths,
+        node_ops, node_outs, node_in_a, node_in_b,
+        n_outputs, out_slots, out_args, out_elems,
+        out_stage_mode, out_total_stages, out_nnz_per_stage,
+        spill_buffer, spill_stride, n_tiles,
+        chunk_lev_start, chunk_lev_end,
+        bnd_spill_off, bnd_spill_cnt, bnd_spill_smem, bnd_spill_pos,
+        bnd_reload_off, bnd_reload_cnt, bnd_reload_smem, bnd_reload_pos,
+        lev_sb_off, lev_sb_cnt, sb_spill_smem, sb_spill_pos);
+    cudaEventRecord(stop, 0);
+    cudaEventSynchronize(stop);
+    cudaEventElapsedTime(&milliseconds, start, stop);
+    gpuErrchk(cudaPeekAtLastError());
+    gpuErrchk(cudaDeviceSynchronize());
+    return milliseconds / 1000.0f;
+}
+
+int configure_stage_tiled_shared_memory(int shared_bytes) {
+    cudaFuncSetAttribute(evaluate_stage_tiled_kernel,
+                         cudaFuncAttributeMaxDynamicSharedMemorySize,
+                         shared_bytes);
+    return 0;
+}
+
+} // extern "C"
+"""
+
+
 def pick_block_size(plan) -> int:
     """Smallest power of 2 >= median width, capped at 256."""
     med = plan.median_width
@@ -892,4 +1527,20 @@ def write_stage_kernel_source(filepath: str):
     os.makedirs(os.path.dirname(filepath) or ".", exist_ok=True)
     with open(filepath, "w") as f:
         f.write(STAGE_KERNEL_TEMPLATE)
+    return filepath
+
+
+def write_chunk_kernel_source(filepath: str):
+    """Write the chunked stage kernel template to a .cu file."""
+    os.makedirs(os.path.dirname(filepath) or ".", exist_ok=True)
+    with open(filepath, "w") as f:
+        f.write(CHUNK_KERNEL_TEMPLATE)
+    return filepath
+
+
+def write_stage_tiled_kernel_source(filepath: str):
+    """Write the stage-aware tiled kernel template to a .cu file."""
+    os.makedirs(os.path.dirname(filepath) or ".", exist_ok=True)
+    with open(filepath, "w") as f:
+        f.write(STAGE_TILED_KERNEL_TEMPLATE)
     return filepath

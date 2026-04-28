@@ -22,6 +22,10 @@ set(LP_TILED_SOURCE codegen/level_parallel_tiled_kernel.cu)
 add_library(level_parallel_tiled_kernel SHARED ${LP_TILED_SOURCE})
 set(LP_STAGE_SOURCE codegen/level_parallel_stage_kernel.cu)
 add_library(level_parallel_stage_kernel SHARED ${LP_STAGE_SOURCE})
+set(LP_CHUNK_SOURCE codegen/level_parallel_chunk_kernel.cu)
+add_library(level_parallel_chunk_kernel SHARED ${LP_CHUNK_SOURCE})
+set(LP_STAGE_TILED_SOURCE codegen/level_parallel_stage_tiled_kernel.cu)
+add_library(level_parallel_stage_tiled_kernel SHARED ${LP_STAGE_TILED_SOURCE})
 
 # ---- JAX FFI nanobind extension (new, feature/jax-ffi-backend) ----
 # Skipped unless both nanobind and JAX FFI headers are discoverable.
