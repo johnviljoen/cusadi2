@@ -4,7 +4,7 @@
 
 set -u
 cd "$(dirname "$0")/../.."
-export CUDA_VISIBLE_DEVICES=5
+export CUDA_VISIBLE_DEVICES=1
 PY=/home/john/.conda/envs/cusadi2/bin/python
 RES=benchmark/mjx-comparison/results
 mkdir -p "$RES"

@@ -1,0 +1,60 @@
+{
+  "fn": "a1_aba_jac_analytical",
+  "n_stages": 30,
+  "median_width": 81,
+  "max_width": 2781,
+  "n_levels": 226,
+  "peak_live": 4402,
+  "block_size": 128,
+  "chunk_size": 1,
+  "B": [
+    1,
+    8,
+    32,
+    128,
+    256,
+    1024,
+    4096
+  ],
+  "stage_LP": [
+    160.76800238806754,
+    167.93599934317172,
+    626.5919655561447,
+    2212.8638811409473,
+    4296.191968023777,
+    17080.752179026604,
+    67811.31029129028
+  ],
+  "unrolled_LP": [
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null
+  ],
+  "chunk_bs1": [
+    5722.624016925693,
+    5731.327924877405,
+    22537.248209118843,
+    79049.7288107872,
+    156496.89733982086,
+    614167.6008701324,
+    2445550.4417419434
+  ],
+  "original": [
+    888.8319716788828,
+    3864.016034640372,
+    4115.360090509057,
+    4122.623708099127,
+    4135.935567319393,
+    76018.68733763695,
+    359668.3293581009
+  ],
+  "unrolled_buildable": false,
+  "unrolled_info": {
+    "skipped": true,
+    "reason": "unrolled+LP at N=30 raises cudaErrorInvalidValue from level_parallel_tiled_kernel.cu:254 \u2014 per-chunk smem requirement exceeds L40S 99 KB per-block limit. Verified on device: at N=12 this path works (peak 412 KB \u2192 tiled OK); at N\u226524 it does not."
+  }
+}

@@ -20,7 +20,7 @@ import torch
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
-from src import CUSADI_ROOT_DIR, CUSADI_FUNCTION_DIR, CUSADI_BUILD_DIR, CUSADI_CODEGEN_DIR
+from src import CUSADI_ROOT_DIR, CUSADI_FUNCTION_DIR, CUSADI_BUILD_DIR, CUSADI_LP_KERNEL_DIR
 from src.level_parallel.dag import extract_level_plan
 from src.level_parallel.codegen import write_kernel_source, pick_block_size
 from src.level_parallel.function import CusadiLevelParallelFunction
@@ -43,8 +43,8 @@ def ensure_lp_kernel_compiled():
     if os.path.exists(so_path):
         return True
 
-    os.makedirs(CUSADI_CODEGEN_DIR, exist_ok=True)
-    cu_path = os.path.join(CUSADI_CODEGEN_DIR, "level_parallel_kernel.cu")
+    os.makedirs(CUSADI_LP_KERNEL_DIR, exist_ok=True)
+    cu_path = os.path.join(CUSADI_LP_KERNEL_DIR, "level_parallel_kernel.cu")
     write_kernel_source(cu_path)
 
     cmake_path = os.path.join(CUSADI_ROOT_DIR, "CMakeLists.txt")

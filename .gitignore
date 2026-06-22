@@ -8,6 +8,9 @@
 CMakeLists.txt
 build/
 
+# Materialized level-parallel kernels (source of truth: src/level_parallel/codegen.py)
+lp_kernels/*.cu
+
 # Virtual environments
 *venv
 

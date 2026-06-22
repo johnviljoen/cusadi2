@@ -65,7 +65,7 @@ def _time_lp_compile() -> float:
     """Full cold compile of liblevel_parallel_kernel.so. We remove the .so,
     regenerate the .cu via write_kernel_source, then cmake+make."""
     from src.level_parallel.codegen import write_kernel_source
-    cu_rel = "codegen/level_parallel_kernel.cu"
+    cu_rel = "lp_kernels/level_parallel_kernel.cu"
     cu_abs = repo_path(cu_rel)
     so_abs = repo_path("build", "liblevel_parallel_kernel.so")
     build_dir = repo_path("build_lp_compile_test")
@@ -86,7 +86,7 @@ def _time_lp_compile() -> float:
             set(CMAKE_CXX_STANDARD 11)
             set(CUDA_NVCC_FLAGS ${{CUDA_NVCC_FLAGS}}; -O3 --use_fast_math)
             include_directories(${{CMAKE_CURRENT_SOURCE_DIR}}/..)
-            set(LP_SOURCE ../codegen/level_parallel_kernel.cu)
+            set(LP_SOURCE ../lp_kernels/level_parallel_kernel.cu)
             add_library(level_parallel_kernel SHARED ${{LP_SOURCE}})
         """))
     proc = subprocess.run(

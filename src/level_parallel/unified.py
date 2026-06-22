@@ -21,7 +21,8 @@ from typing import Dict, List, Optional
 import casadi
 import torch
 
-from src import (CUSADI_ROOT_DIR, CUSADI_BUILD_DIR, CUSADI_CODEGEN_DIR)
+from src import (CUSADI_ROOT_DIR, CUSADI_BUILD_DIR, CUSADI_CODEGEN_DIR,
+                 CUSADI_LP_KERNEL_DIR)
 from src.generateCUDACode import generateCUDACodeDouble, generateCMakeLists
 from src.level_parallel.dag import (
     extract_level_plan, extract_tiled_level_plan, LevelPlan, TiledLevelPlan,
@@ -101,8 +102,8 @@ def _ensure_lp_kernel():
     so = os.path.join(CUSADI_BUILD_DIR, "liblevel_parallel_kernel.so")
     if os.path.exists(so):
         return
-    os.makedirs(CUSADI_CODEGEN_DIR, exist_ok=True)
-    cu = os.path.join(CUSADI_CODEGEN_DIR, "level_parallel_kernel.cu")
+    os.makedirs(CUSADI_LP_KERNEL_DIR, exist_ok=True)
+    cu = os.path.join(CUSADI_LP_KERNEL_DIR, "level_parallel_kernel.cu")
     write_kernel_source(cu)
     _cmake_build_lp_kernels()
 
@@ -112,8 +113,8 @@ def _ensure_tiled_kernel():
     so = os.path.join(CUSADI_BUILD_DIR, "liblevel_parallel_tiled_kernel.so")
     if os.path.exists(so):
         return
-    os.makedirs(CUSADI_CODEGEN_DIR, exist_ok=True)
-    cu = os.path.join(CUSADI_CODEGEN_DIR, "level_parallel_tiled_kernel.cu")
+    os.makedirs(CUSADI_LP_KERNEL_DIR, exist_ok=True)
+    cu = os.path.join(CUSADI_LP_KERNEL_DIR, "level_parallel_tiled_kernel.cu")
     write_tiled_kernel_source(cu)
     _cmake_build_lp_kernels()
 
@@ -123,8 +124,8 @@ def _ensure_stage_kernel():
     so = os.path.join(CUSADI_BUILD_DIR, "liblevel_parallel_stage_kernel.so")
     if os.path.exists(so):
         return
-    os.makedirs(CUSADI_CODEGEN_DIR, exist_ok=True)
-    cu = os.path.join(CUSADI_CODEGEN_DIR, "level_parallel_stage_kernel.cu")
+    os.makedirs(CUSADI_LP_KERNEL_DIR, exist_ok=True)
+    cu = os.path.join(CUSADI_LP_KERNEL_DIR, "level_parallel_stage_kernel.cu")
     write_stage_kernel_source(cu)
     _cmake_build_lp_kernels()
 
@@ -134,8 +135,8 @@ def _ensure_chunk_kernel():
     so = os.path.join(CUSADI_BUILD_DIR, "liblevel_parallel_chunk_kernel.so")
     if os.path.exists(so):
         return
-    os.makedirs(CUSADI_CODEGEN_DIR, exist_ok=True)
-    cu = os.path.join(CUSADI_CODEGEN_DIR, "level_parallel_chunk_kernel.cu")
+    os.makedirs(CUSADI_LP_KERNEL_DIR, exist_ok=True)
+    cu = os.path.join(CUSADI_LP_KERNEL_DIR, "level_parallel_chunk_kernel.cu")
     write_chunk_kernel_source(cu)
     _cmake_build_lp_kernels()
 
@@ -145,8 +146,8 @@ def _ensure_stage_tiled_kernel():
     so = os.path.join(CUSADI_BUILD_DIR, "liblevel_parallel_stage_tiled_kernel.so")
     if os.path.exists(so):
         return
-    os.makedirs(CUSADI_CODEGEN_DIR, exist_ok=True)
-    cu = os.path.join(CUSADI_CODEGEN_DIR, "level_parallel_stage_tiled_kernel.cu")
+    os.makedirs(CUSADI_LP_KERNEL_DIR, exist_ok=True)
+    cu = os.path.join(CUSADI_LP_KERNEL_DIR, "level_parallel_stage_tiled_kernel.cu")
     write_stage_tiled_kernel_source(cu)
     _cmake_build_lp_kernels()
 
@@ -154,14 +155,14 @@ def _ensure_stage_tiled_kernel():
 def _cmake_build_lp_kernels():
     """Write CMakeLists and build both LP kernels."""
     os.makedirs(CUSADI_BUILD_DIR, exist_ok=True)
-    os.makedirs(CUSADI_CODEGEN_DIR, exist_ok=True)
+    os.makedirs(CUSADI_LP_KERNEL_DIR, exist_ok=True)
 
     # Ensure all five .cu files exist
-    lp_cu = os.path.join(CUSADI_CODEGEN_DIR, "level_parallel_kernel.cu")
-    tiled_cu = os.path.join(CUSADI_CODEGEN_DIR, "level_parallel_tiled_kernel.cu")
-    stage_cu = os.path.join(CUSADI_CODEGEN_DIR, "level_parallel_stage_kernel.cu")
-    chunk_cu = os.path.join(CUSADI_CODEGEN_DIR, "level_parallel_chunk_kernel.cu")
-    stage_tiled_cu = os.path.join(CUSADI_CODEGEN_DIR,
+    lp_cu = os.path.join(CUSADI_LP_KERNEL_DIR, "level_parallel_kernel.cu")
+    tiled_cu = os.path.join(CUSADI_LP_KERNEL_DIR, "level_parallel_tiled_kernel.cu")
+    stage_cu = os.path.join(CUSADI_LP_KERNEL_DIR, "level_parallel_stage_kernel.cu")
+    chunk_cu = os.path.join(CUSADI_LP_KERNEL_DIR, "level_parallel_chunk_kernel.cu")
+    stage_tiled_cu = os.path.join(CUSADI_LP_KERNEL_DIR,
                                   "level_parallel_stage_tiled_kernel.cu")
     if not os.path.exists(lp_cu):
         write_kernel_source(lp_cu)
@@ -185,15 +186,15 @@ def _cmake_build_lp_kernels():
             set(CMAKE_CXX_STANDARD 11)
             set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS}; -O3 --use_fast_math)
             include_directories(${CMAKE_CURRENT_SOURCE_DIR})
-            set(LP_SOURCE codegen/level_parallel_kernel.cu)
+            set(LP_SOURCE lp_kernels/level_parallel_kernel.cu)
             add_library(level_parallel_kernel SHARED ${LP_SOURCE})
-            set(LP_TILED_SOURCE codegen/level_parallel_tiled_kernel.cu)
+            set(LP_TILED_SOURCE lp_kernels/level_parallel_tiled_kernel.cu)
             add_library(level_parallel_tiled_kernel SHARED ${LP_TILED_SOURCE})
-            set(LP_STAGE_SOURCE codegen/level_parallel_stage_kernel.cu)
+            set(LP_STAGE_SOURCE lp_kernels/level_parallel_stage_kernel.cu)
             add_library(level_parallel_stage_kernel SHARED ${LP_STAGE_SOURCE})
-            set(LP_CHUNK_SOURCE codegen/level_parallel_chunk_kernel.cu)
+            set(LP_CHUNK_SOURCE lp_kernels/level_parallel_chunk_kernel.cu)
             add_library(level_parallel_chunk_kernel SHARED ${LP_CHUNK_SOURCE})
-            set(LP_STAGE_TILED_SOURCE codegen/level_parallel_stage_tiled_kernel.cu)
+            set(LP_STAGE_TILED_SOURCE lp_kernels/level_parallel_stage_tiled_kernel.cu)
             add_library(level_parallel_stage_tiled_kernel SHARED ${LP_STAGE_TILED_SOURCE})
         """))
 

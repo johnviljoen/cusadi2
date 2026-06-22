@@ -14,17 +14,19 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS}; -O3 --use_fast_math)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
-# ---- Existing PyTorch-path kernel libraries (untouched) ----
-set(LP_SOURCE codegen/level_parallel_kernel.cu)
+# ---- Hand-authored level-parallel kernel libraries ----
+# Sources are materialized from src/level_parallel/codegen.py templates into
+# lp_kernels/ (NOT codegen/, which holds CusADi's generated per-function .cu).
+set(LP_SOURCE lp_kernels/level_parallel_kernel.cu)
 add_library(level_parallel_kernel SHARED ${LP_SOURCE})
 target_link_libraries(level_parallel_kernel)
-set(LP_TILED_SOURCE codegen/level_parallel_tiled_kernel.cu)
+set(LP_TILED_SOURCE lp_kernels/level_parallel_tiled_kernel.cu)
 add_library(level_parallel_tiled_kernel SHARED ${LP_TILED_SOURCE})
-set(LP_STAGE_SOURCE codegen/level_parallel_stage_kernel.cu)
+set(LP_STAGE_SOURCE lp_kernels/level_parallel_stage_kernel.cu)
 add_library(level_parallel_stage_kernel SHARED ${LP_STAGE_SOURCE})
-set(LP_CHUNK_SOURCE codegen/level_parallel_chunk_kernel.cu)
+set(LP_CHUNK_SOURCE lp_kernels/level_parallel_chunk_kernel.cu)
 add_library(level_parallel_chunk_kernel SHARED ${LP_CHUNK_SOURCE})
-set(LP_STAGE_TILED_SOURCE codegen/level_parallel_stage_tiled_kernel.cu)
+set(LP_STAGE_TILED_SOURCE lp_kernels/level_parallel_stage_tiled_kernel.cu)
 add_library(level_parallel_stage_tiled_kernel SHARED ${LP_STAGE_TILED_SOURCE})
 
 # ---- JAX FFI nanobind extension (new, feature/jax-ffi-backend) ----
@@ -61,7 +63,7 @@ if(Python_FOUND)
             # so the nanobind module carries its own evaluate_lp_stream symbol.
             nanobind_add_module(_cusadi_jax_ffi NOMINSIZE
                 src/jax_ffi/cusadi_jax_ffi.cpp
-                codegen/level_parallel_kernel.cu
+                lp_kernels/level_parallel_kernel.cu
             )
             target_include_directories(_cusadi_jax_ffi PRIVATE
                 "${XLA_FFI_INCLUDE_DIR}"
@@ -83,3 +85,6 @@ if(Python_FOUND)
         message(STATUS "nanobind or jax.ffi not importable; skipping _cusadi_jax_ffi")
     endif()
 endif()
+
+set(A1_ABA_JAC_ANALYTICAL_UNROLLED_N12_SOURCE codegen/a1_aba_jac_analytical_unrolled_N12.cu)
+add_library(a1_aba_jac_analytical_unrolled_N12 SHARED ${A1_ABA_JAC_ANALYTICAL_UNROLLED_N12_SOURCE})

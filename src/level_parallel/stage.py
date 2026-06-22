@@ -741,7 +741,15 @@ class CusadiHybridStageLevelParallelFunction:
         lib_name: str = "level_parallel_chunk_kernel",
         analytic_chunk: bool = True,
         per_stage_plan: Optional[LevelPlan] = None,
+        block_size_override: Optional[int] = None,
     ):
+        """`block_size_override` forces a specific CUDA block size, bypassing
+        `pick_block_size`. Setting it to 1 effectively disables level-parallel
+        execution within each block: the per-level work loop walks all width
+        nodes sequentially on a single thread, while keeping the same
+        cross-block (B × n_chunks) parallelism. Useful for ablation studies
+        that isolate the contribution of within-block parallelism from
+        cross-block parallelism."""
         assert torch.cuda.is_available()
         _validate_specs(f_stage, n_stages, input_specs, output_specs)
         if n_stages % chunk_size != 0:
@@ -780,7 +788,9 @@ class CusadiHybridStageLevelParallelFunction:
                 f_stage, chunk_size, self.input_specs)
             plan = extract_level_plan(self.f_chunk)
         self._plan = plan
-        self._block_size = pick_block_size(plan)
+        self._block_size = (block_size_override
+                            if block_size_override is not None
+                            else pick_block_size(plan))
         self._shared_bytes = plan.peak_live_slots * 8
         self._fn_library.configure_chunk_shared_memory(self._shared_bytes)
 

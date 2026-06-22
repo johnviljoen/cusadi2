@@ -7,6 +7,10 @@ CUSADI_BENCHMARK_DIR = os.path.join(CUSADI_ROOT_DIR, "src", "benchmark_functions
 CUSADI_SCRIPT_DIR = os.path.join(CUSADI_ROOT_DIR, "scripts")
 CUSADI_BUILD_DIR = os.path.join(CUSADI_ROOT_DIR, "build")
 CUSADI_CODEGEN_DIR = os.path.join(CUSADI_ROOT_DIR, "codegen")
+# Materialization target for the hand-authored, function-independent level-parallel
+# kernel templates (source of truth: src/level_parallel/codegen.py). Kept separate
+# from CUSADI_CODEGEN_DIR, which holds CusADi's machine-generated per-function .cu.
+CUSADI_LP_KERNEL_DIR = os.path.join(CUSADI_ROOT_DIR, "lp_kernels")
 CUSADI_DATA_DIR = os.path.join(CUSADI_ROOT_DIR, "data")
 CUSADI_FIGURES_DIR = os.path.join(CUSADI_ROOT_DIR, "figures")
 
