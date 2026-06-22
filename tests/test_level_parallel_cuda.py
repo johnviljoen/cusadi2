@@ -16,10 +16,10 @@ import torch
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
-from src import CUSADI_ROOT_DIR, CUSADI_FUNCTION_DIR, CUSADI_BUILD_DIR, CUSADI_LP_KERNEL_DIR
-from src.level_parallel.dag import extract_level_plan
-from src.level_parallel.codegen import write_kernel_source
-from src.level_parallel.function import CusadiLevelParallelFunction
+from cusadi import CUSADI_ROOT_DIR, CUSADI_FUNCTION_DIR, CUSADI_LP_BUILD_DIR, CUSADI_LP_KERNEL_DIR
+from cusadi.level_parallel.dag import extract_level_plan
+from cusadi.level_parallel.codegen import write_kernel_source
+from cusadi.level_parallel.function import CusadiLevelParallelFunction
 
 
 KERNEL_LIB_NAME = "level_parallel_kernel"
@@ -54,9 +54,9 @@ add_library({KERNEL_LIB_NAME} SHARED ${{LP_SOURCE}})
 target_link_libraries({KERNEL_LIB_NAME})
 """)
 
-    os.makedirs(CUSADI_BUILD_DIR, exist_ok=True)
+    os.makedirs(CUSADI_LP_BUILD_DIR, exist_ok=True)
     t0 = time.time()
-    status = os.system(f"cd {CUSADI_BUILD_DIR} && cmake .. 2>&1 && make -j 2>&1")
+    status = os.system(f"cd {CUSADI_LP_BUILD_DIR} && cmake {CUSADI_ROOT_DIR} 2>&1 && make -j 2>&1")
     elapsed = time.time() - t0
     ok = status == 0
     print(f"  Kernel compile: {elapsed:.1f}s {'ok' if ok else 'FAIL'}")
@@ -133,7 +133,7 @@ def test_function(name, atol=1e-10):
     t0 = time.time()
     plan = extract_level_plan(f)
     t_extract = time.time() - t0
-    from src.level_parallel.codegen import pick_block_size
+    from cusadi.level_parallel.codegen import pick_block_size
     block_size = pick_block_size(plan)
     print(f"  DAG: {plan.total_compute_ops} ops, {plan.n_compute_levels} levels, "
           f"block_size={block_size}, peak_live={plan.peak_live_slots}, "

@@ -1,1 +1,0 @@
-/usr/bin/g++ -fPIC -shared -Wl,-soname,liblevel_parallel_tiled_kernel.so -o liblevel_parallel_tiled_kernel.so CMakeFiles/level_parallel_tiled_kernel.dir/codegen/level_parallel_tiled_kernel.cu.o  -lcudadevrt -lcudart_static -lrt -lpthread -ldl  -L"/usr/local/cuda-13/targets/x86_64-linux/lib/stubs" -L"/usr/local/cuda-13/targets/x86_64-linux/lib"

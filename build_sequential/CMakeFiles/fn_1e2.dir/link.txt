@@ -1,1 +1,0 @@
-/usr/bin/g++ -fPIC -shared -Wl,-soname,libfn_1e2.so -o libfn_1e2.so CMakeFiles/fn_1e2.dir/home/john/code/cusadi/codegen/fn_1e2.cu.o  -lcudadevrt -lcudart_static -lrt -lpthread -ldl  -L"/usr/local/cuda-13/targets/x86_64-linux/lib/stubs" -L"/usr/local/cuda-13/targets/x86_64-linux/lib"

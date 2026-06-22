@@ -1,3 +1,35 @@
 [build-system]
 requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "cusadi"
+version = "0.1.0"
+description = "Level-parallel GPU evaluation of batched CasADi functions (fork of se-hwan/cusadi)."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [
+    { name = "John Viljoen", email = "john_viljoen@berkeley.edu" },
+]
+# Upstream foundation this fork builds on.
+maintainers = [
+    { name = "Se Hwan Jeon", email = "sehwan@mit.edu" },
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "casadi",
+    "numpy",
+    "matplotlib",
+    "torch",
+]
+
+[project.urls]
+Upstream = "https://github.com/se-hwan/cusadi"
+
+[tool.setuptools.packages.find]
+include = ["cusadi*"]

@@ -8,8 +8,20 @@
 CMakeLists.txt
 build/
 
-# Materialized level-parallel kernels (source of truth: src/level_parallel/codegen.py)
-lp_kernels/*.cu
+# Materialized level-parallel kernels (source of truth: cusadi/level_parallel/codegen.py)
+cusadi/lp_kernels/*.cu
+
+# Generated CasADi / codegen artifacts (serialized functions, C codegen, PyTorch modules, MATLAB data)
+*.casadi
+*.c
+*.mat
+*_PT.py
+
+# CPU-baseline compiled binaries (sources: experiments/benchmarks/cpu_baselines/*.cpp)
+experiments/benchmarks/cpu_baselines/evaluate_serial_cpu
+experiments/benchmarks/cpu_baselines/evaluate_parallel_cpu
+experiments/benchmarks/cpu_baselines/evaluate_serial_cpu_transfer
+experiments/benchmarks/cpu_baselines/evaluate_parallel_cpu_transfer
 
 # Virtual environments
 *venv

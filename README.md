@@ -68,20 +68,13 @@ Details of our work can be found in the paper:
 It extends the graph expression structure of `casadi` by generating and compiling `CUDA` kernels for efficient evaluation of thousands of function instances. 
 `casadi` is particularly well-suited for this because of it is able to exploit sparsity when building its expression graphs, ensuring efficient computation.
 
-<p align="center">
-  <img src="media/fig_cusadiDiagram.png" width=700 alt="" /> <br>
-    The CasADi expression graph is evaluated by iterating through instructions and performing each operation on scalar values. CusADi can exploit this same structure and evaluate the function in parallel with the GPU by vectorizing each operation to act on tensors of data instead of scalars.
-</p>
+The CasADi expression graph is evaluated by iterating through instructions and performing each operation on scalar values. CusADi can exploit this same structure and evaluate the function in parallel with the GPU by vectorizing each operation to act on tensors of data instead of scalars.
 
 
 We demonstrate using `cusadi` for several robotics applications, including parallelizing MPC, augmenting RL with parallelized dynamics algorithms, creating parallel simulations, and running parameters sweeps. 
 Benchmarks show that `cusadi` offers significant speedups, especially for reinforcement learning applications where significant overhead is incurred from CPU-GPU data transfer.
 
-<p align="center">
-  <img src="media/fig_benchmark.png" width=700 alt="" /> <br>
-    (Left): Speedups from CusADi relative to serial CPU evaluation of five functions, each increasing in complexity. <br>
-    (Right): Speedups from CusADi relative to serial CPU evaluation, including overhead time from CPU-GPU data transfer. 
-</p>
+Benchmark figures for this fork are regenerated under `experiments/figures/` (see `experiments/` for the reproduction scripts).
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -121,12 +114,18 @@ Benchmarks show that `cusadi` offers significant speedups, especially for reinfo
     ```
 4. Compile the test function for parallelization.
     ```
-    python run_codegen.py --fn=test
+    python experiments/original_cusadi/run_codegen.py --fn=test
     ```
 5. Evaluate the parallelized function for accuracy. The error should be ~1e-10 or smaller. If successful, then `cusadi` is ready for use!
     ```
-    python run_cusadi_function_test.py --fn=test
+    python experiments/original_cusadi/run_cusadi_function_test.py --fn=test
     ```
+
+> Note: `run_codegen.py` / `run_cusadi_function_test.py` are the original upstream
+> drivers, archived under `experiments/original_cusadi/`. This fork's own
+> level-parallel results are reproduced from `experiments/` — generate fixtures with
+> `python experiments/build_fixtures.py`, then run `experiments/validation/` and
+> `experiments/benchmarks/`.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -166,12 +165,12 @@ Benchmarks show that `cusadi` offers significant speedups, especially for reinfo
         fn_sim_step.save('fn_sim_step.casadi')
         fn_jacobian.save('fn_jacobian.casadi')
         ```
-2. Move the saved functions to `src/casadi_functions` of the `cusadi` directory.
+2. Move the saved functions to `build/casadi_functions` of the `cusadi` directory.
 2. Compile the functions for parallelization. From the root directory of `cusadi`:
     ```
-    python run_codegen.py --fn=fn_dynamics
-    python run_codegen.py --fn=fn_sim_step
-    python run_codegen.py --fn=fn_jacobian
+    python experiments/original_cusadi/run_codegen.py --fn=fn_dynamics
+    python experiments/original_cusadi/run_codegen.py --fn=fn_sim_step
+    python experiments/original_cusadi/run_codegen.py --fn=fn_jacobian
     ```
 
 3. Evaluate the parallelized functions with `cusadi` in PyTorch

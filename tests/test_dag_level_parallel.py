@@ -14,11 +14,11 @@ import time
 import casadi
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
-from src.level_parallel.dag import extract_level_plan, verify_level_plan_parallel
+from cusadi.level_parallel.dag import extract_level_plan, verify_level_plan_parallel
 
 
 FUNCTION_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)),
-                            "src", "casadi_functions")
+                            "build", "casadi_functions")
 
 TARGETS = [
     ("double_integrator", 1e-14),

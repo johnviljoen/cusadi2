@@ -20,11 +20,11 @@ import torch
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
-from src import CUSADI_ROOT_DIR, CUSADI_FUNCTION_DIR, CUSADI_BUILD_DIR, CUSADI_LP_KERNEL_DIR
-from src.level_parallel.dag import extract_level_plan
-from src.level_parallel.codegen import write_kernel_source, pick_block_size
-from src.level_parallel.function import CusadiLevelParallelFunction
-from src.CusadiFunction import CusadiFunction
+from cusadi import CUSADI_ROOT_DIR, CUSADI_FUNCTION_DIR, CUSADI_LP_BUILD_DIR, CUSADI_PYTORCH_BUILD_DIR, CUSADI_LP_KERNEL_DIR
+from cusadi.level_parallel.dag import extract_level_plan
+from cusadi.level_parallel.codegen import write_kernel_source, pick_block_size
+from cusadi.level_parallel.function import CusadiLevelParallelFunction
+from cusadi.CusadiFunction import CusadiFunction
 
 BATCH_SIZES = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 N_WARMUP = 5
@@ -39,7 +39,7 @@ TARGETS = [
 
 def ensure_lp_kernel_compiled():
     """Compile the data-driven kernel if not already built."""
-    so_path = os.path.join(CUSADI_BUILD_DIR, "liblevel_parallel_kernel.so")
+    so_path = os.path.join(CUSADI_LP_BUILD_DIR, "liblevel_parallel_kernel.so")
     if os.path.exists(so_path):
         return True
 
@@ -68,8 +68,8 @@ set(LP_SOURCE {rel_cu})
 add_library(level_parallel_kernel SHARED ${{LP_SOURCE}})
 """)
 
-    os.makedirs(CUSADI_BUILD_DIR, exist_ok=True)
-    status = os.system(f"cd {CUSADI_BUILD_DIR} && cmake .. 2>&1 && make -j 2>&1")
+    os.makedirs(CUSADI_LP_BUILD_DIR, exist_ok=True)
+    status = os.system(f"cd {CUSADI_LP_BUILD_DIR} && cmake {CUSADI_ROOT_DIR} 2>&1 && make -j 2>&1")
     return status == 0
 
 
@@ -93,7 +93,7 @@ set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS}; -O3 --use_fast_math)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 """)
         for name in fn_names:
-            cu_path = f"codegen/{name}.cu"
+            cu_path = f"build/codegen/{name}.cu"
             if not os.path.exists(os.path.join(CUSADI_ROOT_DIR, cu_path)):
                 print(f"  WARNING: {cu_path} not found, skipping {name}")
                 continue
@@ -101,8 +101,8 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR})
             f.write(f"set({var} {cu_path})\n")
             f.write(f"add_library({name} SHARED ${{{var}}})\n")
 
-    os.makedirs(CUSADI_BUILD_DIR, exist_ok=True)
-    status = os.system(f"cd {CUSADI_BUILD_DIR} && cmake .. 2>&1 && make -j 2>&1")
+    os.makedirs(CUSADI_PYTORCH_BUILD_DIR, exist_ok=True)
+    status = os.system(f"cd {CUSADI_PYTORCH_BUILD_DIR} && cmake {CUSADI_ROOT_DIR} 2>&1 && make -j 2>&1")
     return status == 0
 
 
@@ -132,7 +132,7 @@ def benchmark_lp(fn_casadi, batch_sizes):
 
 def benchmark_seq(fn_casadi, batch_sizes):
     """Benchmark the sequential kernel across batch sizes."""
-    so_path = os.path.join(CUSADI_BUILD_DIR, f"lib{fn_casadi.name()}.so")
+    so_path = os.path.join(CUSADI_PYTORCH_BUILD_DIR, f"lib{fn_casadi.name()}.so")
     if not os.path.exists(so_path):
         return None
 
@@ -234,7 +234,7 @@ def main():
                 if name not in all_lp:
                     continue
                 f = all_lp[name][0]
-                so_path = os.path.join(CUSADI_BUILD_DIR, f"lib{name}.so")
+                so_path = os.path.join(CUSADI_PYTORCH_BUILD_DIR, f"lib{name}.so")
                 if not os.path.exists(so_path):
                     print(f"SKIP sequential {name}: .so not found")
                     continue

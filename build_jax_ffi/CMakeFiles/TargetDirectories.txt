@@ -1,6 +1,0 @@
-/home/john/code/cusadi/build_jax_ffi/CMakeFiles/level_parallel_kernel.dir
-/home/john/code/cusadi/build_jax_ffi/CMakeFiles/level_parallel_tiled_kernel.dir
-/home/john/code/cusadi/build_jax_ffi/CMakeFiles/_cusadi_jax_ffi.dir
-/home/john/code/cusadi/build_jax_ffi/CMakeFiles/nanobind-static.dir
-/home/john/code/cusadi/build_jax_ffi/CMakeFiles/edit_cache.dir
-/home/john/code/cusadi/build_jax_ffi/CMakeFiles/rebuild_cache.dir

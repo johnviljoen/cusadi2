@@ -24,7 +24,7 @@ import casadi as ca  # noqa: E402
 import jax.numpy as jnp  # noqa: E402
 import numpy as np  # noqa: E402
 
-from src.jax_ffi.function import CusadiJaxFunction  # noqa: E402
+from cusadi.jax_ffi.function import CusadiJaxFunction  # noqa: E402
 
 
 def _make_test_function():
