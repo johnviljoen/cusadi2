@@ -23,7 +23,7 @@ import casadi
 import numpy as np
 import torch
 
-from cusadi.CusadiFunction import CusadiFunction
+from cusadi.pytorch.cusadi_function import CusadiFunction
 
 
 @dataclasses.dataclass

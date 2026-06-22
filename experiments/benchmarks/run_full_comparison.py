@@ -21,7 +21,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from cusadi import CUSADI_ROOT_DIR, CUSADI_FUNCTION_DIR, CUSADI_BUILD_DIR
 from cusadi.level_parallel.dag import extract_level_plan, extract_tiled_level_plan
 from cusadi.level_parallel.codegen import pick_block_size
-from cusadi.level_parallel.function import (CusadiLevelParallelFunction,
+from cusadi.pytorch.lp_function import (CusadiLevelParallelFunction,
                                          CusadiTiledLevelParallelFunction)
 
 FUNCTIONS = ["fn_1e1", "fn_1e2", "fn_1e3", "fn_1e4", "fn_1e5"]

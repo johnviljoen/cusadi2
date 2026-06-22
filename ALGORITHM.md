@@ -645,7 +645,7 @@ to ~10⁻¹³.
 
 ```python
 from validation._helpers import build_smart_stage_lp_fn, make_random_inputs
-from src.level_parallel.stage import StageMode, StageSpec
+from cusadi.pytorch.lp_stage import StageMode, StageSpec
 import casadi as ca
 
 # Build f_stage symbolically (or load from .casadi).

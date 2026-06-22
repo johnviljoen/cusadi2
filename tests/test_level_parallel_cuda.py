@@ -19,7 +19,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from cusadi import CUSADI_ROOT_DIR, CUSADI_FUNCTION_DIR, CUSADI_LP_BUILD_DIR, CUSADI_LP_KERNEL_DIR
 from cusadi.level_parallel.dag import extract_level_plan
 from cusadi.level_parallel.codegen import write_kernel_source
-from cusadi.level_parallel.function import CusadiLevelParallelFunction
+from cusadi.pytorch.lp_function import CusadiLevelParallelFunction
 
 
 KERNEL_LIB_NAME = "level_parallel_kernel"

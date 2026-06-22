@@ -256,7 +256,7 @@ prior contribution. To re-verify:
 
 ```python
 from validation._helpers import build_lp_fn, build_hybrid_stage_lp_fn, load_casadi_fn
-from src.level_parallel.stage import StageMode, StageSpec
+from cusadi.pytorch.lp_stage import StageMode, StageSpec
 import torch
 
 f = load_casadi_fn('a1_constrained_aba_jac')

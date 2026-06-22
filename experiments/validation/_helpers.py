@@ -173,7 +173,7 @@ def make_random_inputs(fn_casadi, N: int, seed: int = 42, *,
 # -----------------------------------------------------------------------------
 def build_lp_fn(fn_casadi, N: int, max_smem_slots: int = 12000):
     """Return (LP_instance, plan, 'lp' | 'tiled')."""
-    from cusadi.level_parallel.function import (CusadiLevelParallelFunction,
+    from cusadi.pytorch.lp_function import (CusadiLevelParallelFunction,
                                              CusadiTiledLevelParallelFunction)
     from cusadi.level_parallel.dag import extract_level_plan, extract_tiled_level_plan
 
@@ -202,7 +202,7 @@ def build_stage_lp_fn(f_stage, num_instances: int, n_stages: int,
     for MPC/OCP stage residuals; structural repetition is what makes stage
     compilation worthwhile in the first place).
     """
-    from cusadi.level_parallel.stage import CusadiStageLevelParallelFunction
+    from cusadi.pytorch.lp_stage import CusadiStageLevelParallelFunction
     from cusadi.level_parallel.dag import extract_level_plan
 
     plan = extract_level_plan(f_stage)
@@ -229,7 +229,7 @@ def build_hybrid_stage_lp_fn(f_stage, num_instances: int, n_stages: int,
     chunk_size="auto" runs auto_tune_chunk_size, picking the largest
     divisor of n_stages whose chunked plan fits in shared memory.
     """
-    from cusadi.level_parallel.stage import (CusadiHybridStageLevelParallelFunction,
+    from cusadi.pytorch.lp_stage import (CusadiHybridStageLevelParallelFunction,
                                            auto_tune_chunk_size)
 
     if chunk_size == "auto":
@@ -267,7 +267,7 @@ def build_smart_stage_lp_fn(f_stage, num_instances: int, n_stages: int,
     smem, device smem, has_coupled, auto_max_c, picked c, plain-text
     reason) so callers can log / surface it.
     """
-    from cusadi.level_parallel.stage import (CusadiHybridStageLevelParallelFunction,
+    from cusadi.pytorch.lp_stage import (CusadiHybridStageLevelParallelFunction,
                                            CusadiTiledStageLevelParallelFunction,
                                            smart_pick_chunk_size)
     from cusadi.level_parallel.dag import extract_level_plan

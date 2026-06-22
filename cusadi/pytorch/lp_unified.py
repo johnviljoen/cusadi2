@@ -33,10 +33,10 @@ from cusadi.level_parallel.codegen import (
     write_stage_kernel_source, write_chunk_kernel_source,
     write_stage_tiled_kernel_source,
 )
-from cusadi.level_parallel.function import (
+from cusadi.pytorch.lp_function import (
     CusadiLevelParallelFunction, CusadiTiledLevelParallelFunction,
 )
-from cusadi.CusadiFunction import CusadiFunction
+from cusadi.pytorch.cusadi_function import CusadiFunction
 
 
 SMEM_MARGIN_BYTES = 4096  # reserve 4 KB for kernel stack

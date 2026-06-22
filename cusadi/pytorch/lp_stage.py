@@ -521,7 +521,7 @@ def _build_chunk_function(
 def _get_device_smem_limit_bytes() -> int:
     """Query the current CUDA device's max dynamic shared memory per block.
 
-    Mirrors src.level_parallel.unified._get_device_smem_limit but kept local
+    Mirrors cusadi.pytorch.lp_unified._get_device_smem_limit but kept local
     so this module doesn't pull in the unified Wrapper machinery.
     """
     import ctypes as _ct

@@ -39,9 +39,9 @@ import torch
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 from cusadi import CUSADI_LP_BUILD_DIR, CUSADI_PYTORCH_BUILD_DIR, CUSADI_FUNCTION_DIR  # noqa: E402
-from cusadi.CusadiFunction import CusadiFunction  # noqa: E402
+from cusadi.pytorch.cusadi_function import CusadiFunction  # noqa: E402
 from cusadi.level_parallel.dag import extract_level_plan  # noqa: E402
-from cusadi.level_parallel.function import CusadiLevelParallelFunction  # noqa: E402
+from cusadi.pytorch.lp_function import CusadiLevelParallelFunction  # noqa: E402
 
 
 N_WARMUP = 10

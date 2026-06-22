@@ -50,8 +50,8 @@ def bench_cusadi(robot: str, method: str, batches: list[int], n_warmup: int,
 
     sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
     from cusadi import CUSADI_LP_BUILD_DIR, CUSADI_PYTORCH_BUILD_DIR, CUSADI_FUNCTION_DIR  # noqa: E402
-    from cusadi.CusadiFunction import CusadiFunction  # noqa: E402
-    from cusadi.level_parallel.function import CusadiLevelParallelFunction  # noqa: E402
+    from cusadi.pytorch.cusadi_function import CusadiFunction  # noqa: E402
+    from cusadi.pytorch.lp_function import CusadiLevelParallelFunction  # noqa: E402
 
     assert torch.cuda.is_available()
     fn_name = ROBOT_TO_FN[robot]

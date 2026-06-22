@@ -1,7 +1,7 @@
 """
 Benchmark the level-parallel constrained ABA-Jacobian kernel.
 
-Uses src.level_parallel.unified.CusadiFunction2 which auto-routes small DAGs to
+Uses cusadi.pytorch.lp_unified.CusadiFunction2 which auto-routes small DAGs to
 the LP kernel and large DAGs to the tiled LP kernel. Reports the mode selected.
 
 Timing: CUDA events inside the kernel wrapper, 10 warmup + 100 timed, median.
@@ -25,7 +25,7 @@ import torch
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 from cusadi import CUSADI_FUNCTION_DIR  # noqa: E402
-from cusadi.level_parallel.unified import CusadiFunction2  # noqa: E402
+from cusadi.pytorch.lp_unified import CusadiFunction2  # noqa: E402
 
 
 N_WARMUP = 10

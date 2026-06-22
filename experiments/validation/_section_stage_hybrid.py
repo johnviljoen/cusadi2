@@ -19,7 +19,7 @@ from experiments.validation._helpers import (benchmark_kernel_only,
                                   print_header)
 from experiments.validation._section_stage_robotics import (_make_stage_inputs,
                                                  _stage_specs)
-from cusadi.level_parallel.stage import (_get_device_smem_limit_bytes,
+from cusadi.pytorch.lp_stage import (_get_device_smem_limit_bytes,
                                        _build_chunk_function)
 from cusadi.level_parallel.dag import extract_level_plan
 

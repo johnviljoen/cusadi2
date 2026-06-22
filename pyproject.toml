@@ -8,7 +8,8 @@ version = "0.1.0"
 description = "Level-parallel GPU evaluation of batched CasADi functions (fork of se-hwan/cusadi)."
 readme = "README.md"
 requires-python = ">=3.9"
-license = { text = "MIT" }
+license = "MIT"
+license-files = ["LICENSE.txt"]
 authors = [
     { name = "John Viljoen", email = "john_viljoen@berkeley.edu" },
 ]
@@ -18,15 +19,27 @@ maintainers = [
 ]
 classifiers = [
     "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
+# Core install. cusadi is CUDA-only (it's in the name), and the JAX-FFI backend
+# is the default — so a bare `pip install cusadi` pulls the CUDA jax build.
+# casadi/numpy are required by the backend-agnostic DAG + codegen layer
+# (cusadi/level_parallel/codegen.py, dag.py).
 dependencies = [
     "casadi",
     "numpy",
-    "matplotlib",
-    "torch",
+    "jax[cuda13]",
 ]
+
+# Opt-in backends/profiles on top of the default jax install:
+#   pip install -e .            # default: jax[cuda13] backend
+#   pip install -e ".[torch]"   # add the PyTorch path (LP core, CusadiFunction)
+#   pip install -e ".[all]"     # both backends
+# `jax` is kept as an explicit (redundant) alias so `.[jax]` also resolves.
+[project.optional-dependencies]
+jax = ["jax[cuda13]"]
+torch = ["torch"]
+all = ["torch", "jax[cuda13]"]
 
 [project.urls]
 Upstream = "https://github.com/se-hwan/cusadi"

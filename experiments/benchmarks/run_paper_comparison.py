@@ -29,7 +29,7 @@ from cusadi import (CUSADI_ROOT_DIR, CUSADI_FUNCTION_DIR, CUSADI_LP_BUILD_DIR,
 from cusadi.generateCUDACode import generateCUDACodeDouble
 from cusadi.level_parallel.dag import extract_level_plan, verify_level_plan_parallel
 from cusadi.level_parallel.codegen import write_kernel_source, pick_block_size
-from cusadi.level_parallel.function import CusadiLevelParallelFunction
+from cusadi.pytorch.lp_function import CusadiLevelParallelFunction
 
 FUNCTIONS = ["fn_1e1", "fn_1e2", "fn_1e3", "fn_1e4", "fn_1e5"]
 BATCH_SIZES = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096,

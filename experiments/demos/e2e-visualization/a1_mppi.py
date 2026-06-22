@@ -57,7 +57,7 @@ import pinocchio as pin
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
 from cusadi import CUSADI_FUNCTION_DIR  # noqa: E402
-from cusadi.level_parallel.function import CusadiLevelParallelFunction  # noqa: E402
+from cusadi.pytorch.lp_function import CusadiLevelParallelFunction  # noqa: E402
 
 from robot_descriptions import a1_mj_description  # noqa: E402
 from robot_descriptions.loaders.pinocchio import load_robot_description  # noqa: E402

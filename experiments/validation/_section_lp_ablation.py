@@ -47,7 +47,7 @@ from experiments.validation._helpers import (benchmark_kernel_only,
                                   repo_path,
                                   SequentialFn)
 from experiments.validation._section_stage_robotics import build_unrolled_aba_jac
-from cusadi.level_parallel.stage import (StageMode, StageSpec,
+from cusadi.pytorch.lp_stage import (StageMode, StageSpec,
                                        CusadiHybridStageLevelParallelFunction,
                                        smart_pick_chunk_size)
 from cusadi.level_parallel.dag import extract_level_plan

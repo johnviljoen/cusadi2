@@ -25,7 +25,7 @@ import torch
 from scipy.sparse import coo_matrix
 
 from cusadi import CUSADI_PYTORCH_BUILD_DIR
-from cusadi.CusadiFunction import CusadiFunction
+from cusadi.pytorch.cusadi_function import CusadiFunction
 
 
 class CusadiFunction2D:

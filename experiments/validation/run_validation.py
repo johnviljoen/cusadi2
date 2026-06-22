@@ -15,7 +15,7 @@ import sys
 import casadi
 
 from cusadi import CUSADI_FUNCTION_DIR
-from cusadi.validation import validate_function
+from cusadi.pytorch.validation import validate_function
 
 
 def main():

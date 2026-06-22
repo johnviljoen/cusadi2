@@ -27,10 +27,10 @@ sys.path.insert(0, CUSADI_JAX_FFI_BUILD_DIR)
 # torch (or other PyTorch-only deps) is missing — needed for the JAX-FFI-only
 # install path on branch feature/jax-ffi-backend.
 try:
-    from .CusadiFunction import CusadiFunction
+    from .pytorch.cusadi_function import CusadiFunction
     from .CusadiOperations import OP_CUDA_DICT, OP_PYTORCH_DICT, OP_CUDA_DICT_ORIG
     from .generateCUDACode import generateCUDACodeDouble, generateCUDACodeFloat, generateCMakeLists, generateCUDACodeV3, generateCUDACode2D
-    from .generatePytorchCode import generatePytorchCode
+    from .pytorch.generate_pytorch_code import generatePytorchCode
 except ImportError as _e:
     import warnings as _warnings
     _warnings.warn(f"cusadi PyTorch-path symbols unavailable: {_e}", ImportWarning)

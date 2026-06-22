@@ -21,7 +21,7 @@ from experiments.validation._helpers import (benchmark_kernel_only, load_casadi_
                                   repo_path, SequentialFn)
 from cusadi.level_parallel.codegen import pick_block_size
 from cusadi.level_parallel.dag import extract_level_plan
-from cusadi.level_parallel.stage import (StageMode, StageSpec,
+from cusadi.pytorch.lp_stage import (StageMode, StageSpec,
                                        CusadiHybridStageLevelParallelFunction,
                                        smart_pick_chunk_size)
 
