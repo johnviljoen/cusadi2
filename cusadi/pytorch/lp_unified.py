@@ -33,6 +33,9 @@ from cusadi.level_parallel.codegen import (
     write_stage_kernel_source, write_chunk_kernel_source,
     write_stage_tiled_kernel_source,
 )
+from cusadi.level_parallel.stage import (
+    _get_device_smem_limit_bytes as _get_device_smem_limit,
+)
 from cusadi.pytorch.lp_function import (
     CusadiLevelParallelFunction, CusadiTiledLevelParallelFunction,
 )
@@ -88,14 +91,8 @@ class DAGInfo:
         return "\n".join(lines)
 
 
-def _get_device_smem_limit() -> int:
-    """Query the current CUDA device's max dynamic shared memory per block."""
-    import ctypes as _ct
-    libcudart = _ct.CDLL("libcudart.so")
-    val = _ct.c_int(0)
-    # cudaDevAttrMaxSharedMemoryPerBlockOptin = 97
-    libcudart.cudaDeviceGetAttribute(_ct.byref(val), 97, 0)
-    return val.value
+# _get_device_smem_limit is imported from cusadi.level_parallel.stage (shared,
+# backend-agnostic) above, aliased to preserve this module's local call sites.
 
 
 def _ensure_lp_kernel():

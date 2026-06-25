@@ -1,11 +1,15 @@
 [build-system]
-requires = ["setuptools", "wheel"]
-build-backend = "setuptools.build_meta"
+# scikit-build-core drives the CMake build of the JAX-FFI nanobind extension.
+# Heavy CUDA deps (jax[cuda13]) are deliberately NOT here: see [tool.uv] below —
+# the build runs without isolation, against the venv's already-installed jax, so
+# the extension links the SAME CUDA jax uses and nothing is installed twice.
+requires = ["scikit-build-core>=0.5", "nanobind", "ninja"]
+build-backend = "scikit_build_core.build"
 
 [project]
 name = "cusadi"
 version = "0.1.0"
-description = "Level-parallel GPU evaluation of batched CasADi functions (fork of se-hwan/cusadi)."
+description = "Level-parallel GPU evaluation of batched CasADi functions."
 readme = "README.md"
 requires-python = ">=3.9"
 license = "MIT"
@@ -13,36 +17,48 @@ license-files = ["LICENSE.txt"]
 authors = [
     { name = "John Viljoen", email = "john_viljoen@berkeley.edu" },
 ]
-# Upstream foundation this fork builds on.
-maintainers = [
-    { name = "Se Hwan Jeon", email = "sehwan@mit.edu" },
-]
-classifiers = [
-    "Programming Language :: Python :: 3",
-    "Operating System :: OS Independent",
-]
-# Core install. cusadi is CUDA-only (it's in the name), and the JAX-FFI backend
-# is the default — so a bare `pip install cusadi` pulls the CUDA jax build.
-# casadi/numpy are required by the backend-agnostic DAG + codegen layer
-# (cusadi/level_parallel/codegen.py, dag.py).
+
 dependencies = [
     "casadi",
     "numpy",
     "jax[cuda13]",
+    "matplotlib",
 ]
 
-# Opt-in backends/profiles on top of the default jax install:
 #   pip install -e .            # default: jax[cuda13] backend
 #   pip install -e ".[torch]"   # add the PyTorch path (LP core, CusadiFunction)
-#   pip install -e ".[all]"     # both backends
-# `jax` is kept as an explicit (redundant) alias so `.[jax]` also resolves.
 [project.optional-dependencies]
-jax = ["jax[cuda13]"]
 torch = ["torch"]
-all = ["torch", "jax[cuda13]"]
 
 [project.urls]
 Upstream = "https://github.com/se-hwan/cusadi"
 
-[tool.setuptools.packages.find]
-include = ["cusadi*"]
+# --- Build backend: CMake via scikit-build-core ------------------------------
+[tool.scikit-build]
+# Only the JAX-FFI extension is compiled here; its CMakeLists is decoupled from
+# the repo-root one (which lp_unified rewrites at runtime for the torch path).
+cmake.source-dir = "cusadi/jax_ffi"
+cmake.version = ">=3.18"
+# Persistent per-(python,abi) build tree, required by editable.rebuild so the
+# incremental recompile has somewhere to live.
+build-dir = "build/skbuild/{wheel_tag}"
+# Editable installs rebuild the extension on import when sources change — this
+# is what gives "edit cusadi_jax_ffi.cpp -> next import recompiles", and it
+# always picks up the env's current Python (no cpython-3XX .so mismatch).
+build.verbose = true
+editable.rebuild = true
+# The Python package itself is plain source under cusadi/.
+wheel.packages = ["cusadi"]
+
+# --- uv: native build/resolve behavior ---------------------------------------
+[tool.uv]
+# Build cusadi WITHOUT isolation, i.e. against the project venv's installed jax.
+# This (a) removes the duplicate ephemeral CUDA install, and (b) guarantees the
+# extension is compiled against the exact CUDA jax uses at runtime.
+no-build-isolation-package = ["cusadi"]
+# Build tooling must live in the venv (there's no isolated build env to hold it).
+# Made a default group so a bare `uv sync` installs it and can build the project.
+default-groups = ["build"]
+
+[dependency-groups]
+build = ["scikit-build-core>=0.5", "nanobind", "ninja"]

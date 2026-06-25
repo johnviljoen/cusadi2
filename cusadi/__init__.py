@@ -20,8 +20,8 @@ CUSADI_DATA_DIR = os.path.join(CUSADI_ROOT_DIR, "build", "data")
 CUSADI_FIGURES_DIR = os.path.join(CUSADI_ROOT_DIR, "experiments", "figures")
 
 sys.path.insert(0, CUSADI_BUILD_DIR)
-# The JAX-FFI extension module (_cusadi_jax_ffi) is built under build/jax_ffi/.
-sys.path.insert(0, CUSADI_JAX_FFI_BUILD_DIR)
+# The JAX-FFI extension is now installed in-package as cusadi.jax_ffi._cusadi_jax_ffi
+# (built by scikit-build-core), so no build/jax_ffi sys.path injection is needed.
 
 # PyTorch-backed entry points. Guarded so the package is still importable when
 # torch (or other PyTorch-only deps) is missing — needed for the JAX-FFI-only

@@ -133,7 +133,7 @@ def _make_full_inputs(num_instances: int, X, U, p):
 
 
 def _stage_specs():
-    from cusadi.pytorch.lp_stage import StageMode, StageSpec
+    from cusadi.level_parallel.stage import StageMode, StageSpec
     in_specs = [
         StageSpec(StageMode.COUPLED, offset=0, span=1),  # x_k
         StageSpec(StageMode.COUPLED, offset=1, span=1),  # x_kp1

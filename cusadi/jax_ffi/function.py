@@ -27,9 +27,18 @@ import numpy as np
 
 from cusadi.level_parallel.codegen import pick_block_size
 from cusadi.level_parallel.dag import LevelPlan, extract_level_plan
+from cusadi.level_parallel.serialize import flatten_plan
+
+# Force JAX to initialize its CUDA context/GPU plugin BEFORE importing the
+# nanobind extension below (which links cudart and touches CUDA on import). If
+# the extension initializes CUDA first, JAX's plugin comes up afterwards with a
+# half-configured context and cuDNN init fails (RET_CHECK dnn_support != nullptr
+# at first GPU op). Touching jax.devices() here orders it correctly.
+jax.devices()
 
 try:
-    import _cusadi_jax_ffi as _ext  # type: ignore
+    # Installed in-package by scikit-build-core (cusadi/jax_ffi/_cusadi_jax_ffi*.so).
+    from . import _cusadi_jax_ffi as _ext  # type: ignore
 except ImportError:
     _ext = None  # we will raise a clearer error on first use
 
@@ -58,70 +67,32 @@ def _ensure_ffi_target_registered() -> None:
 
 
 def _flatten_plan_for_upload(plan: LevelPlan) -> dict[str, np.ndarray]:
-    """Mirror CusadiLevelParallelFunction._upload_plan but as host numpy arrays."""
-    if plan.constants:
-        const_slots = np.asarray([c.ssa_slot for c in plan.constants], dtype=np.int32)
-        const_vals = np.asarray([c.value for c in plan.constants], dtype=np.float64)
-    else:
-        const_slots = np.zeros(0, dtype=np.int32)
-        const_vals = np.zeros(0, dtype=np.float64)
+    """Flatten via the shared serialize.flatten_plan into host numpy arrays.
 
-    if plan.input_mappings:
-        input_slots = np.asarray([m.ssa_slot for m in plan.input_mappings], dtype=np.int32)
-        input_args = np.asarray([m.input_arg for m in plan.input_mappings], dtype=np.int32)
-        input_elems = np.asarray([m.element_idx for m in plan.input_mappings], dtype=np.int32)
-    else:
-        input_slots = np.zeros(0, dtype=np.int32)
-        input_args = np.zeros(0, dtype=np.int32)
-        input_elems = np.zeros(0, dtype=np.int32)
-
-    nnz_in = np.asarray(plan.nnz_in, dtype=np.int32)
-
-    all_ops: list[int] = []
-    all_outs: list[int] = []
-    all_in_a: list[int] = []
-    all_in_b: list[int] = []
-    level_offsets: list[int] = []
-    level_widths: list[int] = []
-    offset = 0
-    for level in plan.compute_levels:
-        level_offsets.append(offset)
-        level_widths.append(level.width)
-        for node in level.nodes:
-            all_ops.append(node.op_id)
-            all_outs.append(node.ssa_out)
-            all_in_a.append(node.ssa_inputs[0] if len(node.ssa_inputs) >= 1 else 0)
-            all_in_b.append(node.ssa_inputs[1] if len(node.ssa_inputs) >= 2 else 0)
-        offset += level.width
-
-    if plan.output_mappings:
-        out_slots = np.asarray([m.ssa_slot for m in plan.output_mappings], dtype=np.int32)
-        out_args = np.asarray([m.output_arg for m in plan.output_mappings], dtype=np.int32)
-        out_elems = np.asarray([m.element_idx for m in plan.output_mappings], dtype=np.int32)
-    else:
-        out_slots = np.zeros(0, dtype=np.int32)
-        out_args = np.zeros(0, dtype=np.int32)
-        out_elems = np.zeros(0, dtype=np.int32)
-
-    nnz_out = np.asarray(plan.nnz_out, dtype=np.int32)
-
+    Same source of truth as the torch/native backends — the only difference
+    here is dtype (int32 / float64) and that empty maps stay length-0 (the JAX
+    extension handles zero-length plan arrays directly, unlike the torch path's
+    [0] sentinel)."""
+    flat = flatten_plan(plan)
+    i32 = lambda xs: np.asarray(xs, dtype=np.int32)
+    f64 = lambda xs: np.asarray(xs, dtype=np.float64)
     return dict(
-        const_slots=const_slots,
-        const_vals=const_vals,
-        input_slots=input_slots,
-        input_args=input_args,
-        input_elems=input_elems,
-        nnz_in=nnz_in,
-        level_offsets=np.asarray(level_offsets, dtype=np.int32),
-        level_widths=np.asarray(level_widths, dtype=np.int32),
-        node_ops=np.asarray(all_ops, dtype=np.int32),
-        node_outs=np.asarray(all_outs, dtype=np.int32),
-        node_in_a=np.asarray(all_in_a, dtype=np.int32),
-        node_in_b=np.asarray(all_in_b, dtype=np.int32),
-        out_slots=out_slots,
-        out_args=out_args,
-        out_elems=out_elems,
-        nnz_out=nnz_out,
+        const_slots=i32(flat.const_slots),
+        const_vals=f64(flat.const_vals),
+        input_slots=i32(flat.input_slots),
+        input_args=i32(flat.input_args),
+        input_elems=i32(flat.input_elems),
+        nnz_in=i32(flat.nnz_in),
+        level_offsets=i32(flat.level_offsets),
+        level_widths=i32(flat.level_widths),
+        node_ops=i32(flat.node_ops),
+        node_outs=i32(flat.node_outs),
+        node_in_a=i32(flat.node_in_a),
+        node_in_b=i32(flat.node_in_b),
+        out_slots=i32(flat.out_slots),
+        out_args=i32(flat.out_args),
+        out_elems=i32(flat.out_elems),
+        nnz_out=i32(flat.nnz_out),
     )
 
 

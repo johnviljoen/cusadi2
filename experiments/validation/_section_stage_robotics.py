@@ -70,7 +70,7 @@ def _make_full_inputs(num_instances: int, q, v, t):
 
 
 def _stage_specs():
-    from cusadi.pytorch.lp_stage import StageMode, StageSpec
+    from cusadi.level_parallel.stage import StageMode, StageSpec
     in_specs = [StageSpec(StageMode.STAGE)] * 3
     out_specs = [StageSpec(StageMode.STAGE)] * 3
     return in_specs, out_specs

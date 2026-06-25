@@ -229,8 +229,8 @@ def build_hybrid_stage_lp_fn(f_stage, num_instances: int, n_stages: int,
     chunk_size="auto" runs auto_tune_chunk_size, picking the largest
     divisor of n_stages whose chunked plan fits in shared memory.
     """
-    from cusadi.pytorch.lp_stage import (CusadiHybridStageLevelParallelFunction,
-                                           auto_tune_chunk_size)
+    from cusadi.level_parallel.stage import auto_tune_chunk_size
+    from cusadi.pytorch.lp_stage import CusadiHybridStageLevelParallelFunction
 
     if chunk_size == "auto":
         chunk_size = auto_tune_chunk_size(
@@ -267,9 +267,9 @@ def build_smart_stage_lp_fn(f_stage, num_instances: int, n_stages: int,
     smem, device smem, has_coupled, auto_max_c, picked c, plain-text
     reason) so callers can log / surface it.
     """
+    from cusadi.level_parallel.stage import smart_pick_chunk_size
     from cusadi.pytorch.lp_stage import (CusadiHybridStageLevelParallelFunction,
-                                           CusadiTiledStageLevelParallelFunction,
-                                           smart_pick_chunk_size)
+                                         CusadiTiledStageLevelParallelFunction)
     from cusadi.level_parallel.dag import extract_level_plan
 
     # Extract f_stage's plan ONCE here and pass it through; otherwise it's

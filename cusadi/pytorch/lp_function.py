@@ -17,6 +17,7 @@ import torch
 from cusadi import CUSADI_LP_BUILD_DIR
 from cusadi.level_parallel.dag import LevelPlan, extract_level_plan
 from cusadi.level_parallel.codegen import pick_block_size
+from cusadi.level_parallel.serialize import FlatPlan, flatten_plan
 
 
 def _to_gpu_int(arr):
@@ -27,7 +28,74 @@ def _to_gpu_double(arr):
     return torch.tensor(arr, device="cuda", dtype=torch.double).contiguous()
 
 
-class CusadiLevelParallelFunction:
+class LPPlanTensorsMixin:
+    """GPU-resident level-parallel plan tensors, uploaded from a FlatPlan.
+
+    Single source of truth: the flattening lives in
+    `cusadi.level_parallel.serialize.flatten_plan`; every torch LP wrapper
+    (plain / tiled / stage / hybrid) mixes this in and uploads through
+    `_upload_flat_plan` so slot/offset conventions cannot drift between
+    backends. Declaring the attributes here also keeps them statically visible
+    to type checkers even though they are assigned in the method below.
+    """
+
+    _const_slots: torch.Tensor
+    _const_vals: torch.Tensor
+    _n_consts: int
+    _input_slots: torch.Tensor
+    _input_args: torch.Tensor
+    _input_elems: torch.Tensor
+    _n_input_maps: int
+    _nnz_in_gpu: torch.Tensor
+    _node_ops: torch.Tensor
+    _node_outs: torch.Tensor
+    _node_in_a: torch.Tensor
+    _node_in_b: torch.Tensor
+    _level_offsets: torch.Tensor
+    _level_widths: torch.Tensor
+    _n_levels: int
+    _out_slots: torch.Tensor
+    _out_args: torch.Tensor
+    _out_elems: torch.Tensor
+    _n_output_maps: int
+    _nnz_out_gpu: torch.Tensor
+
+    def _upload_flat_plan(self, flat: FlatPlan, *, with_nnz: bool = True):
+        """Upload a shared-serializer FlatPlan to GPU tensors.
+
+        Empty arrays fall back to a single [0]/[0.0] element so each tensor's
+        .data_ptr() stays valid. `with_nnz` uploads `_nnz_in_gpu`/`_nnz_out_gpu`
+        for the plain-LP-style kernels; the stage chunk/tiled kernels carry
+        per-stage nnz separately and pass with_nnz=False.
+        """
+        self._const_slots = _to_gpu_int(flat.const_slots or [0])
+        self._const_vals = _to_gpu_double(flat.const_vals or [0.0])
+        self._n_consts = flat.n_consts
+
+        self._input_slots = _to_gpu_int(flat.input_slots or [0])
+        self._input_args = _to_gpu_int(flat.input_args or [0])
+        self._input_elems = _to_gpu_int(flat.input_elems or [0])
+        self._n_input_maps = flat.n_input_maps
+
+        self._node_ops = _to_gpu_int(flat.node_ops or [0])
+        self._node_outs = _to_gpu_int(flat.node_outs or [0])
+        self._node_in_a = _to_gpu_int(flat.node_in_a or [0])
+        self._node_in_b = _to_gpu_int(flat.node_in_b or [0])
+        self._level_offsets = _to_gpu_int(flat.level_offsets or [0])
+        self._level_widths = _to_gpu_int(flat.level_widths or [0])
+        self._n_levels = flat.n_levels
+
+        self._out_slots = _to_gpu_int(flat.out_slots or [0])
+        self._out_args = _to_gpu_int(flat.out_args or [0])
+        self._out_elems = _to_gpu_int(flat.out_elems or [0])
+        self._n_output_maps = flat.n_output_maps
+
+        if with_nnz:
+            self._nnz_in_gpu = _to_gpu_int(flat.nnz_in)
+            self._nnz_out_gpu = _to_gpu_int(flat.nnz_out)
+
+
+class CusadiLevelParallelFunction(LPPlanTensorsMixin):
     """Wraps the data-driven level-parallel kernel with CusadiFunction's API."""
 
     def __init__(self, fn_casadi: casadi.Function, num_instances: int,
@@ -53,75 +121,8 @@ class CusadiLevelParallelFunction:
         self._setup_io(fn_casadi, num_instances)
 
     def _upload_plan(self, plan: LevelPlan):
-        """Flatten LevelPlan into GPU arrays."""
-        # Constants
-        if plan.constants:
-            self._const_slots = _to_gpu_int([c.ssa_slot for c in plan.constants])
-            self._const_vals = _to_gpu_double([c.value for c in plan.constants])
-        else:
-            self._const_slots = _to_gpu_int([0])
-            self._const_vals = _to_gpu_double([0.0])
-        self._n_consts = len(plan.constants)
-
-        # Input mappings
-        if plan.input_mappings:
-            self._input_slots = _to_gpu_int([m.ssa_slot for m in plan.input_mappings])
-            self._input_args = _to_gpu_int([m.input_arg for m in plan.input_mappings])
-            self._input_elems = _to_gpu_int([m.element_idx for m in plan.input_mappings])
-        else:
-            self._input_slots = _to_gpu_int([0])
-            self._input_args = _to_gpu_int([0])
-            self._input_elems = _to_gpu_int([0])
-        self._n_input_maps = len(plan.input_mappings)
-
-        self._nnz_in_gpu = _to_gpu_int(plan.nnz_in)
-
-        # Compute nodes: flatten all levels into contiguous arrays
-        all_ops = []
-        all_outs = []
-        all_in_a = []
-        all_in_b = []
-        level_offsets = []
-        level_widths = []
-        offset = 0
-        for level in plan.compute_levels:
-            level_offsets.append(offset)
-            level_widths.append(level.width)
-            for node in level.nodes:
-                all_ops.append(node.op_id)
-                all_outs.append(node.ssa_out)
-                all_in_a.append(node.ssa_inputs[0] if len(node.ssa_inputs) >= 1 else 0)
-                all_in_b.append(node.ssa_inputs[1] if len(node.ssa_inputs) >= 2 else 0)
-            offset += level.width
-
-        if all_ops:
-            self._node_ops = _to_gpu_int(all_ops)
-            self._node_outs = _to_gpu_int(all_outs)
-            self._node_in_a = _to_gpu_int(all_in_a)
-            self._node_in_b = _to_gpu_int(all_in_b)
-            self._level_offsets = _to_gpu_int(level_offsets)
-            self._level_widths = _to_gpu_int(level_widths)
-        else:
-            self._node_ops = _to_gpu_int([0])
-            self._node_outs = _to_gpu_int([0])
-            self._node_in_a = _to_gpu_int([0])
-            self._node_in_b = _to_gpu_int([0])
-            self._level_offsets = _to_gpu_int([0])
-            self._level_widths = _to_gpu_int([0])
-        self._n_levels = len(level_offsets)
-
-        # Output mappings
-        if plan.output_mappings:
-            self._out_slots = _to_gpu_int([m.ssa_slot for m in plan.output_mappings])
-            self._out_args = _to_gpu_int([m.output_arg for m in plan.output_mappings])
-            self._out_elems = _to_gpu_int([m.element_idx for m in plan.output_mappings])
-        else:
-            self._out_slots = _to_gpu_int([0])
-            self._out_args = _to_gpu_int([0])
-            self._out_elems = _to_gpu_int([0])
-        self._n_output_maps = len(plan.output_mappings)
-
-        self._nnz_out_gpu = _to_gpu_int(plan.nnz_out)
+        """Flatten LevelPlan into GPU arrays (via shared serialize.flatten_plan)."""
+        self._upload_flat_plan(flatten_plan(plan, block_size=self._block_size))
 
     def _setup_io(self, fn_casadi, num_instances):
         """Allocate input/output tensors and pointer arrays."""
@@ -202,7 +203,7 @@ class CusadiLevelParallelFunction:
                 self.outputs_sparse[out_idx])
 
 
-class CusadiTiledLevelParallelFunction:
+class CusadiTiledLevelParallelFunction(LPPlanTensorsMixin):
     """Wraps the tiled level-parallel kernel for functions that may need
     shared-memory tiling (large work vectors exceeding hardware smem limits).
 
@@ -236,69 +237,12 @@ class CusadiTiledLevelParallelFunction:
         self._setup_io(fn_casadi, num_instances)
 
     def _upload_plan(self, plan):
-        """Flatten TiledLevelPlan into GPU arrays."""
-        # --- Constants ---
-        if plan.constants:
-            self._const_slots = _to_gpu_int([c.ssa_slot for c in plan.constants])
-            self._const_vals = _to_gpu_double([c.value for c in plan.constants])
-        else:
-            self._const_slots = _to_gpu_int([0])
-            self._const_vals = _to_gpu_double([0.0])
-        self._n_consts = len(plan.constants)
+        """Flatten TiledLevelPlan into GPU arrays.
 
-        # --- Input mappings ---
-        if plan.input_mappings:
-            self._input_slots = _to_gpu_int([m.ssa_slot for m in plan.input_mappings])
-            self._input_args = _to_gpu_int([m.input_arg for m in plan.input_mappings])
-            self._input_elems = _to_gpu_int([m.element_idx for m in plan.input_mappings])
-        else:
-            self._input_slots = _to_gpu_int([0])
-            self._input_args = _to_gpu_int([0])
-            self._input_elems = _to_gpu_int([0])
-        self._n_input_maps = len(plan.input_mappings)
-        self._nnz_in_gpu = _to_gpu_int(plan.nnz_in)
-
-        # --- Compute nodes (flat, same as untiled) ---
-        all_ops, all_outs, all_in_a, all_in_b = [], [], [], []
-        level_offsets, level_widths = [], []
-        offset = 0
-        for level in plan.compute_levels:
-            level_offsets.append(offset)
-            level_widths.append(level.width)
-            for node in level.nodes:
-                all_ops.append(node.op_id)
-                all_outs.append(node.ssa_out)
-                all_in_a.append(node.ssa_inputs[0] if len(node.ssa_inputs) >= 1 else 0)
-                all_in_b.append(node.ssa_inputs[1] if len(node.ssa_inputs) >= 2 else 0)
-            offset += level.width
-
-        if all_ops:
-            self._node_ops = _to_gpu_int(all_ops)
-            self._node_outs = _to_gpu_int(all_outs)
-            self._node_in_a = _to_gpu_int(all_in_a)
-            self._node_in_b = _to_gpu_int(all_in_b)
-            self._level_offsets = _to_gpu_int(level_offsets)
-            self._level_widths = _to_gpu_int(level_widths)
-        else:
-            self._node_ops = _to_gpu_int([0])
-            self._node_outs = _to_gpu_int([0])
-            self._node_in_a = _to_gpu_int([0])
-            self._node_in_b = _to_gpu_int([0])
-            self._level_offsets = _to_gpu_int([0])
-            self._level_widths = _to_gpu_int([0])
-        self._n_levels = len(level_offsets)
-
-        # --- Output mappings ---
-        if plan.output_mappings:
-            self._out_slots = _to_gpu_int([m.ssa_slot for m in plan.output_mappings])
-            self._out_args = _to_gpu_int([m.output_arg for m in plan.output_mappings])
-            self._out_elems = _to_gpu_int([m.element_idx for m in plan.output_mappings])
-        else:
-            self._out_slots = _to_gpu_int([0])
-            self._out_args = _to_gpu_int([0])
-            self._out_elems = _to_gpu_int([0])
-        self._n_output_maps = len(plan.output_mappings)
-        self._nnz_out_gpu = _to_gpu_int(plan.nnz_out)
+        The base LevelPlan portion goes through the shared serializer; the
+        tiling-specific arrays (chunks / boundaries / sub-batch spills) are
+        unique to TiledLevelPlan and stay inline below."""
+        self._upload_flat_plan(flatten_plan(plan, block_size=self._block_size))
 
         # --- Tiling: chunks ---
         self._n_chunks = plan.n_chunks
