@@ -44,7 +44,7 @@ to the chosen type.
 
 import os
 
-from cusadi.level_parallel.codegen import _build_exec_op, _with_dtype
+from cusadi.level_parallel.codegen import _render_lp
 
 
 # ---------------------------------------------------------------------------
@@ -483,8 +483,7 @@ def render_kernel(dtype: str = "double") -> str:
     the variant at compile time with ``-DCUSADI_TILED=0`` (untiled / LP fast
     path) or ``-DCUSADI_TILED=1`` (tiled). Both share this single source file.
     """
-    return _with_dtype(UNIFIED_KERNEL_TEMPLATE, dtype).replace(
-        "__EXEC_OP__", _build_exec_op(dtype))
+    return _render_lp(UNIFIED_KERNEL_TEMPLATE, dtype)
 
 
 def write_kernel_source(filepath: str, dtype: str = "double") -> str:
