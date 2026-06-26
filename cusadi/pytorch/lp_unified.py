@@ -24,7 +24,7 @@ import torch
 from cusadi import (CUSADI_ROOT_DIR, CUSADI_BUILD_DIR, CUSADI_CODEGEN_DIR,
                  CUSADI_LP_BUILD_DIR, CUSADI_PYTORCH_BUILD_DIR,
                  CUSADI_LP_KERNEL_DIR)
-from cusadi.generateCUDACode import generateCUDACodeDouble, generateCMakeLists
+from cusadi.level_parallel.codegen import write_sequential_kernel_source
 from cusadi.level_parallel.dag import (
     extract_level_plan, extract_tiled_level_plan, LevelPlan, TiledLevelPlan,
 )
@@ -309,7 +309,7 @@ class CusadiFunction2:
         """Generate and compile the sequential CUDA kernel."""
         cu_path = os.path.join(CUSADI_CODEGEN_DIR, f"{self.fn_name}.cu")
         if not os.path.exists(cu_path):
-            generateCUDACodeDouble(self.fn_casadi)
+            write_sequential_kernel_source(self.fn_casadi, cu_path)
 
         so_path = os.path.join(CUSADI_PYTORCH_BUILD_DIR, f"lib{self.fn_name}.so")
         if os.path.exists(so_path):

@@ -66,134 +66,13 @@ def generateCMakeLists(casadi_fns, extra_libraries=None):
         cmake_file.write(cmake_str)
 
 def generateCUDACodeDouble(f, filepath=None, benchmarking=True, debug_mode=True):
-    print("Generating CUDA code for CasADi function: ", f.name())
+    """Deprecated alias. The sequential (double) kernel codegen now lives in
+    cusadi.level_parallel.codegen.write_sequential_kernel_source; this wrapper is
+    kept so the benchmark/ablation scripts that import this name keep working."""
+    from cusadi.level_parallel.codegen import write_sequential_kernel_source
     if filepath is None:
-        codegen_filepath = os.path.join(CUSADI_CODEGEN_DIR, f"{f.name()}.cu")
-    else:
-        codegen_filepath = filepath
-    codegen_file = open(codegen_filepath, "w+")
-    codegen_strings = {}
-
-    # * Parse CasADi function
-    n_instr = f.n_instructions()
-    n_in = f.n_in()
-    n_out = f.n_out()
-    nnz_in = [f.nnz_in(i) for i in range(n_in)]
-    nnz_out = [f.nnz_out(i) for i in range(n_out)]
-    n_w = f.sz_w()
-
-    INSTR_LIMIT = n_instr
-
-    input_idx = []
-    input_idx_lengths = [0]
-    output_idx = []
-    output_idx_lengths = [0]
-    for i in range(INSTR_LIMIT):
-        input_idx.extend(f.instruction_input(i))
-        input_idx_lengths.append(len(f.instruction_input(i)))
-        output_idx.extend(f.instruction_output(i))
-        output_idx_lengths.append(len(f.instruction_output(i)))
-    operations = [f.instruction_id(i) for i in range(INSTR_LIMIT)]
-    const_instr = [f.instruction_constant(i) for i in range(INSTR_LIMIT)]
-
-    # * Codegen for const declarations and indices
-    codegen_strings['header'] = "// AUTOMATICALLY GENERATED CODE FOR CUSADI\n"
-    codegen_strings['includes'] = textwrap.dedent(
-    '''
-    #include <cuda_runtime.h>
-    #include <math.h>
-    #include <iostream>
-    ''')
-    codegen_strings["nnz_in"] = f"\n__constant__ int nnz_in[] = {{{','.join(map(str, nnz_in))}}};"
-    codegen_strings["nnz_out"] = f"\n__constant__ int nnz_out[] = {{{','.join(map(str, nnz_out))}}};"
-    codegen_strings["n_w"] = f"\n__constant__ int n_w = {n_w};\n"
-    codegen_strings["error_check"] = textwrap.dedent(
-    r'''
-    #define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
-    inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=true) {
-    if (code != cudaSuccess) {
-        fprintf(stderr,"GPUassert: %s %s %d\n", cudaGetErrorString(code), file, line);
-        if (abort) exit(code);
-    }
-    }
-    ''')
-
-
-    # * Codegen for CUDA kernel
-    str_kernel = textwrap.dedent(
-    '''
-
-    __global__ void evaluate_kernel (
-            const double *inputs[],
-            double *work,
-            double *outputs[],
-            const int batch_size) {
-    ''')
-    str_kernel +=  "\n    int idx = blockIdx.x * blockDim.x + threadIdx.x;"
-    str_kernel +=  "\n    int env_idx = idx * n_w;"
-    str_kernel +=  "\n    if (idx < batch_size) {"
-    o_instr = 0
-    i_instr = 0
-    for k in range(INSTR_LIMIT):
-        op = operations[k]
-        o_idx = output_idx[o_instr]
-        i_idx = input_idx[i_instr]
-        if op == OP_CONST:
-            str_kernel += OP_CUDA_DICT[op] % (o_idx, const_instr[k])
-        elif op == OP_INPUT:
-            str_kernel += OP_CUDA_DICT[op] % (o_idx, i_idx, i_idx, input_idx[i_instr + 1])
-        elif op == OP_OUTPUT:
-            str_kernel += OP_CUDA_DICT[op] % (o_idx, o_idx, output_idx[o_instr + 1], i_idx)
-        elif op == OP_SQ:
-            str_kernel += OP_CUDA_DICT[op] % (o_idx, i_idx, i_idx)
-        elif OP_CUDA_DICT[op].count("%d") == 3:
-            str_kernel += OP_CUDA_DICT[op] % (o_idx, i_idx, input_idx[i_instr + 1])
-        elif OP_CUDA_DICT[op].count("%d") == 2:
-            str_kernel += OP_CUDA_DICT[op] % (o_idx, i_idx)
-        else:
-            raise Exception('Unknown CasADi operation: ' + str(op))
-        o_instr += output_idx_lengths[k + 1]
-        i_instr += input_idx_lengths[k + 1]
-
-    str_kernel += "\n    }"         # End of if statement
-    str_kernel += "\n}\n"           # End of kernel
-    codegen_strings['cuda_kernel'] = str_kernel
-
-    # * Codegen for C interface
-    codegen_strings['c_interface_header'] = """\n\nextern "C" {\n"""
-    codegen_strings['c_evaluation'] = textwrap.dedent(
-    '''
-        float evaluate(const double *inputs[],
-                    double *work,
-                    double *outputs[],
-                    const int batch_size) {
-            int blockSize = 256;
-            int gridSize = (batch_size + blockSize - 1) / blockSize;
-            float milliseconds;
-            cudaEvent_t start, stop;
-            cudaEventCreate(&start);
-            cudaEventCreate(&stop);
-            cudaEventRecord(start, 0);
-            evaluate_kernel<<<gridSize, blockSize>>>(inputs,
-                                                    work,
-                                                    outputs,
-                                                    batch_size);
-            cudaEventRecord(stop, 0);
-            cudaEventSynchronize(stop);
-            cudaEventElapsedTime(&milliseconds, start, stop);
-    ''')
-    if debug_mode:
-        codegen_strings['c_evaluation'] += "\n    gpuErrchk(cudaPeekAtLastError());"
-        codegen_strings['c_evaluation'] += "\n    gpuErrchk(cudaDeviceSynchronize());"
-    codegen_strings['c_evaluation'] += "\n    return milliseconds/1000;"
-    codegen_strings['c_evaluation'] += "\n}"
-    codegen_strings['c_interface_closer'] = """\n\n}"""
-
-    # * Write codegen to file
-    for cg_str in codegen_strings.values():
-        codegen_file.write(cg_str)
-    codegen_file.close()
-    print("CUDA codegen complete for CasADi function: ", f.name())
+        filepath = os.path.join(CUSADI_CODEGEN_DIR, f"{f.name()}.cu")
+    return write_sequential_kernel_source(f, filepath, debug_mode=debug_mode)
 
 def generateCUDACodeFloat(f, filepath=None, benchmarking=True, debug_mode=True):
     print("Generating CUDA code for CasADi function: ", f.name())
@@ -270,139 +149,17 @@ def generateCUDACodeFloat(f, filepath=None, benchmarking=True, debug_mode=True):
         o_idx = output_idx[o_instr]
         i_idx = input_idx[i_instr]
         if op == OP_CONST:
-            str_kernel += OP_CUDA_DICT[op] % (o_idx, const_instr[k])
+            str_kernel += OP_CUDA_DICT_FLOAT[op] % (o_idx, const_instr[k])
         elif op == OP_INPUT:
-            str_kernel += OP_CUDA_DICT[op] % (o_idx, i_idx, i_idx, input_idx[i_instr + 1])
+            str_kernel += OP_CUDA_DICT_FLOAT[op] % (o_idx, i_idx, i_idx, input_idx[i_instr + 1])
         elif op == OP_OUTPUT:
-            str_kernel += OP_CUDA_DICT[op] % (o_idx, o_idx, output_idx[o_instr + 1], i_idx)
-        elif op == OP_SQ:
-            str_kernel += OP_CUDA_DICT[op] % (o_idx, i_idx, i_idx)
-        elif OP_CUDA_DICT[op].count("%d") == 3:
-            str_kernel += OP_CUDA_DICT[op] % (o_idx, i_idx, input_idx[i_instr + 1])
-        elif OP_CUDA_DICT[op].count("%d") == 2:
-            str_kernel += OP_CUDA_DICT[op] % (o_idx, i_idx)
-        else:
-            raise Exception('Unknown CasADi operation: ' + str(op))
-        o_instr += output_idx_lengths[k + 1]
-        i_instr += input_idx_lengths[k + 1]
-
-    str_kernel += "\n    }"         # End of if statement
-    str_kernel += "\n}\n"           # End of kernel
-    codegen_strings['cuda_kernel'] = str_kernel
-
-    # * Codegen for C interface
-    codegen_strings['c_interface_header'] = """\n\nextern "C" {\n"""
-    codegen_strings['c_evaluation'] = textwrap.dedent(
-    '''
-        void evaluate(const float *inputs[],
-                    float *work,
-                    float *outputs[],
-                    const int batch_size) {
-            int blockSize = 256;
-            int gridSize = (batch_size + blockSize - 1) / blockSize;
-            evaluate_kernel<<<gridSize, blockSize>>>(inputs,
-                                                    work,
-                                                    outputs,
-                                                    batch_size);
-    ''')
-    if debug_mode:
-        codegen_strings['c_evaluation'] += "\n    gpuErrchk(cudaPeekAtLastError());"
-        codegen_strings['c_evaluation'] += "\n    gpuErrchk(cudaDeviceSynchronize());\n}"
-    else:
-        codegen_strings['c_evaluation'] += "\n}"
-    codegen_strings['c_interface_closer'] = """\n\n}"""
-
-    # * Write codegen to file
-    for cg_str in codegen_strings.values():
-        codegen_file.write(cg_str)
-    codegen_file.close()
-    print("CUDA codegen complete for CasADi function: ", f.name())
-
-def generateCUDACodeOrig(f, filepath=None, benchmarking=True, debug_mode=True):
-    print("Generating CUDA code for CasADi function: ", f.name())
-    if filepath is None:
-        codegen_filepath = os.path.join(CUSADI_CODEGEN_DIR, f"{f.name()}.cu")
-    else:
-        codegen_filepath = filepath
-    codegen_file = open(codegen_filepath, "w+")
-    codegen_strings = {}
-
-    # * Parse CasADi function
-    n_instr = f.n_instructions()
-    n_in = f.n_in()
-    n_out = f.n_out()
-    nnz_in = [f.nnz_in(i) for i in range(n_in)]
-    nnz_out = [f.nnz_out(i) for i in range(n_out)]
-    n_w = f.sz_w()
-
-    INSTR_LIMIT = n_instr
-
-    input_idx = []
-    input_idx_lengths = [0]
-    output_idx = []
-    output_idx_lengths = [0]
-    for i in range(INSTR_LIMIT):
-        input_idx.extend(f.instruction_input(i))
-        input_idx_lengths.append(len(f.instruction_input(i)))
-        output_idx.extend(f.instruction_output(i))
-        output_idx_lengths.append(len(f.instruction_output(i)))
-    operations = [f.instruction_id(i) for i in range(INSTR_LIMIT)]
-    const_instr = [f.instruction_constant(i) for i in range(INSTR_LIMIT)]
-
-    # * Codegen for const declarations and indices
-    codegen_strings['header'] = "// AUTOMATICALLY GENERATED CODE FOR CUSADI\n"
-    codegen_strings['includes'] = textwrap.dedent(
-    '''
-    #include <cuda_runtime.h>
-    #include <math.h>
-    #include <iostream>
-    ''')
-    codegen_strings["nnz_in"] = f"\n__constant__ int nnz_in[] = {{{','.join(map(str, nnz_in))}}};"
-    codegen_strings["nnz_out"] = f"\n__constant__ int nnz_out[] = {{{','.join(map(str, nnz_out))}}};"
-    codegen_strings["n_w"] = f"\n__constant__ int n_w = {n_w};\n"
-    codegen_strings["error_check"] = textwrap.dedent(
-    r'''
-    #define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
-    inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=true) {
-    if (code != cudaSuccess) {
-        fprintf(stderr,"GPUassert: %s %s %d\n", cudaGetErrorString(code), file, line);
-        if (abort) exit(code);
-    }
-    }
-    ''')
-
-
-    # * Codegen for CUDA kernel
-    str_kernel = textwrap.dedent(
-    '''
-
-    __global__ void evaluate_kernel (
-            const float *inputs[],
-            float *work,
-            float *outputs[],
-            const int batch_size) {
-    ''')
-
-    str_kernel += "\n    int idx = blockIdx.x * blockDim.x + threadIdx.x;"
-    str_kernel += "\n    if (idx < batch_size) {"
-    o_instr = 0
-    i_instr = 0
-    for k in range(INSTR_LIMIT):
-        op = operations[k]
-        o_idx = output_idx[o_instr]
-        i_idx = input_idx[i_instr]
-        if op == OP_CONST:
-            str_kernel += OP_CUDA_DICT_ORIG[op] % (o_idx, const_instr[k])
-        elif op == OP_INPUT:
-            str_kernel += OP_CUDA_DICT_ORIG[op] % (o_idx, i_idx, i_idx, input_idx[i_instr + 1])
-        elif op == OP_OUTPUT:
-            str_kernel += OP_CUDA_DICT_ORIG[op] % (o_idx, o_idx, output_idx[o_instr + 1], i_idx)
-        elif op == OP_SQ:
-            str_kernel += OP_CUDA_DICT_ORIG[op] % (o_idx, i_idx, i_idx)
-        elif OP_CUDA_DICT_ORIG[op].count("%d") == 3:
-            str_kernel += OP_CUDA_DICT_ORIG[op] % (o_idx, i_idx, input_idx[i_instr + 1])
-        elif OP_CUDA_DICT_ORIG[op].count("%d") == 2:
-            str_kernel += OP_CUDA_DICT_ORIG[op] % (o_idx, i_idx)
+            str_kernel += OP_CUDA_DICT_FLOAT[op] % (o_idx, o_idx, output_idx[o_instr + 1], i_idx)
+        elif op == OP_SQ or op == OP_SIGN:
+            str_kernel += OP_CUDA_DICT_FLOAT[op] % (o_idx, i_idx, i_idx)
+        elif OP_CUDA_DICT_FLOAT[op].count("%d") == 3:
+            str_kernel += OP_CUDA_DICT_FLOAT[op] % (o_idx, i_idx, input_idx[i_instr + 1])
+        elif OP_CUDA_DICT_FLOAT[op].count("%d") == 2:
+            str_kernel += OP_CUDA_DICT_FLOAT[op] % (o_idx, i_idx)
         else:
             raise Exception('Unknown CasADi operation: ' + str(op))
         o_instr += output_idx_lengths[k + 1]
@@ -661,131 +418,10 @@ def appendCInterfaceCode(codegen_strings, debug_mode):
     codegen_strings['c_interface_closer'] = """\n\n}"""
 
 def generateCUDACode2D(f, filepath=None, debug_mode=True):
-    print("Generating 2D CUDA code for CasADi function: ", f.name())
+    """Deprecated alias. The unrolled 2-axis (batch x instance) kernel codegen now
+    lives in cusadi.level_parallel.codegen.write_2d_kernel_source; this wrapper is
+    kept so callers that import this name keep working."""
+    from cusadi.level_parallel.codegen import write_2d_kernel_source
     if filepath is None:
-        codegen_filepath = os.path.join(CUSADI_CODEGEN_DIR, f"{f.name()}_2d.cu")
-    else:
-        codegen_filepath = filepath
-    codegen_file = open(codegen_filepath, "w+")
-    codegen_strings = {}
-
-    n_instr = f.n_instructions()
-    n_in = f.n_in()
-    n_out = f.n_out()
-    nnz_in = [f.nnz_in(i) for i in range(n_in)]
-    nnz_out = [f.nnz_out(i) for i in range(n_out)]
-    n_w = f.sz_w()
-    INSTR_LIMIT = n_instr
-
-    input_idx = []
-    input_idx_lengths = [0]
-    output_idx = []
-    output_idx_lengths = [0]
-    for i in range(INSTR_LIMIT):
-        input_idx.extend(f.instruction_input(i))
-        input_idx_lengths.append(len(f.instruction_input(i)))
-        output_idx.extend(f.instruction_output(i))
-        output_idx_lengths.append(len(f.instruction_output(i)))
-    operations = [f.instruction_id(i) for i in range(INSTR_LIMIT)]
-    const_instr = [f.instruction_constant(i) for i in range(INSTR_LIMIT)]
-
-    codegen_strings['header'] = "// AUTOMATICALLY GENERATED CODE FOR CUSADI (2D launch)\n"
-    codegen_strings['includes'] = textwrap.dedent(
-    '''
-    #include <cuda_runtime.h>
-    #include <math.h>
-    #include <iostream>
-    ''')
-    codegen_strings["nnz_in"] = f"\n__constant__ int nnz_in[] = {{{','.join(map(str, nnz_in))}}};"
-    codegen_strings["nnz_out"] = f"\n__constant__ int nnz_out[] = {{{','.join(map(str, nnz_out))}}};"
-    codegen_strings["n_w"] = f"\n__constant__ int n_w = {n_w};\n"
-    codegen_strings["error_check"] = textwrap.dedent(
-    r'''
-    #define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
-    inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=true) {
-    if (code != cudaSuccess) {
-        fprintf(stderr,"GPUassert: %s %s %d\n", cudaGetErrorString(code), file, line);
-        if (abort) exit(code);
-    }
-    }
-    ''')
-
-    str_kernel = textwrap.dedent(
-    '''
-
-    __global__ void evaluate_kernel (
-            const double *inputs[],
-            double *work,
-            double *outputs[],
-            const int batch_size,
-            const int n_instances) {
-    ''')
-    str_kernel += "\n    int batch_idx = blockIdx.x;"
-    str_kernel += "\n    int pattern_idx = blockIdx.y * blockDim.x + threadIdx.x;"
-    str_kernel += "\n    if (batch_idx >= batch_size || pattern_idx >= n_instances) return;"
-    str_kernel += "\n    int idx = batch_idx * n_instances + pattern_idx;"
-    str_kernel += "\n    int env_idx = idx * n_w;"
-
-    o_instr = 0
-    i_instr = 0
-    for k in range(INSTR_LIMIT):
-        op = operations[k]
-        o_idx = output_idx[o_instr]
-        i_idx = input_idx[i_instr]
-        if op == OP_CONST:
-            str_kernel += OP_CUDA_DICT[op] % (o_idx, const_instr[k])
-        elif op == OP_INPUT:
-            str_kernel += OP_CUDA_DICT[op] % (o_idx, i_idx, i_idx, input_idx[i_instr + 1])
-        elif op == OP_OUTPUT:
-            str_kernel += OP_CUDA_DICT[op] % (o_idx, o_idx, output_idx[o_instr + 1], i_idx)
-        elif op == OP_SQ:
-            str_kernel += OP_CUDA_DICT[op] % (o_idx, i_idx, i_idx)
-        elif OP_CUDA_DICT[op].count("%d") == 3:
-            str_kernel += OP_CUDA_DICT[op] % (o_idx, i_idx, input_idx[i_instr + 1])
-        elif OP_CUDA_DICT[op].count("%d") == 2:
-            str_kernel += OP_CUDA_DICT[op] % (o_idx, i_idx)
-        else:
-            raise Exception('Unknown CasADi operation: ' + str(op))
-        o_instr += output_idx_lengths[k + 1]
-        i_instr += input_idx_lengths[k + 1]
-
-    str_kernel += "\n}\n"
-    codegen_strings['cuda_kernel'] = str_kernel
-
-    codegen_strings['c_interface_header'] = """\n\nextern "C" {\n"""
-    codegen_strings['c_evaluation'] = textwrap.dedent(
-    '''
-        float evaluate(const double *inputs[],
-                    double *work,
-                    double *outputs[],
-                    const int batch_size,
-                    const int n_instances) {
-            int threadsPerBlock = 256;
-            if (n_instances < threadsPerBlock) threadsPerBlock = n_instances;
-            dim3 grid(batch_size, (n_instances + threadsPerBlock - 1) / threadsPerBlock);
-            dim3 block(threadsPerBlock);
-            float milliseconds;
-            cudaEvent_t start, stop;
-            cudaEventCreate(&start);
-            cudaEventCreate(&stop);
-            cudaEventRecord(start, 0);
-            evaluate_kernel<<<grid, block>>>(inputs,
-                                             work,
-                                             outputs,
-                                             batch_size,
-                                             n_instances);
-            cudaEventRecord(stop, 0);
-            cudaEventSynchronize(stop);
-            cudaEventElapsedTime(&milliseconds, start, stop);
-    ''')
-    if debug_mode:
-        codegen_strings['c_evaluation'] += "\n    gpuErrchk(cudaPeekAtLastError());"
-        codegen_strings['c_evaluation'] += "\n    gpuErrchk(cudaDeviceSynchronize());"
-    codegen_strings['c_evaluation'] += "\n    return milliseconds/1000;"
-    codegen_strings['c_evaluation'] += "\n}"
-    codegen_strings['c_interface_closer'] = """\n\n}"""
-
-    for cg_str in codegen_strings.values():
-        codegen_file.write(cg_str)
-    codegen_file.close()
-    print("2D CUDA codegen complete for CasADi function: ", f.name())
+        filepath = os.path.join(CUSADI_CODEGEN_DIR, f"{f.name()}_2d.cu")
+    return write_2d_kernel_source(f, filepath, debug_mode=debug_mode)

@@ -48,64 +48,15 @@ enum CasadiOp {
     OP_ATAN2                                                    // 43
 };
 
-__device__ __forceinline__ double exec_op(int op, double a, double b) {
-    switch (op) {
-        case OP_ASSIGN:       return a;
-        case OP_ADD:          return a + b;
-        case OP_SUB:          return a - b;
-        case OP_MUL:          return a * b;
-        case OP_DIV:          return a / b;
-        case OP_NEG:          return -a;
-        case OP_EXP:          return exp(a);
-        case OP_LOG:          return log(a);
-        case OP_POW:          return pow(a, b);
-        case OP_CONSTPOW:     return pow(a, b);
-        case OP_SQRT:         return sqrt(a);
-        case OP_SQ:           return a * a;
-        case OP_TWICE:        return 2.0 * a;
-        case OP_SIN:          return sin(a);
-        case OP_COS:          return cos(a);
-        case OP_TAN:          return tan(a);
-        case OP_ASIN:         return asin(a);
-        case OP_ACOS:         return acos(a);
-        case OP_ATAN:         return atan(a);
-        case OP_FMIN:         return fmin(a, b);
-        case OP_FMAX:         return fmax(a, b);
-        case OP_INV:          return 1.0 / a;
-        case OP_SINH:         return sinh(a);
-        case OP_COSH:         return cosh(a);
-        case OP_TANH:         return tanh(a);
-        case OP_ASINH:        return asinh(a);
-        case OP_ACOSH:        return acosh(a);
-        case OP_ATANH:        return atanh(a);
-        case OP_ATAN2:        return atan2(a, b);
-        case OP_LT:           return (double)(a < b);
-        case OP_LE:           return (double)(a <= b);
-        case OP_EQ:           return (double)(a == b);
-        case OP_NE:           return (double)(a != b);
-        case OP_NOT:          return (double)(!a);
-        case OP_AND:          return (double)((bool)a && (bool)b);
-        case OP_OR:           return (double)((bool)a || (bool)b);
-        case OP_IF_ELSE_ZERO: return (a == 0.0) ? 0.0 : b;
-        case OP_FLOOR:        return floor(a);
-        case OP_CEIL:         return ceil(a);
-        case OP_FMOD:         return fmod(a, b);
-        case OP_FABS:         return fabs(a);
-        case OP_SIGN:         return (a > 0.0) - (a < 0.0);
-        case OP_COPYSIGN:     return copysign(a, b);
-        case OP_ERF:          return erf(a);
-        default:              return 0.0;
-    }
-}
-
+__EXEC_OP__
 __global__ void evaluate_kernel(
-        const double * const * __restrict__ inputs,
-        double ** __restrict__ outputs,
+        const {dtype} * const * __restrict__ inputs,
+        {dtype} ** __restrict__ outputs,
         const int total_instances,
         // Init data
         const int n_consts,
         const int * __restrict__ const_slots,
-        const double * __restrict__ const_vals,
+        const {dtype} * __restrict__ const_vals,
         const int n_inputs,
         const int * __restrict__ input_slots,
         const int * __restrict__ input_args,
@@ -126,7 +77,7 @@ __global__ void evaluate_kernel(
         const int * __restrict__ out_elems,
         const int * __restrict__ nnz_out) {
 
-    extern __shared__ double w[];
+    extern __shared__ {dtype} w[];
     const int inst = blockIdx.x;
     const int tid = threadIdx.x;
     const int block_sz = blockDim.x;
@@ -154,7 +105,7 @@ __global__ void evaluate_kernel(
         int width = level_widths[lev];
         for (int base = 0; base < width; base += block_sz) {
             int idx = base + tid;
-            double ra = 0.0, rb = 0.0;
+            {dtype} ra = 0.0, rb = 0.0;
             int my_op = 0, my_out = 0;
             if (idx < width) {
                 int g = offset + idx;
@@ -180,15 +131,15 @@ __global__ void evaluate_kernel(
 extern "C" {
 
 float evaluate_lp(
-        const double *inputs[],
-        double *outputs[],
+        const {dtype} *inputs[],
+        {dtype} *outputs[],
         const int total_instances,
         const int block_size,
         const int shared_bytes,
         // Init
         const int n_consts,
         const int *const_slots,
-        const double *const_vals,
+        const {dtype} *const_vals,
         const int n_inputs,
         const int *input_slots,
         const int *input_args,
@@ -236,15 +187,15 @@ float evaluate_lp(
 // XLA's stream ordering guarantees downstream ops wait on this launch.
 // Returns 0 on success, or the integer value of the cudaError_t on failure.
 int evaluate_lp_stream(
-        const double *inputs[],
-        double *outputs[],
+        const {dtype} *inputs[],
+        {dtype} *outputs[],
         const int total_instances,
         const int block_size,
         const int shared_bytes,
         // Init
         const int n_consts,
         const int *const_slots,
-        const double *const_vals,
+        const {dtype} *const_vals,
         const int n_inputs,
         const int *input_slots,
         const int *input_args,
@@ -317,64 +268,15 @@ enum CasadiOp {
     OP_ATAN2
 };
 
-__device__ __forceinline__ double exec_op(int op, double a, double b) {
-    switch (op) {
-        case OP_ASSIGN:       return a;
-        case OP_ADD:          return a + b;
-        case OP_SUB:          return a - b;
-        case OP_MUL:          return a * b;
-        case OP_DIV:          return a / b;
-        case OP_NEG:          return -a;
-        case OP_EXP:          return exp(a);
-        case OP_LOG:          return log(a);
-        case OP_POW:          return pow(a, b);
-        case OP_CONSTPOW:     return pow(a, b);
-        case OP_SQRT:         return sqrt(a);
-        case OP_SQ:           return a * a;
-        case OP_TWICE:        return 2.0 * a;
-        case OP_SIN:          return sin(a);
-        case OP_COS:          return cos(a);
-        case OP_TAN:          return tan(a);
-        case OP_ASIN:         return asin(a);
-        case OP_ACOS:         return acos(a);
-        case OP_ATAN:         return atan(a);
-        case OP_FMIN:         return fmin(a, b);
-        case OP_FMAX:         return fmax(a, b);
-        case OP_INV:          return 1.0 / a;
-        case OP_SINH:         return sinh(a);
-        case OP_COSH:         return cosh(a);
-        case OP_TANH:         return tanh(a);
-        case OP_ASINH:        return asinh(a);
-        case OP_ACOSH:        return acosh(a);
-        case OP_ATANH:        return atanh(a);
-        case OP_ATAN2:        return atan2(a, b);
-        case OP_LT:           return (double)(a < b);
-        case OP_LE:           return (double)(a <= b);
-        case OP_EQ:           return (double)(a == b);
-        case OP_NE:           return (double)(a != b);
-        case OP_NOT:          return (double)(!a);
-        case OP_AND:          return (double)((bool)a && (bool)b);
-        case OP_OR:           return (double)((bool)a || (bool)b);
-        case OP_IF_ELSE_ZERO: return (a == 0.0) ? 0.0 : b;
-        case OP_FLOOR:        return floor(a);
-        case OP_CEIL:         return ceil(a);
-        case OP_FMOD:         return fmod(a, b);
-        case OP_FABS:         return fabs(a);
-        case OP_SIGN:         return (a > 0.0) - (a < 0.0);
-        case OP_COPYSIGN:     return copysign(a, b);
-        case OP_ERF:          return erf(a);
-        default:              return 0.0;
-    }
-}
-
+__EXEC_OP__
 __global__ void evaluate_kernel_tiled(
-        const double * const * __restrict__ inputs,
-        double ** __restrict__ outputs,
+        const {dtype} * const * __restrict__ inputs,
+        {dtype} ** __restrict__ outputs,
         const int total_instances,
         // Init data
         const int n_consts,
         const int * __restrict__ const_slots,
-        const double * __restrict__ const_vals,
+        const {dtype} * __restrict__ const_vals,
         const int n_inputs,
         const int * __restrict__ input_slots,
         const int * __restrict__ input_args,
@@ -395,7 +297,7 @@ __global__ void evaluate_kernel_tiled(
         const int * __restrict__ out_elems,
         const int * __restrict__ nnz_out,
         // Tiling data
-        double * __restrict__ spill_buffer,
+        {dtype} * __restrict__ spill_buffer,
         const int spill_stride,
         const int n_chunks,
         const int * __restrict__ chunk_lev_start,
@@ -415,13 +317,13 @@ __global__ void evaluate_kernel_tiled(
         const int * __restrict__ sb_spill_smem,
         const int * __restrict__ sb_spill_pos) {
 
-    extern __shared__ double w[];
+    extern __shared__ {dtype} w[];
     const int inst = blockIdx.x;
     const int tid = threadIdx.x;
     const int block_sz = blockDim.x;
     if (inst >= total_instances) return;
 
-    double * spill = spill_buffer + (long long)inst * spill_stride;
+    {dtype} * spill = spill_buffer + (long long)inst * spill_stride;
 
     // --- Init: load constants and inputs (chunk 0) ---
     for (int i = tid; i < n_consts; i += block_sz)
@@ -450,7 +352,7 @@ __global__ void evaluate_kernel_tiled(
 
             for (int base = 0; base < width; base += block_sz) {
                 int idx = base + tid;
-                double ra = 0.0, rb = 0.0;
+                {dtype} ra = 0.0, rb = 0.0;
                 int my_op = 0, my_out = 0;
                 if (idx < width) {
                     int g = offset + idx;
@@ -496,13 +398,13 @@ __global__ void evaluate_kernel_tiled(
 extern "C" {
 
 float evaluate_lp_tiled(
-        const double *inputs[],
-        double *outputs[],
+        const {dtype} *inputs[],
+        {dtype} *outputs[],
         const int total_instances,
         const int block_size,
         const int shared_bytes,
         // Init
-        const int n_consts, const int *const_slots, const double *const_vals,
+        const int n_consts, const int *const_slots, const {dtype} *const_vals,
         const int n_inputs, const int *input_slots, const int *input_args,
         const int *input_elems, const int *nnz_in,
         // Levels
@@ -513,7 +415,7 @@ float evaluate_lp_tiled(
         const int n_outputs, const int *out_slots, const int *out_args,
         const int *out_elems, const int *nnz_out,
         // Tiling
-        double *spill_buffer, const int spill_stride, const int n_chunks,
+        {dtype} *spill_buffer, const int spill_stride, const int n_chunks,
         const int *chunk_lev_start, const int *chunk_lev_end,
         const int *bnd_spill_off, const int *bnd_spill_cnt,
         const int *bnd_spill_smem, const int *bnd_spill_pos,
@@ -599,65 +501,16 @@ enum CasadiOp {
     OP_ATAN2
 };
 
-__device__ __forceinline__ double exec_op(int op, double a, double b) {
-    switch (op) {
-        case OP_ASSIGN:       return a;
-        case OP_ADD:          return a + b;
-        case OP_SUB:          return a - b;
-        case OP_MUL:          return a * b;
-        case OP_DIV:          return a / b;
-        case OP_NEG:          return -a;
-        case OP_EXP:          return exp(a);
-        case OP_LOG:          return log(a);
-        case OP_POW:          return pow(a, b);
-        case OP_CONSTPOW:     return pow(a, b);
-        case OP_SQRT:         return sqrt(a);
-        case OP_SQ:           return a * a;
-        case OP_TWICE:        return 2.0 * a;
-        case OP_SIN:          return sin(a);
-        case OP_COS:          return cos(a);
-        case OP_TAN:          return tan(a);
-        case OP_ASIN:         return asin(a);
-        case OP_ACOS:         return acos(a);
-        case OP_ATAN:         return atan(a);
-        case OP_FMIN:         return fmin(a, b);
-        case OP_FMAX:         return fmax(a, b);
-        case OP_INV:          return 1.0 / a;
-        case OP_SINH:         return sinh(a);
-        case OP_COSH:         return cosh(a);
-        case OP_TANH:         return tanh(a);
-        case OP_ASINH:        return asinh(a);
-        case OP_ACOSH:        return acosh(a);
-        case OP_ATANH:        return atanh(a);
-        case OP_ATAN2:        return atan2(a, b);
-        case OP_LT:           return (double)(a < b);
-        case OP_LE:           return (double)(a <= b);
-        case OP_EQ:           return (double)(a == b);
-        case OP_NE:           return (double)(a != b);
-        case OP_NOT:          return (double)(!a);
-        case OP_AND:          return (double)((bool)a && (bool)b);
-        case OP_OR:           return (double)((bool)a || (bool)b);
-        case OP_IF_ELSE_ZERO: return (a == 0.0) ? 0.0 : b;
-        case OP_FLOOR:        return floor(a);
-        case OP_CEIL:         return ceil(a);
-        case OP_FMOD:         return fmod(a, b);
-        case OP_FABS:         return fabs(a);
-        case OP_SIGN:         return (a > 0.0) - (a < 0.0);
-        case OP_COPYSIGN:     return copysign(a, b);
-        case OP_ERF:          return erf(a);
-        default:              return 0.0;
-    }
-}
-
+__EXEC_OP__
 __global__ void evaluate_stage_kernel(
-        const double * const * __restrict__ inputs,
-        double ** __restrict__ outputs,
+        const {dtype} * const * __restrict__ inputs,
+        {dtype} ** __restrict__ outputs,
         const int total_instances,
         const int n_stages,
         // Init data
         const int n_consts,
         const int * __restrict__ const_slots,
-        const double * __restrict__ const_vals,
+        const {dtype} * __restrict__ const_vals,
         const int n_inputs,
         const int * __restrict__ input_slots,
         const int * __restrict__ input_args,
@@ -683,7 +536,7 @@ __global__ void evaluate_stage_kernel(
         const int * __restrict__ out_stage_mode,
         const int * __restrict__ out_stage_count) {
 
-    extern __shared__ double w[];
+    extern __shared__ {dtype} w[];
     const int inst  = blockIdx.x;
     const int stage = blockIdx.y;
     const int tid   = threadIdx.x;
@@ -712,7 +565,7 @@ __global__ void evaluate_stage_kernel(
         int width = level_widths[lev];
         for (int base = 0; base < width; base += block_sz) {
             int idx = base + tid;
-            double ra = 0.0, rb = 0.0;
+            {dtype} ra = 0.0, rb = 0.0;
             int my_op = 0, my_out = 0;
             if (idx < width) {
                 int g = offset + idx;
@@ -741,8 +594,8 @@ __global__ void evaluate_stage_kernel(
 extern "C" {
 
 float evaluate_lp_stage(
-        const double *inputs[],
-        double *outputs[],
+        const {dtype} *inputs[],
+        {dtype} *outputs[],
         const int total_instances,
         const int n_stages,
         const int block_size,
@@ -750,7 +603,7 @@ float evaluate_lp_stage(
         // Init
         const int n_consts,
         const int *const_slots,
-        const double *const_vals,
+        const {dtype} *const_vals,
         const int n_inputs,
         const int *input_slots,
         const int *input_args,
@@ -801,15 +654,15 @@ float evaluate_lp_stage(
 }
 
 int evaluate_lp_stage_stream(
-        const double *inputs[],
-        double *outputs[],
+        const {dtype} *inputs[],
+        {dtype} *outputs[],
         const int total_instances,
         const int n_stages,
         const int block_size,
         const int shared_bytes,
         const int n_consts,
         const int *const_slots,
-        const double *const_vals,
+        const {dtype} *const_vals,
         const int n_inputs,
         const int *input_slots,
         const int *input_args,
@@ -903,66 +756,17 @@ enum CasadiOp {
     OP_ATAN2
 };
 
-__device__ __forceinline__ double exec_op(int op, double a, double b) {
-    switch (op) {
-        case OP_ASSIGN:       return a;
-        case OP_ADD:          return a + b;
-        case OP_SUB:          return a - b;
-        case OP_MUL:          return a * b;
-        case OP_DIV:          return a / b;
-        case OP_NEG:          return -a;
-        case OP_EXP:          return exp(a);
-        case OP_LOG:          return log(a);
-        case OP_POW:          return pow(a, b);
-        case OP_CONSTPOW:     return pow(a, b);
-        case OP_SQRT:         return sqrt(a);
-        case OP_SQ:           return a * a;
-        case OP_TWICE:        return 2.0 * a;
-        case OP_SIN:          return sin(a);
-        case OP_COS:          return cos(a);
-        case OP_TAN:          return tan(a);
-        case OP_ASIN:         return asin(a);
-        case OP_ACOS:         return acos(a);
-        case OP_ATAN:         return atan(a);
-        case OP_FMIN:         return fmin(a, b);
-        case OP_FMAX:         return fmax(a, b);
-        case OP_INV:          return 1.0 / a;
-        case OP_SINH:         return sinh(a);
-        case OP_COSH:         return cosh(a);
-        case OP_TANH:         return tanh(a);
-        case OP_ASINH:        return asinh(a);
-        case OP_ACOSH:        return acosh(a);
-        case OP_ATANH:        return atanh(a);
-        case OP_ATAN2:        return atan2(a, b);
-        case OP_LT:           return (double)(a < b);
-        case OP_LE:           return (double)(a <= b);
-        case OP_EQ:           return (double)(a == b);
-        case OP_NE:           return (double)(a != b);
-        case OP_NOT:          return (double)(!a);
-        case OP_AND:          return (double)((bool)a && (bool)b);
-        case OP_OR:           return (double)((bool)a || (bool)b);
-        case OP_IF_ELSE_ZERO: return (a == 0.0) ? 0.0 : b;
-        case OP_FLOOR:        return floor(a);
-        case OP_CEIL:         return ceil(a);
-        case OP_FMOD:         return fmod(a, b);
-        case OP_FABS:         return fabs(a);
-        case OP_SIGN:         return (a > 0.0) - (a < 0.0);
-        case OP_COPYSIGN:     return copysign(a, b);
-        case OP_ERF:          return erf(a);
-        default:              return 0.0;
-    }
-}
-
+__EXEC_OP__
 __global__ void evaluate_chunk_kernel(
-        const double * const * __restrict__ inputs,
-        double ** __restrict__ outputs,
+        const {dtype} * const * __restrict__ inputs,
+        {dtype} ** __restrict__ outputs,
         const int total_instances,
         const int n_chunks,
         const int chunk_size,
         // Init data
         const int n_consts,
         const int * __restrict__ const_slots,
-        const double * __restrict__ const_vals,
+        const {dtype} * __restrict__ const_vals,
         const int n_inputs,
         const int * __restrict__ input_slots,
         const int * __restrict__ input_args,
@@ -988,7 +792,7 @@ __global__ void evaluate_chunk_kernel(
         const int * __restrict__ out_total_stages,
         const int * __restrict__ out_nnz_per_stage) {
 
-    extern __shared__ double w[];
+    extern __shared__ {dtype} w[];
     const int inst      = blockIdx.x;
     const int chunk_idx = blockIdx.y;
     const int tid       = threadIdx.x;
@@ -1023,7 +827,7 @@ __global__ void evaluate_chunk_kernel(
         int width = level_widths[lev];
         for (int base = 0; base < width; base += block_sz) {
             int idx = base + tid;
-            double ra = 0.0, rb = 0.0;
+            {dtype} ra = 0.0, rb = 0.0;
             int my_op = 0, my_out = 0;
             if (idx < width) {
                 int g = offset + idx;
@@ -1053,8 +857,8 @@ __global__ void evaluate_chunk_kernel(
 extern "C" {
 
 float evaluate_lp_chunk(
-        const double *inputs[],
-        double *outputs[],
+        const {dtype} *inputs[],
+        {dtype} *outputs[],
         const int total_instances,
         const int n_chunks,
         const int chunk_size,
@@ -1062,7 +866,7 @@ float evaluate_lp_chunk(
         const int shared_bytes,
         const int n_consts,
         const int *const_slots,
-        const double *const_vals,
+        const {dtype} *const_vals,
         const int n_inputs,
         const int *input_slots,
         const int *input_args,
@@ -1111,8 +915,8 @@ float evaluate_lp_chunk(
 }
 
 int evaluate_lp_chunk_stream(
-        const double *inputs[],
-        double *outputs[],
+        const {dtype} *inputs[],
+        {dtype} *outputs[],
         const int total_instances,
         const int n_chunks,
         const int chunk_size,
@@ -1120,7 +924,7 @@ int evaluate_lp_chunk_stream(
         const int shared_bytes,
         const int n_consts,
         const int *const_slots,
-        const double *const_vals,
+        const {dtype} *const_vals,
         const int n_inputs,
         const int *input_slots,
         const int *input_args,
@@ -1210,65 +1014,16 @@ enum CasadiOp {
     OP_ATAN2
 };
 
-__device__ __forceinline__ double exec_op(int op, double a, double b) {
-    switch (op) {
-        case OP_ASSIGN:       return a;
-        case OP_ADD:          return a + b;
-        case OP_SUB:          return a - b;
-        case OP_MUL:          return a * b;
-        case OP_DIV:          return a / b;
-        case OP_NEG:          return -a;
-        case OP_EXP:          return exp(a);
-        case OP_LOG:          return log(a);
-        case OP_POW:          return pow(a, b);
-        case OP_CONSTPOW:     return pow(a, b);
-        case OP_SQRT:         return sqrt(a);
-        case OP_SQ:           return a * a;
-        case OP_TWICE:        return 2.0 * a;
-        case OP_SIN:          return sin(a);
-        case OP_COS:          return cos(a);
-        case OP_TAN:          return tan(a);
-        case OP_ASIN:         return asin(a);
-        case OP_ACOS:         return acos(a);
-        case OP_ATAN:         return atan(a);
-        case OP_FMIN:         return fmin(a, b);
-        case OP_FMAX:         return fmax(a, b);
-        case OP_INV:          return 1.0 / a;
-        case OP_SINH:         return sinh(a);
-        case OP_COSH:         return cosh(a);
-        case OP_TANH:         return tanh(a);
-        case OP_ASINH:        return asinh(a);
-        case OP_ACOSH:        return acosh(a);
-        case OP_ATANH:        return atanh(a);
-        case OP_ATAN2:        return atan2(a, b);
-        case OP_LT:           return (double)(a < b);
-        case OP_LE:           return (double)(a <= b);
-        case OP_EQ:           return (double)(a == b);
-        case OP_NE:           return (double)(a != b);
-        case OP_NOT:          return (double)(!a);
-        case OP_AND:          return (double)((bool)a && (bool)b);
-        case OP_OR:           return (double)((bool)a || (bool)b);
-        case OP_IF_ELSE_ZERO: return (a == 0.0) ? 0.0 : b;
-        case OP_FLOOR:        return floor(a);
-        case OP_CEIL:         return ceil(a);
-        case OP_FMOD:         return fmod(a, b);
-        case OP_FABS:         return fabs(a);
-        case OP_SIGN:         return (a > 0.0) - (a < 0.0);
-        case OP_COPYSIGN:     return copysign(a, b);
-        case OP_ERF:          return erf(a);
-        default:              return 0.0;
-    }
-}
-
+__EXEC_OP__
 __global__ void evaluate_stage_tiled_kernel(
-        const double * const * __restrict__ inputs,
-        double ** __restrict__ outputs,
+        const {dtype} * const * __restrict__ inputs,
+        {dtype} ** __restrict__ outputs,
         const int total_instances,
         const int n_stages,
         // Init data
         const int n_consts,
         const int * __restrict__ const_slots,
-        const double * __restrict__ const_vals,
+        const {dtype} * __restrict__ const_vals,
         const int n_inputs,
         const int * __restrict__ input_slots,
         const int * __restrict__ input_args,
@@ -1295,7 +1050,7 @@ __global__ void evaluate_stage_tiled_kernel(
         const int * __restrict__ out_total_stages,
         const int * __restrict__ out_nnz_per_stage,
         // Tiling data — same as standalone tiled kernel
-        double * __restrict__ spill_buffer,
+        {dtype} * __restrict__ spill_buffer,
         const int spill_stride,
         const int n_tiles,
         const int * __restrict__ chunk_lev_start,
@@ -1313,7 +1068,7 @@ __global__ void evaluate_stage_tiled_kernel(
         const int * __restrict__ sb_spill_smem,
         const int * __restrict__ sb_spill_pos) {
 
-    extern __shared__ double w[];
+    extern __shared__ {dtype} w[];
     const int inst  = blockIdx.x;
     const int stage = blockIdx.y;
     const int tid   = threadIdx.x;
@@ -1322,7 +1077,7 @@ __global__ void evaluate_stage_tiled_kernel(
 
     // Spill buffer is per-(instance, stage). chunk_size==1 so n_stage_chunks
     // == n_stages and we offset by (inst * n_stages + stage) * spill_stride.
-    double * spill = spill_buffer
+    {dtype} * spill = spill_buffer
                    + ((long long)inst * n_stages + stage) * spill_stride;
 
     // --- Init: load constants ---
@@ -1358,7 +1113,7 @@ __global__ void evaluate_stage_tiled_kernel(
 
             for (int base = 0; base < width; base += block_sz) {
                 int idx = base + tid;
-                double ra = 0.0, rb = 0.0;
+                {dtype} ra = 0.0, rb = 0.0;
                 int my_op = 0, my_out = 0;
                 if (idx < width) {
                     int g = offset + idx;
@@ -1406,15 +1161,15 @@ __global__ void evaluate_stage_tiled_kernel(
 extern "C" {
 
 float evaluate_lp_stage_tiled(
-        const double *inputs[],
-        double *outputs[],
+        const {dtype} *inputs[],
+        {dtype} *outputs[],
         const int total_instances,
         const int n_stages,
         const int block_size,
         const int shared_bytes,
         const int n_consts,
         const int *const_slots,
-        const double *const_vals,
+        const {dtype} *const_vals,
         const int n_inputs,
         const int *input_slots,
         const int *input_args,
@@ -1437,7 +1192,7 @@ float evaluate_lp_stage_tiled(
         const int *out_stage_mode,
         const int *out_total_stages,
         const int *out_nnz_per_stage,
-        double *spill_buffer,
+        {dtype} *spill_buffer,
         const int spill_stride,
         const int n_tiles,
         const int *chunk_lev_start,
@@ -1495,6 +1250,160 @@ int configure_stage_tiled_shared_memory(int shared_bytes) {
 """
 
 
+# Upstream per-instruction baseline: NOT a data-driven interpreter — one
+# hardcoded line per CasADi instruction is spliced into __BODY__, so the .cu
+# grows with the instruction count. Parallel over the batch only (one thread per
+# instance). Kept as the baseline the level-parallel kernels are measured against.
+SEQUENTIAL_KERNEL_TEMPLATE = r"""// AUTOMATICALLY GENERATED CODE FOR CUSADI
+#include <cuda_runtime.h>
+#include <math.h>
+#include <iostream>
+
+__constant__ int nnz_in[] = {__NNZ_IN__};
+__constant__ int nnz_out[] = {__NNZ_OUT__};
+__constant__ int n_w = __N_W__;
+
+#define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
+inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=true) {
+    if (code != cudaSuccess) {
+        fprintf(stderr,"GPUassert: %s %s %d\n", cudaGetErrorString(code), file, line);
+        if (abort) exit(code);
+    }
+}
+
+__global__ void evaluate_kernel(
+        const {dtype} *inputs[],
+        {dtype} *work,
+        {dtype} *outputs[],
+        const int batch_size) {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    int env_idx = idx * n_w;
+    if (idx < batch_size) {__BODY__
+    }
+}
+
+extern "C" {
+
+float evaluate(const {dtype} *inputs[],
+               {dtype} *work,
+               {dtype} *outputs[],
+               const int batch_size) {
+    int blockSize = 256;
+    int gridSize = (batch_size + blockSize - 1) / blockSize;
+    float milliseconds;
+    cudaEvent_t start, stop;
+    cudaEventCreate(&start);
+    cudaEventCreate(&stop);
+    cudaEventRecord(start, 0);
+    evaluate_kernel<<<gridSize, blockSize>>>(inputs, work, outputs, batch_size);
+    cudaEventRecord(stop, 0);
+    cudaEventSynchronize(stop);
+    cudaEventElapsedTime(&milliseconds, start, stop);__DEBUG__
+    return milliseconds / 1000;
+}
+
+}
+"""
+
+
+# Unrolled 2-axis variant of SEQUENTIAL_KERNEL_TEMPLATE: same per-instruction body
+# (__BODY__), but a 2D launch over (batch_size, n_instances) with a flat
+# idx = batch_idx*n_instances + pattern_idx. The instance axis is treated as a
+# second independent batch axis (no stage-mode SHARED/COUPLED indexing).
+TWOD_KERNEL_TEMPLATE = r"""// AUTOMATICALLY GENERATED CODE FOR CUSADI (2D launch)
+#include <cuda_runtime.h>
+#include <math.h>
+#include <iostream>
+
+__constant__ int nnz_in[] = {__NNZ_IN__};
+__constant__ int nnz_out[] = {__NNZ_OUT__};
+__constant__ int n_w = __N_W__;
+
+#define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
+inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=true) {
+    if (code != cudaSuccess) {
+        fprintf(stderr,"GPUassert: %s %s %d\n", cudaGetErrorString(code), file, line);
+        if (abort) exit(code);
+    }
+}
+
+__global__ void evaluate_kernel(
+        const {dtype} *inputs[],
+        {dtype} *work,
+        {dtype} *outputs[],
+        const int batch_size,
+        const int n_instances) {
+    int batch_idx = blockIdx.x;
+    int pattern_idx = blockIdx.y * blockDim.x + threadIdx.x;
+    if (batch_idx >= batch_size || pattern_idx >= n_instances) return;
+    int idx = batch_idx * n_instances + pattern_idx;
+    int env_idx = idx * n_w;__BODY__
+}
+
+extern "C" {
+
+float evaluate(const {dtype} *inputs[],
+               {dtype} *work,
+               {dtype} *outputs[],
+               const int batch_size,
+               const int n_instances) {
+    int threadsPerBlock = 256;
+    if (n_instances < threadsPerBlock) threadsPerBlock = n_instances;
+    dim3 grid(batch_size, (n_instances + threadsPerBlock - 1) / threadsPerBlock);
+    dim3 block(threadsPerBlock);
+    float milliseconds;
+    cudaEvent_t start, stop;
+    cudaEventCreate(&start);
+    cudaEventCreate(&stop);
+    cudaEventRecord(start, 0);
+    evaluate_kernel<<<grid, block>>>(inputs, work, outputs, batch_size, n_instances);
+    cudaEventRecord(stop, 0);
+    cudaEventSynchronize(stop);
+    cudaEventElapsedTime(&milliseconds, start, stop);__DEBUG__
+    return milliseconds / 1000;
+}
+
+}
+"""
+
+
+def _with_dtype(template: str, dtype: str) -> str:
+    """Fill the {dtype} placeholder with the kernel's data-scalar C type.
+
+    The templates write {dtype} at every data-scalar position; the timing return
+    type is a fixed `float`, so it is unaffected. NOTE: this changes only the
+    *kernel* — the caller must match the device buffers it passes and the
+    shared-memory byte budget (LevelPlan.shared_mem_bytes assumes 8 bytes) to the
+    chosen type, or results are garbage. The validated path is fp64.
+    """
+    return template.replace("{dtype}", dtype)
+
+
+def _build_exec_op(dtype: str) -> str:
+    """Generate the exec_op device function for the data-driven templates from the
+    single-source op->expression map (OP_EXPR_{DOUBLE,FLOAT}) — the same map the
+    unrolled OP_CUDA_DICT is derived from. Operand placeholders {0}/{1} become the
+    register args a/b. This is what makes a float interpreter use float intrinsics
+    (expf/...) rather than promoting through the double ones, and removes the 5x
+    hand-copied switch."""
+    import casadi as ca
+    from cusadi.CusadiOperations import OP_EXPR_DOUBLE, OP_EXPR_FLOAT
+    names = {getattr(ca, n): n for n in dir(ca) if n.startswith("OP_")}
+    exprs = OP_EXPR_FLOAT if dtype == "float" else OP_EXPR_DOUBLE
+    zero = "0.f" if dtype == "float" else "0.0"
+    def _rhs(expr):
+        return expr.replace("{0}", "a").replace("{1}", "b")
+    cases = "\n".join("        case %s: return %s;" % (names[op], _rhs(expr))
+                      for op, expr in exprs.items())
+    return (f"__device__ __forceinline__ {dtype} exec_op(int op, {dtype} a, {dtype} b) {{\n"
+            f"    switch (op) {{\n{cases}\n        default: return {zero};\n    }}\n}}")
+
+
+def _render_lp(template: str, dtype: str) -> str:
+    """Fill {dtype} and inject the generated exec_op into a data-driven template."""
+    return _with_dtype(template, dtype).replace("__EXEC_OP__", _build_exec_op(dtype))
+
+
 def pick_block_size(plan) -> int:
     """Smallest power of 2 >= median width, capped at 256."""
     med = plan.median_width
@@ -1506,41 +1415,129 @@ def pick_block_size(plan) -> int:
     return bs
 
 
-def write_kernel_source(filepath: str):
+def write_kernel_source(filepath: str, dtype: str = "double"):
     """Write the fixed kernel template to a .cu file."""
     os.makedirs(os.path.dirname(filepath) or ".", exist_ok=True)
     with open(filepath, "w") as f:
-        f.write(KERNEL_TEMPLATE)
+        f.write(_render_lp(KERNEL_TEMPLATE, dtype))
     return filepath
 
 
-def write_tiled_kernel_source(filepath: str):
+def write_tiled_kernel_source(filepath: str, dtype: str = "double"):
     """Write the tiled kernel template to a .cu file."""
     os.makedirs(os.path.dirname(filepath) or ".", exist_ok=True)
     with open(filepath, "w") as f:
-        f.write(TILED_KERNEL_TEMPLATE)
+        f.write(_render_lp(TILED_KERNEL_TEMPLATE, dtype))
     return filepath
 
 
-def write_stage_kernel_source(filepath: str):
+def write_stage_kernel_source(filepath: str, dtype: str = "double"):
     """Write the stage-aware kernel template to a .cu file."""
     os.makedirs(os.path.dirname(filepath) or ".", exist_ok=True)
     with open(filepath, "w") as f:
-        f.write(STAGE_KERNEL_TEMPLATE)
+        f.write(_render_lp(STAGE_KERNEL_TEMPLATE, dtype))
     return filepath
 
 
-def write_chunk_kernel_source(filepath: str):
+def write_chunk_kernel_source(filepath: str, dtype: str = "double"):
     """Write the chunked stage kernel template to a .cu file."""
     os.makedirs(os.path.dirname(filepath) or ".", exist_ok=True)
     with open(filepath, "w") as f:
-        f.write(CHUNK_KERNEL_TEMPLATE)
+        f.write(_render_lp(CHUNK_KERNEL_TEMPLATE, dtype))
     return filepath
 
 
-def write_stage_tiled_kernel_source(filepath: str):
+def write_stage_tiled_kernel_source(filepath: str, dtype: str = "double"):
     """Write the stage-aware tiled kernel template to a .cu file."""
     os.makedirs(os.path.dirname(filepath) or ".", exist_ok=True)
     with open(filepath, "w") as f:
-        f.write(STAGE_TILED_KERNEL_TEMPLATE)
+        f.write(_render_lp(STAGE_TILED_KERNEL_TEMPLATE, dtype))
+    return filepath
+
+
+def _unrolled_instruction_body(f, dtype: str = "double") -> str:
+    """One OP_CUDA_DICT_{DOUBLE,FLOAT} line per CasADi instruction (shared by the
+    sequential and 2D unrolled templates). `dtype` selects the op map so the body's
+    intrinsics/literals match the kernel's scalar type (double: exp/2.; float:
+    expf/2.f). Matches the historical generateCUDACode emission for double."""
+    from casadi import OP_CONST, OP_INPUT, OP_OUTPUT, OP_SQ, OP_SIGN
+    from cusadi.CusadiOperations import OP_CUDA_DICT_DOUBLE, OP_CUDA_DICT_FLOAT
+    op_dict = OP_CUDA_DICT_FLOAT if dtype == "float" else OP_CUDA_DICT_DOUBLE
+
+    in_idx, in_len = [], [0]
+    out_idx, out_len = [], [0]
+    for k in range(f.n_instructions()):
+        in_idx.extend(f.instruction_input(k))
+        in_len.append(len(f.instruction_input(k)))
+        out_idx.extend(f.instruction_output(k))
+        out_len.append(len(f.instruction_output(k)))
+
+    body = ""
+    o = i = 0
+    for k in range(f.n_instructions()):
+        op = f.instruction_id(k)
+        tmpl = op_dict[op]
+        o_idx, i_idx = out_idx[o], in_idx[i]
+        if op == OP_CONST:
+            body += tmpl % (o_idx, f.instruction_constant(k))
+        elif op == OP_INPUT:
+            body += tmpl % (o_idx, i_idx, i_idx, in_idx[i + 1])
+        elif op == OP_OUTPUT:
+            body += tmpl % (o_idx, o_idx, out_idx[o + 1], i_idx)
+        elif op in (OP_SQ, OP_SIGN):
+            body += tmpl % (o_idx, i_idx, i_idx)
+        elif tmpl.count("%d") == 3:
+            body += tmpl % (o_idx, i_idx, in_idx[i + 1])
+        elif tmpl.count("%d") == 2:
+            body += tmpl % (o_idx, i_idx)
+        else:
+            raise Exception("Unknown CasADi operation: " + str(op))
+        o += out_len[k + 1]
+        i += in_len[k + 1]
+    return body
+
+
+def _debug_lines(debug_mode: bool) -> str:
+    return ("\n    gpuErrchk(cudaPeekAtLastError());"
+            "\n    gpuErrchk(cudaDeviceSynchronize());") if debug_mode else ""
+
+
+def write_sequential_kernel_source(f, filepath: str, debug_mode: bool = True,
+                                   dtype: str = "double"):
+    """Write the upstream per-instruction sequential kernel for CasADi function `f`.
+
+    Emits one OP_CUDA_DICT line per instruction into SEQUENTIAL_KERNEL_TEMPLATE,
+    matching the historical generateCUDACodeDouble output.
+    """
+    src = (_with_dtype(SEQUENTIAL_KERNEL_TEMPLATE, dtype)
+           .replace("__NNZ_IN__", ",".join(str(f.nnz_in(j)) for j in range(f.n_in())))
+           .replace("__NNZ_OUT__", ",".join(str(f.nnz_out(j)) for j in range(f.n_out())))
+           .replace("__N_W__", str(f.sz_w()))
+           .replace("__BODY__", _unrolled_instruction_body(f, dtype))
+           .replace("__DEBUG__", _debug_lines(debug_mode)))
+
+    os.makedirs(os.path.dirname(filepath) or ".", exist_ok=True)
+    with open(filepath, "w") as out:
+        out.write(src)
+    return filepath
+
+
+def write_2d_kernel_source(f, filepath: str, debug_mode: bool = True,
+                           dtype: str = "double"):
+    """Write the unrolled 2-axis (batch x instance) kernel for CasADi function `f`.
+
+    Same per-instruction body as the sequential kernel, but a 2D launch with
+    idx = batch_idx*n_instances + pattern_idx. Matches the historical
+    generateCUDACode2D output.
+    """
+    src = (_with_dtype(TWOD_KERNEL_TEMPLATE, dtype)
+           .replace("__NNZ_IN__", ",".join(str(f.nnz_in(j)) for j in range(f.n_in())))
+           .replace("__NNZ_OUT__", ",".join(str(f.nnz_out(j)) for j in range(f.n_out())))
+           .replace("__N_W__", str(f.sz_w()))
+           .replace("__BODY__", _unrolled_instruction_body(f, dtype))
+           .replace("__DEBUG__", _debug_lines(debug_mode)))
+
+    os.makedirs(os.path.dirname(filepath) or ".", exist_ok=True)
+    with open(filepath, "w") as out:
+        out.write(src)
     return filepath

@@ -28,9 +28,11 @@ sys.path.insert(0, CUSADI_BUILD_DIR)
 # install path on branch feature/jax-ffi-backend.
 try:
     from .pytorch.cusadi_function import CusadiFunction
-    from .CusadiOperations import OP_CUDA_DICT, OP_PYTORCH_DICT, OP_CUDA_DICT_ORIG
+    from .CusadiOperations import (OP_CUDA_DICT_DOUBLE, OP_CUDA_DICT_FLOAT,
+                                   OP_PYTORCH_DICT, OP_JAX_DICT)
     from .generateCUDACode import generateCUDACodeDouble, generateCUDACodeFloat, generateCMakeLists, generateCUDACodeV3, generateCUDACode2D
     from .pytorch.generate_pytorch_code import generatePytorchCode
+    from .generate_jax_code import generateJaxCode
 except ImportError as _e:
     import warnings as _warnings
     _warnings.warn(f"cusadi PyTorch-path symbols unavailable: {_e}", ImportWarning)
