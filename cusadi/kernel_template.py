@@ -1,41 +1,38 @@
 """Unified level-parallel CUDA kernel template.
 
-This is the single source of truth for the data-driven level-parallel kernel that
-replaces the five separate templates in ``cusadi/level_parallel/codegen.py``
-(``KERNEL_TEMPLATE``, ``STAGE_KERNEL_TEMPLATE``, ``CHUNK_KERNEL_TEMPLATE``,
-``TILED_KERNEL_TEMPLATE``, ``STAGE_TILED_KERNEL_TEMPLATE``).
+Single source of truth for the data-driven level-parallel kernel, replacing the
+five separate templates that used to live in ``cusadi/level_parallel/codegen.py``.
 
-Design — collapse on the two axes that fold for free, specialize only on the one
-that has a hot-loop cost:
+Two axes of variation, handled differently because they cost differently:
 
-  * **Stage axis (LP / stage / chunk) — always on, runtime-parameterised.**
+  * **Stage axis (LP / stage / chunk) — always present, runtime-parameterised.**
     The kernel is stage-aware: ``grid = (batch, n_stages)`` with per-arg
     ``STAGE`` / ``SHARED`` / ``COUPLED`` indexing. Pure batch level-parallel is
     the ``n_stages == 1``, all-``STAGE`` special case (indexing reduces exactly
-    to ``inst * nnz + elem``). "Chunked stages" is the same kernel run on a
-    stamped DAG with chunk-stride indexing — a serializer concern, not a kernel
-    variant. The extra stage arithmetic lives only in the cold init/output
-    loops, never in the per-level compute loop, so folding it in is ~free.
+    to ``inst * nnz + elem``). "Chunked stages" is the same kernel on a stamped
+    DAG with chunk-stride indexing — a serializer concern, not a kernel variant.
+    The extra stage arithmetic lives only in the cold init/output loops, never in
+    the per-level compute loop, so it is ~free and always compiled in.
 
-  * **Tiling axis (untiled / tiled) — a compile-time switch (``CUSADI_TILED``).**
-    This is the *only* axis with hot-loop cost. The untiled body exploits the
-    SSA-renaming guarantee (no slot is both read and written within a level) to
-    emit a single ``__syncthreads()`` per level. The tiled body recycles shared
-    memory slots (pool reset at chunk boundaries, sub-batch reuse), which breaks
-    that guarantee, so it must read-all -> barrier -> write-all -> barrier — ~2x
-    the barriers per level. We therefore refuse to pay that on the untiled fast
-    path: ``#if CUSADI_TILED`` selects the body at compile time.
+  * **Tiling axis (untiled / tiled) — chosen here, at emit time.**
+    This is the only axis with hot-loop cost (the tiled body recycles shared
+    memory slots, so it needs ~2x the per-level ``__syncthreads()`` of the
+    untiled SSA fast path). Rather than ship both bodies behind a preprocessor
+    switch and select with ``-D`` at compile time, ``write_kernel_source(...,
+    tiled=...)`` emits *only* the chosen variant. The untiled ``.cu`` therefore
+    contains no tiling code or tiling kernel parameters at all, and nvcc is
+    invoked with no extra flags.
 
-One source file, compiled twice:
+Emitted entry points:
 
-    nvcc -DCUSADI_TILED=0 ...   -> exports evaluate_cusadi{,_stream},
-                                   configure_cusadi_shared_memory
-    nvcc -DCUSADI_TILED=1 ...   -> exports evaluate_cusadi_tiled{,_stream},
-                                   configure_cusadi_tiled_shared_memory
+    tiled=False -> evaluate_cusadi, evaluate_cusadi_stream,
+                   configure_cusadi_shared_memory
+    tiled=True  -> evaluate_cusadi_tiled, evaluate_cusadi_tiled_stream,
+                   configure_cusadi_tiled_shared_memory
 
-Both variants share the kernel signature (the tiling pointers are simply unused
-when ``CUSADI_TILED == 0``; the untiled wrapper passes nulls for them), the
-op enum, the generated ``exec_op``, and the stage-aware init/output loops.
+Both variants share the op enum, the generated ``exec_op``, and the stage-aware
+init/output loops (the ``_KERNEL_SKELETON``); only the kernel-parameter tail, the
+compute body, and the extern-C wrappers are swapped.
 
 The validated data type is fp64; ``dtype="float"`` is supported for the kernel
 body but the caller must match device buffers and the shared-memory byte budget
@@ -48,32 +45,22 @@ from cusadi.level_parallel.codegen import _render_lp
 
 
 # ---------------------------------------------------------------------------
-# Unified CUDA template.  {dtype} and __EXEC_OP__ are filled by render_kernel();
-# CUSADI_TILED is resolved by nvcc at compile time (-DCUSADI_TILED=0|1).
+# Shared skeleton.  {dtype} and __EXEC_OP__ are filled by _render_lp(); the three
+# __…__ slots are filled in write_kernel_source() from the fragments below.
 # ---------------------------------------------------------------------------
-UNIFIED_KERNEL_TEMPLATE = r"""
+_KERNEL_SKELETON = r"""
 // AUTOMATICALLY GENERATED: unified level-parallel data-driven kernel.
 //
-// Stage-aware (grid = batch x n_stages) and tiling-capable. The compute body is
-// selected at compile time by CUSADI_TILED; everything else is shared.
-//
-//   -DCUSADI_TILED=0  -> single-barrier-per-level fast path (LP / stage)
-//   -DCUSADI_TILED=1  -> chunked spill/reload + sub-batch path (tiled / stage-tiled)
-//
-// Stage modes (per arg): 0=STAGE, 1=SHARED, 2=COUPLED.
+// Stage-aware (grid = batch x n_stages). Pure batch LP is the n_stages==1,
+// all-STAGE special case. Stage modes (per arg): 0=STAGE, 1=SHARED, 2=COUPLED.
 //   STAGE   -> leading stride n_stages,        knot s = stage
 //   SHARED  -> leading stride 1,               knot s = 0
 //   COUPLED -> leading stride n_stages+span,   knot s = stage + offset
-// The unified index is  ((inst * stage_count[arg] + s) * nnz[arg] + elem),
-// with s = (mode==SHARED) ? 0 : (stage + stage_offset[arg])   (offset 0 unless
-// COUPLED). Pure batch LP is n_stages=1, all-STAGE, stage_count=1 -> inst*nnz+elem.
+// Unified index:  ((inst * stage_count[arg] + s) * nnz[arg] + elem),
+// with s = (mode==SHARED) ? 0 : (stage + stage_offset[arg]).
 #include <cuda_runtime.h>
 #include <math.h>
 #include <cstdio>
-
-#ifndef CUSADI_TILED
-#define CUSADI_TILED 0
-#endif
 
 #define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
 __host__ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=true) {
@@ -130,25 +117,7 @@ __global__ void evaluate_kernel(
         const int * __restrict__ out_elems,
         const int * __restrict__ nnz_out,
         const int * __restrict__ out_stage_mode,
-        const int * __restrict__ out_stage_count,
-        // Tiling data (unused / null when CUSADI_TILED == 0)
-        {dtype} * __restrict__ spill_buffer,
-        const int spill_stride,
-        const int n_tiles,
-        const int * __restrict__ chunk_lev_start,
-        const int * __restrict__ chunk_lev_end,
-        const int * __restrict__ bnd_spill_off,
-        const int * __restrict__ bnd_spill_cnt,
-        const int * __restrict__ bnd_spill_smem,
-        const int * __restrict__ bnd_spill_pos,
-        const int * __restrict__ bnd_reload_off,
-        const int * __restrict__ bnd_reload_cnt,
-        const int * __restrict__ bnd_reload_smem,
-        const int * __restrict__ bnd_reload_pos,
-        const int * __restrict__ lev_sb_off,
-        const int * __restrict__ lev_sb_cnt,
-        const int * __restrict__ sb_spill_smem,
-        const int * __restrict__ sb_spill_pos) {
+        const int * __restrict__ out_stage_count__TILING_PARAMS__) {
 
     extern __shared__ {dtype} w[];
     const int inst  = blockIdx.x;
@@ -171,8 +140,73 @@ __global__ void evaluate_kernel(
     }
     __syncthreads();
 
-#if CUSADI_TILED
-    // ===================== tiled compute =====================
+__COMPUTE__
+    // --- Write outputs (stage-aware indexing) ---
+    for (int i = tid; i < n_outputs; i += block_sz) {
+        int arg  = out_args[i];
+        int mode = out_stage_mode[arg];
+        int s = (mode == 1) ? 0 : stage;
+        long long base = ((long long)inst * out_stage_count[arg] + s) * nnz_out[arg];
+        outputs[arg][base + out_elems[i]] = w[out_slots[i]];
+    }
+}
+
+extern "C" {
+
+__WRAPPERS__
+} // extern "C"
+"""
+
+
+# --- kernel-signature tail: extra parameters only the tiled body needs --------
+_TILING_PARAMS = r""",
+        // Tiling data
+        {dtype} * __restrict__ spill_buffer,
+        const int spill_stride,
+        const int n_tiles,
+        const int * __restrict__ chunk_lev_start,
+        const int * __restrict__ chunk_lev_end,
+        const int * __restrict__ bnd_spill_off,
+        const int * __restrict__ bnd_spill_cnt,
+        const int * __restrict__ bnd_spill_smem,
+        const int * __restrict__ bnd_spill_pos,
+        const int * __restrict__ bnd_reload_off,
+        const int * __restrict__ bnd_reload_cnt,
+        const int * __restrict__ bnd_reload_smem,
+        const int * __restrict__ bnd_reload_pos,
+        const int * __restrict__ lev_sb_off,
+        const int * __restrict__ lev_sb_cnt,
+        const int * __restrict__ sb_spill_smem,
+        const int * __restrict__ sb_spill_pos"""
+
+
+# --- compute bodies -----------------------------------------------------------
+_COMPUTE_UNTILED = r"""    // --- Compute (untiled LP fast path) ---
+    // SSA renaming guarantees no slot is both read and written within a level,
+    // so the read/write barrier is unnecessary — one __syncthreads() per level.
+    for (int lev = 0; lev < n_levels; lev++) {
+        int offset = level_offsets[lev];
+        int width = level_widths[lev];
+        for (int base = 0; base < width; base += block_sz) {
+            int idx = base + tid;
+            {dtype} ra = 0.0, rb = 0.0;
+            int my_op = 0, my_out = 0;
+            if (idx < width) {
+                int g = offset + idx;
+                ra = w[node_in_a[g]];
+                rb = w[node_in_b[g]];
+                my_op = node_ops[g];
+                my_out = node_outs[g];
+            }
+            if (idx < width) {
+                w[my_out] = exec_op(my_op, ra, rb);
+            }
+        }
+        __syncthreads();
+    }
+"""
+
+_COMPUTE_TILED = r"""    // --- Compute (tiled: chunked spill/reload + sub-batch) ---
     // Spill buffer is per-(instance, stage). For 1-axis tiling n_stages==1 and
     // stage==0, so this reduces to inst * spill_stride.
     {dtype} * spill = spill_buffer
@@ -231,47 +265,93 @@ __global__ void evaluate_kernel(
             __syncthreads();
         }
     }
-#else
-    // ===================== untiled compute (LP fast path) =====================
-    // SSA renaming guarantees no slot is both read and written within a level,
-    // so the read/write barrier is unnecessary — one __syncthreads() per level.
-    for (int lev = 0; lev < n_levels; lev++) {
-        int offset = level_offsets[lev];
-        int width = level_widths[lev];
-        for (int base = 0; base < width; base += block_sz) {
-            int idx = base + tid;
-            {dtype} ra = 0.0, rb = 0.0;
-            int my_op = 0, my_out = 0;
-            if (idx < width) {
-                int g = offset + idx;
-                ra = w[node_in_a[g]];
-                rb = w[node_in_b[g]];
-                my_op = node_ops[g];
-                my_out = node_outs[g];
-            }
-            if (idx < width) {
-                w[my_out] = exec_op(my_op, ra, rb);
-            }
-        }
-        __syncthreads();
-    }
-#endif
+"""
 
-    // --- Write outputs (stage-aware indexing) ---
-    for (int i = tid; i < n_outputs; i += block_sz) {
-        int arg  = out_args[i];
-        int mode = out_stage_mode[arg];
-        int s = (mode == 1) ? 0 : stage;
-        long long base = ((long long)inst * out_stage_count[arg] + s) * nnz_out[arg];
-        outputs[arg][base + out_elems[i]] = w[out_slots[i]];
-    }
+
+# --- extern-C wrappers --------------------------------------------------------
+_WRAPPERS_UNTILED = r"""float evaluate_cusadi(
+        const {dtype} *inputs[],
+        {dtype} *outputs[],
+        const int total_instances,
+        const int n_stages,
+        const int block_size,
+        const int shared_bytes,
+        const int n_consts, const int *const_slots, const {dtype} *const_vals,
+        const int n_inputs, const int *input_slots, const int *input_args,
+        const int *input_elems, const int *nnz_in,
+        const int *in_stage_mode, const int *in_stage_offset, const int *in_stage_count,
+        const int n_levels, const int *level_offsets, const int *level_widths,
+        const int *node_ops, const int *node_outs, const int *node_in_a, const int *node_in_b,
+        const int n_outputs, const int *out_slots, const int *out_args,
+        const int *out_elems, const int *nnz_out,
+        const int *out_stage_mode, const int *out_stage_count) {
+
+    dim3 grid(total_instances, n_stages);
+    dim3 block(block_size);
+    float milliseconds;
+    cudaEvent_t start, stop;
+    cudaEventCreate(&start);
+    cudaEventCreate(&stop);
+    cudaEventRecord(start, 0);
+    evaluate_kernel<<<grid, block, shared_bytes>>>(
+        inputs, outputs, total_instances, n_stages,
+        n_consts, const_slots, const_vals,
+        n_inputs, input_slots, input_args, input_elems, nnz_in,
+        in_stage_mode, in_stage_offset, in_stage_count,
+        n_levels, level_offsets, level_widths,
+        node_ops, node_outs, node_in_a, node_in_b,
+        n_outputs, out_slots, out_args, out_elems, nnz_out,
+        out_stage_mode, out_stage_count);
+    cudaEventRecord(stop, 0);
+    cudaEventSynchronize(stop);
+    cudaEventElapsedTime(&milliseconds, start, stop);
+    gpuErrchk(cudaPeekAtLastError());
+    gpuErrchk(cudaDeviceSynchronize());
+    return milliseconds / 1000.0f;
 }
 
-extern "C" {
+int evaluate_cusadi_stream(
+        const {dtype} *inputs[],
+        {dtype} *outputs[],
+        const int total_instances,
+        const int n_stages,
+        const int block_size,
+        const int shared_bytes,
+        const int n_consts, const int *const_slots, const {dtype} *const_vals,
+        const int n_inputs, const int *input_slots, const int *input_args,
+        const int *input_elems, const int *nnz_in,
+        const int *in_stage_mode, const int *in_stage_offset, const int *in_stage_count,
+        const int n_levels, const int *level_offsets, const int *level_widths,
+        const int *node_ops, const int *node_outs, const int *node_in_a, const int *node_in_b,
+        const int n_outputs, const int *out_slots, const int *out_args,
+        const int *out_elems, const int *nnz_out,
+        const int *out_stage_mode, const int *out_stage_count,
+        cudaStream_t stream) {
 
-#if CUSADI_TILED
+    dim3 grid(total_instances, n_stages);
+    dim3 block(block_size);
+    evaluate_kernel<<<grid, block, shared_bytes, stream>>>(
+        inputs, outputs, total_instances, n_stages,
+        n_consts, const_slots, const_vals,
+        n_inputs, input_slots, input_args, input_elems, nnz_in,
+        in_stage_mode, in_stage_offset, in_stage_count,
+        n_levels, level_offsets, level_widths,
+        node_ops, node_outs, node_in_a, node_in_b,
+        n_outputs, out_slots, out_args, out_elems, nnz_out,
+        out_stage_mode, out_stage_count);
+    cudaError_t err = cudaPeekAtLastError();
+    return (int)err;
+}
 
-float evaluate_cusadi_tiled(
+int configure_cusadi_shared_memory(int shared_bytes) {
+    cudaFuncSetAttribute(evaluate_kernel,
+                         cudaFuncAttributeMaxDynamicSharedMemorySize,
+                         shared_bytes);
+    return 0;
+}
+"""
+
+_WRAPPERS_TILED = r"""float evaluate_cusadi_tiled(
         const {dtype} *inputs[],
         {dtype} *outputs[],
         const int total_instances,
@@ -377,124 +457,25 @@ int configure_cusadi_tiled_shared_memory(int shared_bytes) {
                          shared_bytes);
     return 0;
 }
-
-#else  // ----------------------------- untiled -----------------------------
-
-float evaluate_cusadi(
-        const {dtype} *inputs[],
-        {dtype} *outputs[],
-        const int total_instances,
-        const int n_stages,
-        const int block_size,
-        const int shared_bytes,
-        const int n_consts, const int *const_slots, const {dtype} *const_vals,
-        const int n_inputs, const int *input_slots, const int *input_args,
-        const int *input_elems, const int *nnz_in,
-        const int *in_stage_mode, const int *in_stage_offset, const int *in_stage_count,
-        const int n_levels, const int *level_offsets, const int *level_widths,
-        const int *node_ops, const int *node_outs, const int *node_in_a, const int *node_in_b,
-        const int n_outputs, const int *out_slots, const int *out_args,
-        const int *out_elems, const int *nnz_out,
-        const int *out_stage_mode, const int *out_stage_count) {
-
-    dim3 grid(total_instances, n_stages);
-    dim3 block(block_size);
-    float milliseconds;
-    cudaEvent_t start, stop;
-    cudaEventCreate(&start);
-    cudaEventCreate(&stop);
-    cudaEventRecord(start, 0);
-    evaluate_kernel<<<grid, block, shared_bytes>>>(
-        inputs, outputs, total_instances, n_stages,
-        n_consts, const_slots, const_vals,
-        n_inputs, input_slots, input_args, input_elems, nnz_in,
-        in_stage_mode, in_stage_offset, in_stage_count,
-        n_levels, level_offsets, level_widths,
-        node_ops, node_outs, node_in_a, node_in_b,
-        n_outputs, out_slots, out_args, out_elems, nnz_out,
-        out_stage_mode, out_stage_count,
-        // tiling params unused on this path
-        nullptr, 0, 1, nullptr, nullptr,
-        nullptr, nullptr, nullptr, nullptr,
-        nullptr, nullptr, nullptr, nullptr,
-        nullptr, nullptr, nullptr, nullptr);
-    cudaEventRecord(stop, 0);
-    cudaEventSynchronize(stop);
-    cudaEventElapsedTime(&milliseconds, start, stop);
-    gpuErrchk(cudaPeekAtLastError());
-    gpuErrchk(cudaDeviceSynchronize());
-    return milliseconds / 1000.0f;
-}
-
-int evaluate_cusadi_stream(
-        const {dtype} *inputs[],
-        {dtype} *outputs[],
-        const int total_instances,
-        const int n_stages,
-        const int block_size,
-        const int shared_bytes,
-        const int n_consts, const int *const_slots, const {dtype} *const_vals,
-        const int n_inputs, const int *input_slots, const int *input_args,
-        const int *input_elems, const int *nnz_in,
-        const int *in_stage_mode, const int *in_stage_offset, const int *in_stage_count,
-        const int n_levels, const int *level_offsets, const int *level_widths,
-        const int *node_ops, const int *node_outs, const int *node_in_a, const int *node_in_b,
-        const int n_outputs, const int *out_slots, const int *out_args,
-        const int *out_elems, const int *nnz_out,
-        const int *out_stage_mode, const int *out_stage_count,
-        cudaStream_t stream) {
-
-    dim3 grid(total_instances, n_stages);
-    dim3 block(block_size);
-    evaluate_kernel<<<grid, block, shared_bytes, stream>>>(
-        inputs, outputs, total_instances, n_stages,
-        n_consts, const_slots, const_vals,
-        n_inputs, input_slots, input_args, input_elems, nnz_in,
-        in_stage_mode, in_stage_offset, in_stage_count,
-        n_levels, level_offsets, level_widths,
-        node_ops, node_outs, node_in_a, node_in_b,
-        n_outputs, out_slots, out_args, out_elems, nnz_out,
-        out_stage_mode, out_stage_count,
-        nullptr, 0, 1, nullptr, nullptr,
-        nullptr, nullptr, nullptr, nullptr,
-        nullptr, nullptr, nullptr, nullptr,
-        nullptr, nullptr, nullptr, nullptr);
-    cudaError_t err = cudaPeekAtLastError();
-    return (int)err;
-}
-
-int configure_cusadi_shared_memory(int shared_bytes) {
-    cudaFuncSetAttribute(evaluate_kernel,
-                         cudaFuncAttributeMaxDynamicSharedMemorySize,
-                         shared_bytes);
-    return 0;
-}
-
-#endif  // CUSADI_TILED
-
-} // extern "C"
 """
 
 
-def render_kernel(dtype: str = "double") -> str:
-    """Fill {dtype} and inject the generated exec_op into the unified template.
+def write_kernel_source(filepath: str, dtype: str = "double",
+                        tiled: bool = False) -> str:
+    """Write a fully-specialized unified kernel .cu file.
 
-    The result still contains the ``#if CUSADI_TILED`` preprocessor switch; pick
-    the variant at compile time with ``-DCUSADI_TILED=0`` (untiled / LP fast
-    path) or ``-DCUSADI_TILED=1`` (tiled). Both share this single source file.
+    ``tiled`` selects the variant at emit time, so the output contains only that
+    variant's code — no preprocessor switch, no unused tiling parameters — and
+    nvcc needs no extra flags::
+
+        nvcc --shared -Xcompiler -fPIC -o liblp.so       kernel.cu        # untiled
+        nvcc --shared -Xcompiler -fPIC -o liblp_tiled.so kernel_tiled.cu  # tiled
     """
-    return _render_lp(UNIFIED_KERNEL_TEMPLATE, dtype)
-
-
-def write_kernel_source(filepath: str, dtype: str = "double") -> str:
-    """Write the unified kernel template to a .cu file.
-
-    Compile it twice to get both variants, e.g.::
-
-        nvcc -DCUSADI_TILED=0 -o liblp.so        --shared -Xcompiler -fPIC kernel.cu
-        nvcc -DCUSADI_TILED=1 -o liblp_tiled.so  --shared -Xcompiler -fPIC kernel.cu
-    """
+    src = (_KERNEL_SKELETON
+           .replace("__TILING_PARAMS__", _TILING_PARAMS if tiled else "")
+           .replace("__COMPUTE__", _COMPUTE_TILED if tiled else _COMPUTE_UNTILED)
+           .replace("__WRAPPERS__", _WRAPPERS_TILED if tiled else _WRAPPERS_UNTILED))
     os.makedirs(os.path.dirname(filepath) or ".", exist_ok=True)
     with open(filepath, "w") as f:
-        f.write(render_kernel(dtype))
+        f.write(_render_lp(src, dtype))
     return filepath
