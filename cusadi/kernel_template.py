@@ -41,11 +41,9 @@ to the chosen type.
 
 import os
 
-from cusadi.level_parallel.codegen import _render_lp
-
 
 # ---------------------------------------------------------------------------
-# Shared skeleton.  {dtype} and __EXEC_OP__ are filled by _render_lp(); the three
+# Shared skeleton.  {dtype} and __EXEC_OP__ are filled by _render(); the three
 # __…__ slots are filled in write_kernel_source() from the fragments below.
 # ---------------------------------------------------------------------------
 _KERNEL_SKELETON = r"""
@@ -460,6 +458,24 @@ int configure_cusadi_tiled_shared_memory(int shared_bytes) {
 """
 
 
+def _render(template: str, dtype: str) -> str:
+    """Fill {dtype} and inject the exec_op device function, built from the
+    single-source op->expression map so a float interpreter uses float intrinsics
+    (expf/...) instead of promoting through double."""
+    import casadi as ca
+    from cusadi.CusadiOperations import OP_EXPR_DOUBLE, OP_EXPR_FLOAT
+    names = {getattr(ca, n): n for n in dir(ca) if n.startswith("OP_")}
+    exprs = OP_EXPR_FLOAT if dtype == "float" else OP_EXPR_DOUBLE
+    zero = "0.f" if dtype == "float" else "0.0"
+    cases = "\n".join(
+        "        case %s: return %s;" % (names[op], e.replace("{0}", "a").replace("{1}", "b"))
+        for op, e in exprs.items())
+    exec_op = ("__device__ __forceinline__ %s exec_op(int op, %s a, %s b) {\n"
+               "    switch (op) {\n%s\n        default: return %s;\n    }\n}"
+               % (dtype, dtype, dtype, cases, zero))
+    return template.replace("{dtype}", dtype).replace("__EXEC_OP__", exec_op)
+
+
 def write_kernel_source(filepath: str, dtype: str = "double",
                         tiled: bool = False) -> str:
     """Write a fully-specialized unified kernel .cu file.
@@ -477,5 +493,5 @@ def write_kernel_source(filepath: str, dtype: str = "double",
            .replace("__WRAPPERS__", _WRAPPERS_TILED if tiled else _WRAPPERS_UNTILED))
     os.makedirs(os.path.dirname(filepath) or ".", exist_ok=True)
     with open(filepath, "w") as f:
-        f.write(_render_lp(src, dtype))
+        f.write(_render(src, dtype))
     return filepath
