@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cusadi2"
+version = "0.1.0"
+description = "Level and stage parallel GPU evaluation of batched CasADi functions."
+readme = "README.md"
+requires-python = ">=3.9"
+license = "MIT"
+authors = [
+    { name = "John Viljoen", email = "john_viljoen@berkeley.edu" },
+]
+
+dependencies = [
+    "casadi",
+    "numpy",
+    "matplotlib",
+]
+
+# At least one of these provides a CUDA toolchain (the nvcc used to compile the
+# generated kernels) and keeps cusadi2 interoperable with the jax / torch stacks
+# for later Python-side work.
+#   pip install -e ".[jax]"
+#   pip install -e ".[torch]"
+[project.optional-dependencies]
+jax = ["jax[cuda13]"]
+torch = ["torch"]
+
+[tool.setuptools]
+# Pure-Python package. The CUDA kernel is generated and compiled by nvcc at use
+# time (see examples/native), not built as an extension at install time.
+packages = ["cusadi2"]
+
+[tool.setuptools.package-data]
+cusadi2 = ["*.h"]
