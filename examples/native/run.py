@@ -103,6 +103,10 @@ def main() -> int:
                os.path.join(HERE, "selfcheck.cu"), os.path.join(outdir, "kernel.cu"),
                "-o", binpath]
         print(f"=== {dtype} ===")
+        if dtype == "float":
+            print("note: f32 outputs are checked against the DOUBLE-precision CasADi reference,")
+            print("      so maxrel reflects single-precision loss, not kernel error — well-")
+            print("      conditioned funcs stay ~1e-6, ill-conditioned Jacobians (a1_jac) ~1e-1.")
         print("nvcc:", " ".join(cmd))
         subprocess.run(cmd, check=True)
 
