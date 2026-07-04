@@ -52,6 +52,21 @@ extern "C" float evaluate_cusadi(
     const int* node_ops, const int* node_outs, const int* node_in_a, const int* node_in_b,
     int n_outputs, const int* out_slots, const int* out_args, const int* out_elems,
     const int* nnz_out, const int* out_stage_mode, const int* out_stage_count);
+// Stream-aware sibling: identical, launches on `stream` and does NOT synchronize
+// (no event timing, no cudaDeviceSynchronize). Use this for single-stream pipelines
+// and CUDA-graph capture. Returns cudaPeekAtLastError() as int.
+extern "C" int evaluate_cusadi_stream(
+    const CUSADI2_SCALAR* inputs[], CUSADI2_SCALAR* outputs[], int total_instances, int n_stages,
+    int block_size, int shared_bytes,
+    int n_consts, const int* const_slots, const CUSADI2_SCALAR* const_vals,
+    int n_inputs, const int* input_slots, const int* input_args, const int* input_elems,
+    const int* nnz_in, const int* in_stage_mode, const int* in_stage_offset,
+    const int* in_stage_count,
+    int n_levels, const int* level_offsets, const int* level_widths,
+    const int* node_ops, const int* node_outs, const int* node_in_a, const int* node_in_b,
+    int n_outputs, const int* out_slots, const int* out_args, const int* out_elems,
+    const int* nnz_out, const int* out_stage_mode, const int* out_stage_count,
+    cudaStream_t stream);
 extern "C" int configure_cusadi_shared_memory(int shared_bytes);
 
 namespace cusadi2 {
@@ -109,6 +124,11 @@ struct StageProgram {
     // host copies for the per-n_stages count recompute
     std::vector<int> in_mode_, in_span_, out_mode_;
     int *d_in_count = nullptr, *d_out_count = nullptr;   // recomputed per n_stages
+    // persistent count cache for the stream path: the per-arg stage counts depend only
+    // on n_stages, so we upload them once and skip the memcpy on subsequent same-n_stages
+    // calls (keeps the hot path a pure kernel launch -> single-stream, graph-capturable).
+    std::vector<int> ic_, oc_;
+    int count_stages_ = -1;
 
     void upload(const StagePlanHost& p) {
         using namespace detail;
@@ -166,6 +186,33 @@ struct StageProgram {
             d_node_ops, d_node_outs, d_node_in_a, d_node_in_b,
             b.n_output_maps, d_out_slots, d_out_args, d_out_elems, d_nnz_out,
             d_out_mode, d_out_count);
+    }
+
+    // Stream-aware, sync-free evaluate. All work (count upload + kernel) is ordered on
+    // `stream`; the count upload is skipped whenever n_stages is unchanged, so a steady
+    // run is a single kernel launch per call with no host sync -> capturable in a graph.
+    int evaluate(const CUSADI2_SCALAR** d_in, CUSADI2_SCALAR** d_out, int batch, int n_stages,
+                 cudaStream_t stream) {
+        const LPPlanHost& b = h.base;
+        const int ni = b.n_args_in, no = b.n_args_out;
+        if (n_stages != count_stages_) {                 // one-time (or on n_stages change)
+            ic_.resize(ni); oc_.resize(no);
+            for (int a = 0; a < ni; ++a) ic_[a] = in_stage_count(a, n_stages);
+            for (int a = 0; a < no; ++a) oc_[a] = out_stage_count(a, n_stages);
+            CUSADI2_CHECK(cudaMemcpyAsync(d_in_count, ic_.data(), size_t(ni) * sizeof(int),
+                                          cudaMemcpyHostToDevice, stream));
+            CUSADI2_CHECK(cudaMemcpyAsync(d_out_count, oc_.data(), size_t(no) * sizeof(int),
+                                          cudaMemcpyHostToDevice, stream));
+            count_stages_ = n_stages;
+        }
+        return evaluate_cusadi_stream(d_in, d_out, batch, n_stages, b.block_size, b.shared_bytes,
+            b.n_consts, d_const_slots, d_const_vals,
+            b.n_input_maps, d_input_slots, d_input_args, d_input_elems, d_nnz_in,
+            d_in_mode, d_in_offset, d_in_count,
+            b.n_levels, d_level_offsets, d_level_widths,
+            d_node_ops, d_node_outs, d_node_in_a, d_node_in_b,
+            b.n_output_maps, d_out_slots, d_out_args, d_out_elems, d_nnz_out,
+            d_out_mode, d_out_count, stream);
     }
 };
 

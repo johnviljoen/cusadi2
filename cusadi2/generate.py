@@ -105,7 +105,7 @@ def generate_native_plan(fn, filepath, in_mode=None, in_offset=None, in_span=Non
 
     n_args_in = len(plan.nnz_in)
     n_args_out = len(plan.nnz_out)
-    shared_bytes = plan.peak_live_slots * 8
+    shared_bytes = plan.peak_live_slots * (4 if dtype == "float" else 8)
     block_size = pick_block_size(plan)
 
     ref_in, ref_out = _reference(fn, in_mode, in_offset, in_span, plan.nnz_in,
