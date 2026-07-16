@@ -11,6 +11,11 @@ run.py and writes <stem>.png + <stem>.pdf next to them.
 If a matching MuJoCo MJX result (results/mjx_<robot>_<fpXX>.json) is present, its
 FK / frame-Jacobian curve is overlaid (precision-matched: fp64 figure gets MJX
 fp64, fp32 figure gets MJX fp32), capped at the MJX batch range.
+
+If the Python-called cusadi2 sweep (results/latency_py_<dtype>.csv, from run.py
+--pylib) is present, each config also gets a same-color dashed x-marked twin —
+the wall-clock through Python + ctypes, host-language-symmetric with the MJX and
+mujoco-warp baselines (which are timed from Python).
 """
 import csv
 import json
@@ -81,6 +86,10 @@ def plot_one(csv_path, out_dir, n_stages):
     import matplotlib.pyplot as plt
 
     data = _read(csv_path)
+    # Python-called twin sweep (run.py --pylib), if it has been produced.
+    py_csv = os.path.join(os.path.dirname(csv_path),
+                          os.path.basename(csv_path).replace("latency_", "latency_py_"))
+    py_data = _read(py_csv) if os.path.exists(py_csv) else {}
     dtype = "fp64" if "double" in os.path.basename(csv_path) else "fp32"
     fig, axes = plt.subplots(2, 2, figsize=(11, 8), sharex=True)
     for ax, (func, title) in zip(axes.flat, FUNCS):
@@ -88,7 +97,11 @@ def plot_one(csv_path, out_dir, n_stages):
         for cfg, label in CONFIGS:
             if cfg in series:
                 bs, us = series[cfg]
-                ax.plot(bs, us, marker="o", ms=4, label=label)
+                (ln,) = ax.plot(bs, us, marker="o", ms=4, label=label)
+                p = py_data.get(func, {}).get(cfg)
+                if p:   # same config through Python + ctypes: same color, dashed, x
+                    ax.plot(p[0], p[1], color=ln.get_color(), ls="--", marker="x",
+                            ms=5, lw=1, alpha=0.8)
         # MJX baseline overlay (precision-matched). Two curves, both doing B*N
         # total evals like cusadi2: batched (parallel horizon) and rollout
         # (N sequential mjx.step()s). FK panels use the fk_* series, Jacobian
@@ -116,6 +129,9 @@ def plot_one(csv_path, out_dir, n_stages):
         ax.grid(True, which="both", ls=":", alpha=0.5)
         ax.set_xlabel("batch size B")
         ax.set_ylabel("wall-clock latency (µs)")
+    if py_data:
+        axes.flat[0].plot([], [], color="gray", ls="--", marker="x", ms=5, lw=1,
+                          label="dashed ×: same, called from Python (ctypes)")
     axes.flat[0].legend(fontsize=8, loc="upper left")
     fig.suptitle(f"Single-call wall-clock latency vs batch  "
                  f"({dtype}, horizon N={n_stages}, total work = B·N)", fontsize=13)

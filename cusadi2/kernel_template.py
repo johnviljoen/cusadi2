@@ -149,12 +149,13 @@ __COMPUTE__
     }
 }
 
-extern "C" {
-
 __WRAPPERS__
-} // extern "C"
 """
 
+# extern "C" {
+# 
+# __WRAPPERS__
+# } // extern "C"
 
 # --- kernel-signature tail: extra parameters only the tiled body needs --------
 _TILING_PARAMS = r""",
@@ -342,6 +343,14 @@ int evaluate_cusadi_stream(
 }
 
 int configure_cusadi_shared_memory(int shared_bytes) {
+    // evaluate_kernel is ONE symbol shared by every uploaded plan (the interpreters are
+    // identical); cudaFuncAttributeMaxDynamicSharedMemorySize REPLACES the cap, including
+    // LOWERING it below the 48KB default -- so a later, smaller plan's upload() must not
+    // shrink the cap under an earlier, larger plan's launches (silent invalid-argument
+    // launch failures on every evaluate of the larger plan). Only ever RAISE the cap.
+    static int configured = 49152;   // the CUDA default dynamic-shared cap
+    if (shared_bytes <= configured) return 0;
+    configured = shared_bytes;
     cudaFuncSetAttribute(evaluate_kernel,
                          cudaFuncAttributeMaxDynamicSharedMemorySize,
                          shared_bytes);
@@ -450,6 +459,14 @@ int evaluate_cusadi_tiled_stream(
 }
 
 int configure_cusadi_tiled_shared_memory(int shared_bytes) {
+    // evaluate_kernel is ONE symbol shared by every uploaded plan (the interpreters are
+    // identical); cudaFuncAttributeMaxDynamicSharedMemorySize REPLACES the cap, including
+    // LOWERING it below the 48KB default -- so a later, smaller plan's upload() must not
+    // shrink the cap under an earlier, larger plan's launches (silent invalid-argument
+    // launch failures on every evaluate of the larger plan). Only ever RAISE the cap.
+    static int configured = 49152;   // the CUDA default dynamic-shared cap
+    if (shared_bytes <= configured) return 0;
+    configured = shared_bytes;
     cudaFuncSetAttribute(evaluate_kernel,
                          cudaFuncAttributeMaxDynamicSharedMemorySize,
                          shared_bytes);

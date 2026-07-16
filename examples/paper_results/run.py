@@ -25,6 +25,13 @@ The unrolled horizon's shared memory grows ~N x the per-stage peak, so N is kept
 at 8 — the largest horizon whose unrolled plans all fit the device's per-block
 limit (cusadi2 has no tiling scheduler yet).
 
+Host-language symmetry: the MJX/warp baselines are timed from Python, so the
+cusadi2 sweep is ALSO run a second time through a ctypes-loaded shared build of
+latency.cu (--pylib mode, -> ./results/latency_py_<dtype>.csv), with
+time.perf_counter() around each evaluate() — the Python-called wall-clock,
+including the interpreter + FFI dispatch a real Python deployment would pay.
+The C++-hosted numbers stay in latency_<dtype>.csv; plot.py overlays both.
+
 MJX baseline: the same FK / frame-Jacobian workload in MuJoCo MJX (jax.vmap+jit,
 contacts off), timed up to batch 1024 (its JIT compile is too slow above that).
 To make the comparison "the same thing", BOTH backends evaluate the *identical*
@@ -390,6 +397,49 @@ def run_warp(robot, batches, n_stages, n_warmup, n_evals):
             "compile_once_s": compile_once}
 
 
+def run_pylib(lib_path, fp, batches, n_stages, n_warmup, n_timed, out_csv):
+    """Time the native cusadi2 kernel from Python via ctypes — the host-language-
+    symmetric counterpart to the MJX/warp wall-clock numbers. Same sweep and CSV
+    schema as the C++ binary; wall_us here includes Python + FFI dispatch. Runs as
+    `python run.py --pylib ...` in its own process (clean CUDA context, same
+    CUDA_VISIBLE_DEVICES treatment as the MJX subprocesses)."""
+    import ctypes
+    lib = ctypes.CDLL(lib_path)
+    lib.c2_setup.restype = ctypes.c_int
+    lib.c2_setup.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_int, ctypes.c_int]
+    lib.c2_eval.restype = ctypes.c_double
+    lib.c2_eval.argtypes = [ctypes.c_int]
+    lib.c2_teardown.argtypes = [ctypes.c_int]
+
+    dt = {"fp32": "f32", "fp64": "f64"}[fp]
+    configs = [("full", n_stages), ("staged", n_stages), ("lp", 1), ("batch", 1)]
+    rows = ["dtype,func,config,batch,n_stages,grid_blocks,latency_us,wall_us"]
+    for _, stem, _ in FUNCS:
+        for B in batches:
+            for cfg, nst in configs:
+                h = lib.c2_setup(stem.encode(), cfg.encode(), B, n_stages)
+                if h < 0:                       # infeasible (smem limit / would OOM)
+                    rows.append(f"{dt},{stem},{cfg},{B},{nst},{B * nst},nan,nan")
+                    continue
+                for _ in range(n_warmup):
+                    lib.c2_eval(h)
+                kus, wus = [], []
+                for _ in range(n_timed):
+                    t0 = time.perf_counter()
+                    k = lib.c2_eval(h)          # count upload + launch + kernel + sync
+                    wus.append((time.perf_counter() - t0) * 1e6)
+                    kus.append(k * 1e6)
+                lib.c2_teardown(h)
+                kus.sort(); wus.sort()
+                k_med, w_med = kus[len(kus) // 2], wus[len(wus) // 2]
+                rows.append(f"{dt},{stem},{cfg},{B},{nst},{B * nst},{k_med:.3f},{w_med:.3f}")
+                print(f"[pylib] {stem:9s} {cfg:6s} B={B:6d}: wall {w_med:9.1f} us "
+                      f"(kernel {k_med:.1f} us)")
+    with open(out_csv, "w") as f:
+        f.write("\n".join(rows) + "\n")
+    print(f"wrote {out_csv}")
+
+
 def gpu_arch() -> str:
     cc = subprocess.check_output(
         ["nvidia-smi", "--query-gpu=compute_cap", "--format=csv,noheader", "-i", DEVICE]
@@ -402,10 +452,15 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--mjx", action="store_true", help="(internal) run the MJX bench and exit")
     ap.add_argument("--warp", action="store_true", help="(internal) run the mujoco-warp FK bench and exit")
+    ap.add_argument("--pylib", action="store_true", help="(internal) run the Python-called cusadi2 bench and exit")
     ap.add_argument("--robot", choices=list(ROBOTS))
     ap.add_argument("--dtype", choices=["fp32", "fp64"])
+    ap.add_argument("--lib", help="(--pylib) path to the shared latency library")
     ap.add_argument("--out")
     args = ap.parse_args()
+    if args.pylib:
+        run_pylib(args.lib, args.dtype, BATCHES, N_STAGES, N_WARMUP, N_TIMED, args.out)
+        return 0
     if args.mjx or args.warp:
         if args.mjx:
             out = run_mjx(args.robot, args.dtype, MJX_BATCHES, N_STAGES, MJX_N_WARMUP, MJX_N_EVALS)
@@ -469,6 +524,22 @@ def main() -> int:
             rc |= subprocess.run(cmd, env=env, stdout=f).returncode
         print(f"  wrote {csv}")
         csvs.append(csv)
+
+        # Same sweep, called from Python: latency.cu rebuilt as a ctypes-loadable
+        # shared library (-DCUSADI2_BENCH_LIB drops main), timed in a subprocess
+        # with time.perf_counter() — host-language-symmetric with MJX/warp.
+        libpath = os.path.join(outdir, "latency_lib.so")
+        cmd = [NVCC, "-std=c++14", "-O3", f"-arch={arch}", "-shared",
+               "-Xcompiler", "-fPIC", "-DCUSADI2_BENCH_LIB",
+               f"-DCUSADI2_SCALAR={dtype}", f"-I{PKG}", f"-I{outdir}",
+               os.path.join(HERE, "latency.cu"), os.path.join(outdir, "kernel.cu"),
+               "-o", libpath]
+        subprocess.run(cmd, check=True)
+        pycsv = os.path.join(RESULTS, f"latency_py_{dtype}.csv")
+        print(f"=== running {dtype} from Python (ctypes) ===")
+        cmd = [sys.executable, os.path.abspath(__file__), "--pylib",
+               "--dtype", DT2FP[dtype], "--lib", libpath, "--out", pycsv]
+        rc |= subprocess.run(cmd, env=env).returncode
 
     # --- MJX baseline (one subprocess per robot x dtype) ---------------------
     mjx_env = dict(os.environ, CUDA_VISIBLE_DEVICES=DEVICE,

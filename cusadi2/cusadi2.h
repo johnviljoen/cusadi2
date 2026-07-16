@@ -41,7 +41,7 @@
 
 // --- kernel entry points (defined in the cusadi2.kernel_template .cu) ---------
 // Names/signature match the wrappers write_kernel_source emits exactly.
-extern "C" float evaluate_cusadi(
+float evaluate_cusadi(
     const CUSADI2_SCALAR* inputs[], CUSADI2_SCALAR* outputs[], int total_instances, int n_stages,
     int block_size, int shared_bytes,
     int n_consts, const int* const_slots, const CUSADI2_SCALAR* const_vals,
@@ -55,7 +55,7 @@ extern "C" float evaluate_cusadi(
 // Stream-aware sibling: identical, launches on `stream` and does NOT synchronize
 // (no event timing, no cudaDeviceSynchronize). Use this for single-stream pipelines
 // and CUDA-graph capture. Returns cudaPeekAtLastError() as int.
-extern "C" int evaluate_cusadi_stream(
+int evaluate_cusadi_stream(
     const CUSADI2_SCALAR* inputs[], CUSADI2_SCALAR* outputs[], int total_instances, int n_stages,
     int block_size, int shared_bytes,
     int n_consts, const int* const_slots, const CUSADI2_SCALAR* const_vals,
@@ -67,7 +67,7 @@ extern "C" int evaluate_cusadi_stream(
     int n_outputs, const int* out_slots, const int* out_args, const int* out_elems,
     const int* nnz_out, const int* out_stage_mode, const int* out_stage_count,
     cudaStream_t stream);
-extern "C" int configure_cusadi_shared_memory(int shared_bytes);
+int configure_cusadi_shared_memory(int shared_bytes);
 
 namespace cusadi2 {
 

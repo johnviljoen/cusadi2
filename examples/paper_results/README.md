@@ -92,9 +92,26 @@ Two MJX curves per panel, **both doing `B·N` total evaluations** at plotted `B`
   the practical upper bound; the batched curve is the like-for-like one.
 
 Timing is wall-clock around `block_until_ready` (median of `MJX_N_EVALS`), matching
-the old cusadi MJX benchmark; note this includes jax dispatch overhead whereas the
-cusadi2 numbers are `cudaEvent` kernel-only — a small asymmetry in MJX's favour at
-low batch.
+the old cusadi MJX benchmark.
+
+### Timing symmetry
+
+The latency figures plot **end-to-end wall-clock on every curve**: cusadi2's
+`wall_us` is a host timer around the whole `evaluate()` call (count upload +
+launch dispatch + kernel + device sync), symmetric with the
+`block_until_ready` / `synchronize_device` timing of the MJX and warp baselines.
+The `cudaEvent` kernel-only time (`latency_us`) is used only in the throughput
+figures, where the MJX side is likewise overhead-stripped (repeat-subtraction
+marginal GPU time).
+
+One asymmetry remains in the C++ sweep: its wall-clock runs in a compiled binary,
+while MJX/warp pay Python interpreter dispatch. So the sweep is run a **second
+time from Python**: `latency.cu` is rebuilt as a shared library
+(`-DCUSADI2_BENCH_LIB`, drops `main`), loaded via ctypes, and each `evaluate()`
+is timed with `time.perf_counter()` in a subprocess (`run.py --pylib`) — the
+wall-clock a real Python deployment would see, including FFI dispatch. These
+appear as same-color dashed ×-marked twins on the latency panels; the gap to the
+solid curves is the Python-hosting cost.
 
 ### mujoco-warp baseline (FK panels only)
 
@@ -135,10 +152,13 @@ Env overrides: `CUSADI2_GPU` (device index, default `1`), `NVCC`.
 - `build/<dtype>/` — generated `kernel.cu`, per function a per-stage and an
   unrolled `*_plan.h` header, and the compiled `latency` binary (transient).
 - `results/latency_<dtype>.csv` — one row per `(func, config, B)`:
-  `dtype,func,config,batch,n_stages,grid_blocks,latency_us`. A `nan` latency means
-  that case was skipped — either its unrolled plan exceeds the device per-block
-  shared-memory limit (infeasible without tiling) or its buffers exceed ~90% of
-  free GPU memory.
+  `dtype,func,config,batch,n_stages,grid_blocks,latency_us,wall_us` (cudaEvent
+  kernel-only and C++-hosted end-to-end). A `nan` latency means that case was
+  skipped — either its unrolled plan exceeds the device per-block shared-memory
+  limit (infeasible without tiling) or its buffers exceed ~90% of free GPU memory.
+- `results/latency_py_<dtype>.csv` — same schema and sweep, but each `evaluate()`
+  timed from Python via ctypes (`run.py --pylib`); `wall_us` includes Python + FFI
+  dispatch.
 - `results/mjx_<robot>_<fpXX>.json` — MJX per batch: `results` (medians) and
   `compile` (first-call JIT), keys `{fk,jac}_{batched,rollout}`.
 - `results/warp_<robot>.json` — mujoco-warp FK medians per batch + `compile_once_s`.
@@ -151,8 +171,10 @@ Env overrides: `CUSADI2_GPU` (device index, default `1`), `NVCC`.
 - `run.py` — builds the CasADi FK / FK-Jacobian functions (restricted to the
   common body frames), emits the kernel and plan headers per dtype, compiles and
   runs `latency.cu`, runs the MJX baseline (`--mjx` subprocess), then plots.
-- `latency.cu` — host-free C++/CUDA harness: uploads the per-stage and unrolled
-  plans and times the four configs across the batch sweep, with shared-memory and
-  free-memory feasibility guards.
+- `latency.cu` — C++/CUDA harness: uploads the per-stage and unrolled plans and
+  times the four configs across the batch sweep, with shared-memory and
+  free-memory feasibility guards. Also compiles as a shared library
+  (`-DCUSADI2_BENCH_LIB`) exposing `c2_setup`/`c2_eval`/`c2_teardown` for the
+  Python-called timing pass.
 - `plot.py` — reads the CSVs (+ MJX JSONs) and renders the figures (also runnable
   standalone).
