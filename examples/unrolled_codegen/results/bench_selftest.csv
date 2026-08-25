@@ -1,0 +1,7 @@
+func,impl,batch,kernel_us,max_abs_diff
+selftest,interpreter,1,12.288,0.000e+00
+selftest,unrolled,1,35.744,0.000e+00
+selftest,interpreter,16,13.184,0.000e+00
+selftest,unrolled,16,35.808,0.000e+00
+selftest,interpreter,256,13.120,0.000e+00
+selftest,unrolled,256,36.832,0.000e+00

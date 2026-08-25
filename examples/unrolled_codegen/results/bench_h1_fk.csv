@@ -1,0 +1,17 @@
+func,impl,batch,kernel_us,max_abs_diff
+h1_fk,interpreter,1,13.312,0.000e+00
+h1_fk,unrolled,1,54.048,0.000e+00
+h1_fk,interpreter,4,13.312,0.000e+00
+h1_fk,unrolled,4,54.272,0.000e+00
+h1_fk,interpreter,16,13.312,0.000e+00
+h1_fk,unrolled,16,54.272,0.000e+00
+h1_fk,interpreter,64,13.312,0.000e+00
+h1_fk,unrolled,64,53.408,0.000e+00
+h1_fk,interpreter,256,13.440,0.000e+00
+h1_fk,unrolled,256,54.272,0.000e+00
+h1_fk,interpreter,1024,19.296,0.000e+00
+h1_fk,unrolled,1024,98.304,0.000e+00
+h1_fk,interpreter,4096,43.008,0.000e+00
+h1_fk,unrolled,4096,317.408,0.000e+00
+h1_fk,interpreter,16384,130.784,0.000e+00
+h1_fk,unrolled,16384,1173.504,0.000e+00

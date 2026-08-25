@@ -1,0 +1,71 @@
+{
+  "robot": "fourier_n1",
+  "xml": "fourier_n1/n1.xml",
+  "menagerie_commit": "71f066ad0be9cd271f7ed58c030243ef157af9f4",
+  "manifest_commit": "71f066ad0be9cd271f7ed58c030243ef157af9f4",
+  "gate": {
+    "status": "pass",
+    "reason": null,
+    "nq": 30,
+    "nv": 29,
+    "n_bodies": 29,
+    "n_bodies_unnamed": 0,
+    "floating": true,
+    "fk_max_err": 1.7763568394002505e-15,
+    "root_corr": false,
+    "preproc": {
+      "includes_flattened": false,
+      "multitree_wrapped": false,
+      "anchors_fixed": 0
+    }
+  },
+  "stages": {
+    "gate": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 0.87
+    },
+    "cusadi_double": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 37.54
+    },
+    "pylib_double": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 30.47
+    },
+    "cusadi_float": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 19.15
+    },
+    "pylib_float": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 12.27
+    },
+    "mjx_fp64": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 1030.47
+    },
+    "mjx_fp32": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 915.9
+    },
+    "warp": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 25.81
+    },
+    "plot": {
+      "status": "pass",
+      "seconds": 4.42
+    }
+  },
+  "complete": true,
+  "started_at": "2026-07-29 09:03:57",
+  "finished_at": "2026-07-29 09:38:34"
+}

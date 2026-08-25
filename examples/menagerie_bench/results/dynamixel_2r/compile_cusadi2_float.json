@@ -1,0 +1,28 @@
+{
+  "robot": "dynamixel_2r",
+  "dtype": "float",
+  "codegen_s": {
+    "fk": 0.017347577959299088,
+    "fkjac": 0.0060354238376021385
+  },
+  "nvcc_s": 2.0650512613356113,
+  "nq": 2,
+  "nv": 2,
+  "n_bodies": 3,
+  "meta": {
+    "fk": {
+      "nnz_out": 36,
+      "n_instr": 147,
+      "n_instr_unr": 1008,
+      "smem_kb": 0.2109375,
+      "smem_unr_kb": 1.35546875
+    },
+    "fkjac": {
+      "nnz_out": 36,
+      "n_instr": 131,
+      "n_instr_unr": 901,
+      "smem_kb": 0.14453125,
+      "smem_unr_kb": 0.96484375
+    }
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "robot": "leap_hand",
+  "dtype": "double",
+  "codegen_s": {
+    "fk": 0.09601293597370386,
+    "fkjac": 0.1243306677788496
+  },
+  "nvcc_s": 2.6930798897519708,
+  "nq": 16,
+  "nv": 16,
+  "n_bodies": 17,
+  "meta": {
+    "fk": {
+      "nnz_out": 204,
+      "n_instr": 1341,
+      "n_instr_unr": 10000,
+      "smem_kb": 2.71875,
+      "smem_unr_kb": 19.2578125
+    },
+    "fkjac": {
+      "nnz_out": 1632,
+      "n_instr": 3127,
+      "n_instr_unr": 24295,
+      "smem_kb": 2.5390625,
+      "smem_unr_kb": 18.671875
+    }
+  }
+}

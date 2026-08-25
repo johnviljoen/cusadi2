@@ -1,6 +1,9 @@
 # Workspace
 .vscode/
 
+# Read-only MuJoCo Menagerie clone used by examples/menagerie_bench (pure data)
+examples/mujoco_menagerie/
+
 # C/C++ files
 *.so
 

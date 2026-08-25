@@ -1,0 +1,13 @@
+{
+  "func": "a1_fk",
+  "dtype": "double",
+  "n_instructions": null,
+  "emit_s": 0.0007776450365781784,
+  "nvcc_unrolled_s": 1.1886088689789176,
+  "nvcc_interpreter_s": null,
+  "n_nodes": 360,
+  "n_levels": 10,
+  "block_size": 64,
+  "shared_bytes": 1320,
+  "cu_lines": 640
+}

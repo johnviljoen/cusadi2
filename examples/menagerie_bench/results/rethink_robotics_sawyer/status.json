@@ -1,0 +1,71 @@
+{
+  "robot": "rethink_robotics_sawyer",
+  "xml": "rethink_robotics_sawyer/sawyer.xml",
+  "menagerie_commit": "71f066ad0be9cd271f7ed58c030243ef157af9f4",
+  "manifest_commit": "71f066ad0be9cd271f7ed58c030243ef157af9f4",
+  "gate": {
+    "status": "pass",
+    "reason": null,
+    "nq": 7,
+    "nv": 7,
+    "n_bodies": 9,
+    "n_bodies_unnamed": 0,
+    "floating": false,
+    "fk_max_err": 4.773959005888173e-15,
+    "root_corr": false,
+    "preproc": {
+      "includes_flattened": false,
+      "multitree_wrapped": false,
+      "anchors_fixed": 0
+    }
+  },
+  "stages": {
+    "gate": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 0.56
+    },
+    "cusadi_double": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 7.28
+    },
+    "pylib_double": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 1.87
+    },
+    "cusadi_float": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 6.53
+    },
+    "pylib_float": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 1.47
+    },
+    "mjx_fp64": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 554.95
+    },
+    "mjx_fp32": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 494.08
+    },
+    "warp": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 15.76
+    },
+    "plot": {
+      "status": "pass",
+      "seconds": 4.04
+    }
+  },
+  "complete": true,
+  "started_at": "2026-07-29 18:56:31",
+  "finished_at": "2026-07-29 19:14:37"
+}

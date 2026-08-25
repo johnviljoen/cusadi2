@@ -1,0 +1,28 @@
+{
+  "robot": "robotstudio_so101",
+  "dtype": "double",
+  "codegen_s": {
+    "fk": 0.02217370644211769,
+    "fkjac": 0.027849753387272358
+  },
+  "nvcc_s": 2.206449866294861,
+  "nq": 6,
+  "nv": 6,
+  "n_bodies": 8,
+  "meta": {
+    "fk": {
+      "nnz_out": 96,
+      "n_instr": 353,
+      "n_instr_unr": 2572,
+      "smem_kb": 0.765625,
+      "smem_unr_kb": 5.6328125
+    },
+    "fkjac": {
+      "nnz_out": 288,
+      "n_instr": 681,
+      "n_instr_unr": 5245,
+      "smem_kb": 0.9296875,
+      "smem_unr_kb": 7.2734375
+    }
+  }
+}

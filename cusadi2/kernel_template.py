@@ -152,11 +152,6 @@ __COMPUTE__
 __WRAPPERS__
 """
 
-# extern "C" {
-# 
-# __WRAPPERS__
-# } // extern "C"
-
 # --- kernel-signature tail: extra parameters only the tiled body needs --------
 _TILING_PARAMS = r""",
         // Tiling data

@@ -1,0 +1,28 @@
+{
+  "robot": "unitree_go2",
+  "dtype": "double",
+  "codegen_s": {
+    "fk": 0.05997191369533539,
+    "fkjac": 0.08540373016148806
+  },
+  "nvcc_s": 2.450010639615357,
+  "nq": 19,
+  "nv": 18,
+  "n_bodies": 13,
+  "meta": {
+    "fk": {
+      "nnz_out": 156,
+      "n_instr": 544,
+      "n_instr_unr": 4289,
+      "smem_kb": 1.2890625,
+      "smem_unr_kb": 10.2578125
+    },
+    "fkjac": {
+      "nnz_out": 1404,
+      "n_instr": 2564,
+      "n_instr_unr": 20442,
+      "smem_kb": 3.5,
+      "smem_unr_kb": 27.9453125
+    }
+  }
+}

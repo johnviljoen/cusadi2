@@ -1,0 +1,28 @@
+{
+  "robot": "google_robot",
+  "dtype": "double",
+  "codegen_s": {
+    "fk": 0.034204186871647835,
+    "fkjac": 0.053443169221282005
+  },
+  "nvcc_s": 2.410134529694915,
+  "nq": 9,
+  "nv": 9,
+  "n_bodies": 12,
+  "meta": {
+    "fk": {
+      "nnz_out": 144,
+      "n_instr": 508,
+      "n_instr_unr": 3847,
+      "smem_kb": 1.0078125,
+      "smem_unr_kb": 7.515625
+    },
+    "fkjac": {
+      "nnz_out": 648,
+      "n_instr": 1588,
+      "n_instr_unr": 12522,
+      "smem_kb": 2.3515625,
+      "smem_unr_kb": 18.703125
+    }
+  }
+}

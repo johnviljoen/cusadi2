@@ -1,0 +1,28 @@
+{
+  "robot": "franka_fr3",
+  "dtype": "float",
+  "codegen_s": {
+    "fk": 0.03335142973810434,
+    "fkjac": 0.03302719444036484
+  },
+  "nvcc_s": 2.1144001949578524,
+  "nq": 7,
+  "nv": 7,
+  "n_bodies": 9,
+  "meta": {
+    "fk": {
+      "nnz_out": 108,
+      "n_instr": 444,
+      "n_instr_unr": 3349,
+      "smem_kb": 0.38671875,
+      "smem_unr_kb": 2.87109375
+    },
+    "fkjac": {
+      "nnz_out": 378,
+      "n_instr": 968,
+      "n_instr_unr": 7548,
+      "smem_kb": 0.63671875,
+      "smem_unr_kb": 4.9296875
+    }
+  }
+}

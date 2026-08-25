@@ -1,0 +1,28 @@
+{
+  "robot": "rainbow_robotics_rby1",
+  "dtype": "double",
+  "codegen_s": {
+    "fk": 0.10468565952032804,
+    "fkjac": 0.36639407742768526
+  },
+  "nvcc_s": 3.0030435947701335,
+  "nq": 31,
+  "nv": 30,
+  "n_bodies": 26,
+  "meta": {
+    "fk": {
+      "nnz_out": 312,
+      "n_instr": 1094,
+      "n_instr_unr": 8591,
+      "smem_kb": 1.828125,
+      "smem_unr_kb": 14.625
+    },
+    "fkjac": {
+      "nnz_out": 4680,
+      "n_instr": 8718,
+      "n_instr_unr": 69576,
+      "smem_kb": 11.6328125,
+      "smem_unr_kb": 93.0078125
+    }
+  }
+}

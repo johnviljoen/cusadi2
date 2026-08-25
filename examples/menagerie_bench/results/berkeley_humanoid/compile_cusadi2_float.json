@@ -1,0 +1,28 @@
+{
+  "robot": "berkeley_humanoid",
+  "dtype": "float",
+  "codegen_s": {
+    "fk": 0.07934960443526506,
+    "fkjac": 0.11023092083632946
+  },
+  "nvcc_s": 2.530014124698937,
+  "nq": 19,
+  "nv": 18,
+  "n_bodies": 13,
+  "meta": {
+    "fk": {
+      "nnz_out": 156,
+      "n_instr": 1084,
+      "n_instr_unr": 8399,
+      "smem_kb": 0.859375,
+      "smem_unr_kb": 6.765625
+    },
+    "fkjac": {
+      "nnz_out": 1404,
+      "n_instr": 3338,
+      "n_instr_unr": 26424,
+      "smem_kb": 1.9375,
+      "smem_unr_kb": 15.47265625
+    }
+  }
+}

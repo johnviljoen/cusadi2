@@ -1,0 +1,28 @@
+{
+  "robot": "franka_emika_panda",
+  "dtype": "float",
+  "codegen_s": {
+    "fk": 0.0393219655379653,
+    "fkjac": 0.044006058014929295
+  },
+  "nvcc_s": 2.477759392000735,
+  "nq": 7,
+  "nv": 7,
+  "n_bodies": 9,
+  "meta": {
+    "fk": {
+      "nnz_out": 108,
+      "n_instr": 472,
+      "n_instr_unr": 3545,
+      "smem_kb": 0.40234375,
+      "smem_unr_kb": 2.9375
+    },
+    "fkjac": {
+      "nnz_out": 378,
+      "n_instr": 1049,
+      "n_instr_unr": 8189,
+      "smem_kb": 0.6484375,
+      "smem_unr_kb": 5.10546875
+    }
+  }
+}

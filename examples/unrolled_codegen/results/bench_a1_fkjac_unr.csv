@@ -1,0 +1,11 @@
+func,impl,batch,kernel_us,max_abs_diff
+a1_fkjac_unr,interpreter,1,26.464,0.000e+00
+a1_fkjac_unr,unrolled,1,321.536,0.000e+00
+a1_fkjac_unr,interpreter,16,26.624,0.000e+00
+a1_fkjac_unr,unrolled,16,321.536,0.000e+00
+a1_fkjac_unr,interpreter,256,35.680,0.000e+00
+a1_fkjac_unr,unrolled,256,618.496,0.000e+00
+a1_fkjac_unr,interpreter,1024,209.920,0.000e+00
+a1_fkjac_unr,unrolled,1024,2178.048,0.000e+00
+a1_fkjac_unr,interpreter,4096,621.568,0.000e+00
+a1_fkjac_unr,unrolled,4096,7818.112,0.000e+00

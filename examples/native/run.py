@@ -17,7 +17,7 @@ import casadi as ca
 
 import cusadi2
 from cusadi2.kernel_template import write_kernel_source
-from cusadi2.generate import generate_native_plan
+from cusadi2.generate import generate_native_plan, generate_reference
 from cusadi2.dag import _demo_function
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -86,16 +86,25 @@ def main() -> int:
 
         write_kernel_source(os.path.join(outdir, "kernel.cu"), dtype=dtype, tiled=False)
 
-        generate_native_plan(_demo_function(), os.path.join(outdir, "demo_plan.h"), dtype=dtype)  # batch LP
-        generate_native_plan(create_dyn_func(), os.path.join(outdir, "dyn_plan.h"), dtype=dtype,  # staged
-                             in_mode=["coupled", "shared"], in_offset=[0, 0], in_span=[1, 0],
-                             out_mode=["stage", "stage"], n_ref=4)
+        # plan + matching self-check reference (same fn/specs/prefix/dtype) per problem
+        def emit(make_fn, name, prefix=None, **specs):
+            fn = make_fn()
+            generate_native_plan(fn, os.path.join(outdir, f"{name}_plan.h"),
+                                 prefix=prefix, dtype=dtype, **specs)
+            specs.pop("out_mode", None)     # reference needs the input specs only
+            generate_reference(fn, os.path.join(outdir, f"{name}_ref.h"),
+                               prefix=prefix, dtype=dtype, **specs)
+
+        emit(_demo_function, "demo")                       # batch LP
+        emit(create_dyn_func, "dyn",                       # staged
+             in_mode=["coupled", "shared"], in_offset=[0, 0], in_span=[1, 0],
+             out_mode=["stage", "stage"])
         # Pinocchio floating-base forward dynamics — heavier real-robot kernels (batch LP)
-        generate_native_plan(create_a1_func(), os.path.join(outdir, "a1_plan.h"), prefix="A1", dtype=dtype)
-        generate_native_plan(create_h1_func(), os.path.join(outdir, "h1_plan.h"), prefix="H1", dtype=dtype)
+        emit(create_a1_func, "a1", prefix="A1")
+        emit(create_h1_func, "h1", prefix="H1")
         # ...and their analytical ABA Jacobians (the MPC Gauss-Newton workload; 41k / 78k instrs)
-        generate_native_plan(create_a1_jac_func(), os.path.join(outdir, "a1_jac_plan.h"), prefix="A1_JAC", dtype=dtype)
-        generate_native_plan(create_h1_jac_func(), os.path.join(outdir, "h1_jac_plan.h"), prefix="H1_JAC", dtype=dtype)
+        emit(create_a1_jac_func, "a1_jac", prefix="A1_JAC")
+        emit(create_h1_jac_func, "h1_jac", prefix="H1_JAC")
 
         binpath = os.path.join(outdir, "selfcheck")
         cmd = [NVCC, "-std=c++14", f"-arch={arch}", f"-DCUSADI2_SCALAR={dtype}",

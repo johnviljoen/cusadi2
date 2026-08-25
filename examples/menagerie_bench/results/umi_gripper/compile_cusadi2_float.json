@@ -1,0 +1,28 @@
+{
+  "robot": "umi_gripper",
+  "dtype": "float",
+  "codegen_s": {
+    "fk": 0.022312959656119347,
+    "fkjac": 0.025645778514444828
+  },
+  "nvcc_s": 2.0658385222777724,
+  "nq": 8,
+  "nv": 8,
+  "n_bodies": 2,
+  "meta": {
+    "fk": {
+      "nnz_out": 24,
+      "n_instr": 167,
+      "n_instr_unr": 1280,
+      "smem_kb": 0.17578125,
+      "smem_unr_kb": 1.34375
+    },
+    "fkjac": {
+      "nnz_out": 96,
+      "n_instr": 370,
+      "n_instr_unr": 2918,
+      "smem_kb": 0.390625,
+      "smem_unr_kb": 3.09765625
+    }
+  }
+}

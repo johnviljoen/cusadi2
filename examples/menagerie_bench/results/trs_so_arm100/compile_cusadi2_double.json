@@ -1,0 +1,28 @@
+{
+  "robot": "trs_so_arm100",
+  "dtype": "double",
+  "codegen_s": {
+    "fk": 0.02870930265635252,
+    "fkjac": 0.033488103188574314
+  },
+  "nvcc_s": 2.431714929640293,
+  "nq": 6,
+  "nv": 6,
+  "n_bodies": 7,
+  "meta": {
+    "fk": {
+      "nnz_out": 84,
+      "n_instr": 386,
+      "n_instr_unr": 2801,
+      "smem_kb": 0.8515625,
+      "smem_unr_kb": 6.265625
+    },
+    "fkjac": {
+      "nnz_out": 252,
+      "n_instr": 755,
+      "n_instr_unr": 5795,
+      "smem_kb": 1.1484375,
+      "smem_unr_kb": 8.75
+    }
+  }
+}

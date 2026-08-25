@@ -1,0 +1,28 @@
+{
+  "robot": "booster_t1",
+  "dtype": "float",
+  "codegen_s": {
+    "fk": 0.08151781558990479,
+    "fkjac": 0.24924128502607346
+  },
+  "nvcc_s": 2.7344806604087353,
+  "nq": 30,
+  "nv": 29,
+  "n_bodies": 24,
+  "meta": {
+    "fk": {
+      "nnz_out": 288,
+      "n_instr": 1054,
+      "n_instr_unr": 8222,
+      "smem_kb": 0.984375,
+      "smem_unr_kb": 7.7890625
+    },
+    "fkjac": {
+      "nnz_out": 4176,
+      "n_instr": 6845,
+      "n_instr_unr": 54543,
+      "smem_kb": 2.7109375,
+      "smem_unr_kb": 21.60546875
+    }
+  }
+}

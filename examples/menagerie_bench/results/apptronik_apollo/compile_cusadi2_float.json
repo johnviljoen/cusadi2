@@ -1,0 +1,28 @@
+{
+  "robot": "apptronik_apollo",
+  "dtype": "float",
+  "codegen_s": {
+    "fk": 0.20790375769138336,
+    "fkjac": 0.5281308712437749
+  },
+  "nvcc_s": 4.395160564221442,
+  "nq": 39,
+  "nv": 38,
+  "n_bodies": 36,
+  "meta": {
+    "fk": {
+      "nnz_out": 432,
+      "n_instr": 2467,
+      "n_instr_unr": 18784,
+      "smem_kb": 1.87890625,
+      "smem_unr_kb": 14.73046875
+    },
+    "fkjac": {
+      "nnz_out": 8208,
+      "n_instr": 13388,
+      "n_instr_unr": 106348,
+      "smem_kb": 5.0078125,
+      "smem_unr_kb": 40.03515625
+    }
+  }
+}

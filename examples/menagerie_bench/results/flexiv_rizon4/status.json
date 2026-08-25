@@ -1,0 +1,71 @@
+{
+  "robot": "flexiv_rizon4",
+  "xml": "flexiv_rizon4/flexiv_rizon4.xml",
+  "menagerie_commit": "71f066ad0be9cd271f7ed58c030243ef157af9f4",
+  "manifest_commit": "71f066ad0be9cd271f7ed58c030243ef157af9f4",
+  "gate": {
+    "status": "pass",
+    "reason": null,
+    "nq": 7,
+    "nv": 7,
+    "n_bodies": 8,
+    "n_bodies_unnamed": 0,
+    "floating": false,
+    "fk_max_err": 4.440892098500626e-16,
+    "root_corr": false,
+    "preproc": {
+      "includes_flattened": false,
+      "multitree_wrapped": false,
+      "anchors_fixed": 0
+    }
+  },
+  "stages": {
+    "gate": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 0.31
+    },
+    "cusadi_double": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 6.39
+    },
+    "pylib_double": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 1.58
+    },
+    "cusadi_float": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 5.68
+    },
+    "pylib_float": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 1.23
+    },
+    "mjx_fp64": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 497.42
+    },
+    "mjx_fp32": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 455.94
+    },
+    "warp": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 14.39
+    },
+    "plot": {
+      "status": "pass",
+      "seconds": 4.01
+    }
+  },
+  "complete": true,
+  "started_at": "2026-07-29 08:19:25",
+  "finished_at": "2026-07-29 08:35:52"
+}

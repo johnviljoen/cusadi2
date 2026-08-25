@@ -1,0 +1,71 @@
+{
+  "robot": "agilex_piper",
+  "xml": "agilex_piper/piper.xml",
+  "menagerie_commit": "71f066ad0be9cd271f7ed58c030243ef157af9f4",
+  "manifest_commit": "71f066ad0be9cd271f7ed58c030243ef157af9f4",
+  "gate": {
+    "status": "pass",
+    "reason": null,
+    "nq": 8,
+    "nv": 8,
+    "n_bodies": 9,
+    "n_bodies_unnamed": 0,
+    "floating": false,
+    "fk_max_err": 4.440892098500626e-15,
+    "root_corr": false,
+    "preproc": {
+      "includes_flattened": false,
+      "multitree_wrapped": false,
+      "anchors_fixed": 0
+    }
+  },
+  "stages": {
+    "gate": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 0.61
+    },
+    "cusadi_double": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 7.78
+    },
+    "pylib_double": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 2.37
+    },
+    "cusadi_float": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 6.79
+    },
+    "pylib_float": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 1.77
+    },
+    "mjx_fp64": {
+      "status": "skip",
+      "reason": "mjx_unavailable: JaxRuntimeError('INTERNAL: CUDA error: Error recording CUDA event: CUDA_ERROR_MISALIGNED_ADDRESS: misaligned address')",
+      "seconds": 156.92
+    },
+    "mjx_fp32": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 222.8
+    },
+    "warp": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 17.6
+    },
+    "plot": {
+      "status": "pass",
+      "seconds": 4.3
+    }
+  },
+  "complete": true,
+  "started_at": "2026-07-29 04:51:22",
+  "finished_at": "2026-07-29 04:58:23"
+}

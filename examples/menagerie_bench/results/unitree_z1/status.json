@@ -1,0 +1,71 @@
+{
+  "robot": "unitree_z1",
+  "xml": "unitree_z1/z1.xml",
+  "menagerie_commit": "71f066ad0be9cd271f7ed58c030243ef157af9f4",
+  "manifest_commit": "71f066ad0be9cd271f7ed58c030243ef157af9f4",
+  "gate": {
+    "status": "pass",
+    "reason": null,
+    "nq": 6,
+    "nv": 6,
+    "n_bodies": 7,
+    "n_bodies_unnamed": 0,
+    "floating": false,
+    "fk_max_err": 6.661338147750939e-16,
+    "root_corr": false,
+    "preproc": {
+      "includes_flattened": false,
+      "multitree_wrapped": false,
+      "anchors_fixed": 0
+    }
+  },
+  "stages": {
+    "gate": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 0.46
+    },
+    "cusadi_double": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 6.45
+    },
+    "pylib_double": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 1.22
+    },
+    "cusadi_float": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 5.47
+    },
+    "pylib_float": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 0.97
+    },
+    "mjx_fp64": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 428.96
+    },
+    "mjx_fp32": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 389.63
+    },
+    "warp": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 15.09
+    },
+    "plot": {
+      "status": "pass",
+      "seconds": 4.13
+    }
+  },
+  "complete": true,
+  "started_at": "2026-07-30 01:59:54",
+  "finished_at": "2026-07-30 02:14:06"
+}

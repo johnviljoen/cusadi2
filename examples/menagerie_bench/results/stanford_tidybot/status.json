@@ -1,0 +1,71 @@
+{
+  "robot": "stanford_tidybot",
+  "xml": "stanford_tidybot/tidybot.xml",
+  "menagerie_commit": "71f066ad0be9cd271f7ed58c030243ef157af9f4",
+  "manifest_commit": "71f066ad0be9cd271f7ed58c030243ef157af9f4",
+  "gate": {
+    "status": "pass",
+    "reason": null,
+    "nq": 18,
+    "nv": 18,
+    "n_bodies": 22,
+    "n_bodies_unnamed": 0,
+    "floating": false,
+    "fk_max_err": 1.4099832412739488e-14,
+    "root_corr": false,
+    "preproc": {
+      "includes_flattened": false,
+      "multitree_wrapped": false,
+      "anchors_fixed": 2
+    }
+  },
+  "stages": {
+    "gate": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 0.48
+    },
+    "cusadi_double": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 26.82
+    },
+    "pylib_double": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 20.67
+    },
+    "cusadi_float": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 13.99
+    },
+    "pylib_float": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 8.28
+    },
+    "mjx_fp64": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 520.0
+    },
+    "mjx_fp32": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 489.67
+    },
+    "warp": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 19.35
+    },
+    "plot": {
+      "status": "pass",
+      "seconds": 3.98
+    }
+  },
+  "complete": true,
+  "started_at": "2026-07-29 21:05:17",
+  "finished_at": "2026-07-29 21:23:40"
+}

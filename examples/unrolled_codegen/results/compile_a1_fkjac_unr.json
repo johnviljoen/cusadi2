@@ -1,0 +1,13 @@
+{
+  "func": "a1_fkjac_unr",
+  "dtype": "double",
+  "n_instructions": null,
+  "emit_s": 0.013406175188720226,
+  "nvcc_unrolled_s": 189.98135940171778,
+  "nvcc_interpreter_s": null,
+  "n_nodes": 9080,
+  "n_levels": 13,
+  "block_size": 256,
+  "shared_bytes": 28616,
+  "cu_lines": 20608
+}

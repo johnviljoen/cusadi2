@@ -1,0 +1,28 @@
+{
+  "robot": "pndbotics_adam_lite",
+  "dtype": "float",
+  "codegen_s": {
+    "fk": 0.12926018238067627,
+    "fkjac": 0.3495960580185056
+  },
+  "nvcc_s": 2.944586928933859,
+  "nq": 32,
+  "nv": 31,
+  "n_bodies": 26,
+  "meta": {
+    "fk": {
+      "nnz_out": 312,
+      "n_instr": 1397,
+      "n_instr_unr": 10861,
+      "smem_kb": 1.23828125,
+      "smem_unr_kb": 9.7421875
+    },
+    "fkjac": {
+      "nnz_out": 4836,
+      "n_instr": 8296,
+      "n_instr_unr": 66046,
+      "smem_kb": 3.5,
+      "smem_unr_kb": 27.80859375
+    }
+  }
+}

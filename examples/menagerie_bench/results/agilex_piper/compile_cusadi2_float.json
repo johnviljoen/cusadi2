@@ -1,0 +1,28 @@
+{
+  "robot": "agilex_piper",
+  "dtype": "float",
+  "codegen_s": {
+    "fk": 0.053712344728410244,
+    "fkjac": 0.050537968054413795
+  },
+  "nvcc_s": 2.229594076052308,
+  "nq": 8,
+  "nv": 8,
+  "n_bodies": 9,
+  "meta": {
+    "fk": {
+      "nnz_out": 108,
+      "n_instr": 688,
+      "n_instr_unr": 4965,
+      "smem_kb": 0.62109375,
+      "smem_unr_kb": 4.3671875
+    },
+    "fkjac": {
+      "nnz_out": 432,
+      "n_instr": 1280,
+      "n_instr_unr": 9785,
+      "smem_kb": 0.70703125,
+      "smem_unr_kb": 5.57421875
+    }
+  }
+}

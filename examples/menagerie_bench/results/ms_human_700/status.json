@@ -1,0 +1,71 @@
+{
+  "robot": "ms_human_700",
+  "xml": "ms_human_700/MS-Human-700.xml",
+  "menagerie_commit": "71f066ad0be9cd271f7ed58c030243ef157af9f4",
+  "manifest_commit": "71f066ad0be9cd271f7ed58c030243ef157af9f4",
+  "gate": {
+    "status": "pass",
+    "reason": null,
+    "nq": 85,
+    "nv": 85,
+    "n_bodies": 80,
+    "n_bodies_unnamed": 0,
+    "floating": false,
+    "fk_max_err": 2.6756374893466273e-14,
+    "root_corr": false,
+    "preproc": {
+      "includes_flattened": true,
+      "multitree_wrapped": false,
+      "anchors_fixed": 0
+    }
+  },
+  "stages": {
+    "gate": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 2.62
+    },
+    "cusadi_double": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 56.68
+    },
+    "pylib_double": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 31.18
+    },
+    "cusadi_float": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 100.87
+    },
+    "pylib_float": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 76.72
+    },
+    "mjx_fp64": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 2207.24
+    },
+    "mjx_fp32": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 2929.53
+    },
+    "warp": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 151.48
+    },
+    "plot": {
+      "status": "pass",
+      "seconds": 4.13
+    }
+  },
+  "complete": true,
+  "started_at": "2026-07-29 14:05:07",
+  "finished_at": "2026-07-29 15:37:48"
+}

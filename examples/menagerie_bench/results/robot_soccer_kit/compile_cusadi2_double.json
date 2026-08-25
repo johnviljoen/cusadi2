@@ -1,0 +1,28 @@
+{
+  "robot": "robot_soccer_kit",
+  "dtype": "double",
+  "codegen_s": {
+    "fk": 0.5296377688646317,
+    "fkjac": 1.1892881402745843
+  },
+  "nvcc_s": 5.626978396438062,
+  "nq": 71,
+  "nv": 70,
+  "n_bodies": 65,
+  "meta": {
+    "fk": {
+      "nnz_out": 780,
+      "n_instr": 5983,
+      "n_instr_unr": 46303,
+      "smem_kb": 18.4609375,
+      "smem_unr_kb": 142.65625
+    },
+    "fkjac": {
+      "nnz_out": 27300,
+      "n_instr": 33975,
+      "n_instr_unr": 270806,
+      "smem_kb": 21.5,
+      "smem_unr_kb": 171.9453125
+    }
+  }
+}

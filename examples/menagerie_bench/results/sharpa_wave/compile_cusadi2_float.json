@@ -1,0 +1,28 @@
+{
+  "robot": "sharpa_wave",
+  "dtype": "float",
+  "codegen_s": {
+    "fk": 0.10688595473766327,
+    "fkjac": 0.18798506818711758
+  },
+  "nvcc_s": 2.8833497567102313,
+  "nq": 22,
+  "nv": 22,
+  "n_bodies": 23,
+  "meta": {
+    "fk": {
+      "nnz_out": 276,
+      "n_instr": 1749,
+      "n_instr_unr": 13047,
+      "smem_kb": 1.56640625,
+      "smem_unr_kb": 11.62890625
+    },
+    "fkjac": {
+      "nnz_out": 3036,
+      "n_instr": 4985,
+      "n_instr_unr": 38907,
+      "smem_kb": 1.609375,
+      "smem_unr_kb": 11.97265625
+    }
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "robot": "google_barkour_v0",
+  "dtype": "double",
+  "codegen_s": {
+    "fk": 0.09715013019740582,
+    "fkjac": 0.12383000366389751
+  },
+  "nvcc_s": 2.519008234143257,
+  "nq": 19,
+  "nv": 18,
+  "n_bodies": 13,
+  "meta": {
+    "fk": {
+      "nnz_out": 156,
+      "n_instr": 1589,
+      "n_instr_unr": 11837,
+      "smem_kb": 2.9921875,
+      "smem_unr_kb": 19.7265625
+    },
+    "fkjac": {
+      "nnz_out": 1404,
+      "n_instr": 3687,
+      "n_instr_unr": 28614,
+      "smem_kb": 3.421875,
+      "smem_unr_kb": 27.2109375
+    }
+  }
+}

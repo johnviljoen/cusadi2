@@ -1,0 +1,28 @@
+{
+  "robot": "shadow_dexee",
+  "dtype": "double",
+  "codegen_s": {
+    "fk": 0.0513794356957078,
+    "fkjac": 0.08769274223595858
+  },
+  "nvcc_s": 2.5293517764657736,
+  "nq": 12,
+  "nv": 12,
+  "n_bodies": 19,
+  "meta": {
+    "fk": {
+      "nnz_out": 228,
+      "n_instr": 805,
+      "n_instr_unr": 6125,
+      "smem_kb": 1.5625,
+      "smem_unr_kb": 11.40625
+    },
+    "fkjac": {
+      "nnz_out": 1368,
+      "n_instr": 2158,
+      "n_instr_unr": 16963,
+      "smem_kb": 1.640625,
+      "smem_unr_kb": 12.3046875
+    }
+  }
+}

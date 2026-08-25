@@ -1,11 +1,12 @@
 // End-to-end self-check for the cusadi2 native backend.
 //
 // For each generated plan it uploads the program, runs evaluate() on the GPU
-// over a single instance, and compares the outputs to the reference that
-// generate_native_plan embedded in the plan header (random inputs evaluated
-// through CasADi at build time). Exits non-zero on any mismatch.
+// over a single instance, and compares the outputs to the generate_reference
+// header (random inputs evaluated through CasADi at build time). Exits
+// non-zero on any mismatch.
 //
-// Built and driven by run.py, which emits kernel.cu + the *_plan.h headers.
+// Built and driven by run.py, which emits kernel.cu + the *_plan.h / *_ref.h
+// headers.
 #include "cusadi2.h"
 #include <cstdio>
 #include <cmath>
@@ -77,6 +78,12 @@ static int run(const char* name, const StagePlanHost& plan, int n_stages,
 #include "h1_plan.h"     // Pinocchio H1 humanoid ABA   (batch LP)
 #include "a1_jac_plan.h" // Pinocchio A1 ABA Jacobians  (batch LP, ~41k instrs)
 #include "h1_jac_plan.h" // Pinocchio H1 ABA Jacobians  (batch LP, ~78k instrs)
+#include "demo_ref.h"    // CasADi-evaluated self-check references (generate_reference)
+#include "dyn_ref.h"
+#include "a1_ref.h"
+#include "h1_ref.h"
+#include "a1_jac_ref.h"
+#include "h1_jac_ref.h"
 
 int main() {
     int rc = 0;

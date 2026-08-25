@@ -1,0 +1,28 @@
+{
+  "robot": "kuka_iiwa_14",
+  "dtype": "double",
+  "codegen_s": {
+    "fk": 0.04151128139346838,
+    "fkjac": 0.03364170715212822
+  },
+  "nvcc_s": 2.12105580419302,
+  "nq": 7,
+  "nv": 7,
+  "n_bodies": 8,
+  "meta": {
+    "fk": {
+      "nnz_out": 96,
+      "n_instr": 477,
+      "n_instr_unr": 3508,
+      "smem_kb": 0.84375,
+      "smem_unr_kb": 6.2578125
+    },
+    "fkjac": {
+      "nnz_out": 336,
+      "n_instr": 952,
+      "n_instr_unr": 7336,
+      "smem_kb": 1.1640625,
+      "smem_unr_kb": 9.1484375
+    }
+  }
+}

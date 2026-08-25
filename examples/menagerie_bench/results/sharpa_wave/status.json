@@ -1,0 +1,71 @@
+{
+  "robot": "sharpa_wave",
+  "xml": "sharpa_wave/left_hand.xml",
+  "menagerie_commit": "71f066ad0be9cd271f7ed58c030243ef157af9f4",
+  "manifest_commit": "71f066ad0be9cd271f7ed58c030243ef157af9f4",
+  "gate": {
+    "status": "pass",
+    "reason": null,
+    "nq": 22,
+    "nv": 22,
+    "n_bodies": 23,
+    "n_bodies_unnamed": 0,
+    "floating": false,
+    "fk_max_err": 1.3322676295501878e-14,
+    "root_corr": false,
+    "preproc": {
+      "includes_flattened": false,
+      "multitree_wrapped": false,
+      "anchors_fixed": 0
+    }
+  },
+  "stages": {
+    "gate": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 0.46
+    },
+    "cusadi_double": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 16.06
+    },
+    "pylib_double": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 9.68
+    },
+    "cusadi_float": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 12.24
+    },
+    "pylib_float": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 6.08
+    },
+    "mjx_fp64": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 272.47
+    },
+    "mjx_fp32": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 205.82
+    },
+    "warp": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 21.1
+    },
+    "plot": {
+      "status": "pass",
+      "seconds": 3.87
+    }
+  },
+  "complete": true,
+  "started_at": "2026-07-29 20:51:59",
+  "finished_at": "2026-07-29 21:01:07"
+}

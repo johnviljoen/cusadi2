@@ -1,0 +1,71 @@
+{
+  "robot": "hello_robot_stretch",
+  "xml": "hello_robot_stretch/stretch.xml",
+  "menagerie_commit": "71f066ad0be9cd271f7ed58c030243ef157af9f4",
+  "manifest_commit": "71f066ad0be9cd271f7ed58c030243ef157af9f4",
+  "gate": {
+    "status": "pass",
+    "reason": null,
+    "nq": 24,
+    "nv": 23,
+    "n_bodies": 26,
+    "n_bodies_unnamed": 0,
+    "floating": true,
+    "fk_max_err": 5.88418203051333e-15,
+    "root_corr": false,
+    "preproc": {
+      "includes_flattened": false,
+      "multitree_wrapped": false,
+      "anchors_fixed": 0
+    }
+  },
+  "stages": {
+    "gate": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 0.82
+    },
+    "cusadi_double": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 18.46
+    },
+    "pylib_double": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 11.7
+    },
+    "cusadi_float": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 13.75
+    },
+    "pylib_float": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 7.08
+    },
+    "mjx_fp64": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 618.23
+    },
+    "mjx_fp32": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 561.43
+    },
+    "warp": {
+      "status": "skip",
+      "reason": "warp_unavailable: NotImplementedError('noslip solver not implemented.')",
+      "seconds": 2.67
+    },
+    "plot": {
+      "status": "pass",
+      "seconds": 4.04
+    }
+  },
+  "complete": true,
+  "started_at": "2026-07-29 11:19:01",
+  "finished_at": "2026-07-29 11:39:39"
+}
