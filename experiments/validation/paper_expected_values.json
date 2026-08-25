@@ -1,0 +1,90 @@
+{
+  "__meta": {
+    "paper": "Level-Parallel GPU Evaluation of Symbolic Expression DAGs for Real-Time Robot Dynamics",
+    "hardware": "NVIDIA L40S (sm_89), CUDA 12, fp64 throughout",
+    "methodology": "CUDA events, 10 warmup, median of 100 runs",
+    "tolerance_warn_pct": 10,
+    "tolerance_error_pct": 25
+  },
+
+  "table_I_dag_structure": {
+    "panda":            {"instructions": 15116, "critical_path": 197, "mean_width": 77,  "ceiling": 77},
+    "a1_unconstrained": {"instructions": 39852, "critical_path": 226, "mean_width": 176, "ceiling": 176},
+    "h1_unconstrained": {"instructions": 76090, "critical_path": 281, "mean_width": 271, "ceiling": 271}
+  },
+
+  "table_II_peak_liveness": {
+    "panda":            {"nodes": 15116,  "peak_live": 1337,  "shared_mem_kb": 10.5, "fits": "yes"},
+    "a1_unconstrained": {"nodes": 39852,  "peak_live": 4329,  "shared_mem_kb": 33.8, "fits": "yes"},
+    "a1_constrained":   {"nodes": 102131, "peak_live": 10338, "shared_mem_kb": 80.8, "fits": "yes"},
+    "h1_unconstrained": {"nodes": 76090,  "peak_live": 8076,  "shared_mem_kb": 63.1, "fits": "yes"},
+    "h1_constrained":   {"nodes": 209442, "peak_live": 18946, "shared_mem_kb": 148.0, "fits": "tiled"}
+  },
+
+  "table_II_fn_benchmarks": {
+    "fn_1e1": {"instructions": 55,     "best_speedup": 1.33, "best_batch": 512, "batch1_speedup": 0.67},
+    "fn_1e2": {"instructions": 127,    "best_speedup": 2.40, "best_batch": 256, "batch1_speedup": 0.80},
+    "fn_1e3": {"instructions": 1224,   "best_speedup": 6.07, "best_batch": 256, "batch1_speedup": 1.37},
+    "fn_1e4": {"instructions": 10931,  "best_speedup": 8.49, "best_batch": 256, "batch1_speedup": 2.03},
+    "fn_1e5": {"instructions": 103857, "best_speedup": 2.88, "best_batch": 64,  "batch1_speedup": 1.67}
+  },
+
+  "table_III_compilation": {
+    "fn_1e1": {"seq_s": 1.1,   "lp_s": 1.5, "speedup": 0.7},
+    "fn_1e4": {"seq_s": 10.8,  "lp_s": 1.5, "speedup": 7.2},
+    "fn_1e5": {"seq_s": 322.8, "lp_s": 1.5, "speedup": 215.0}
+  },
+
+  "table_IV_unconstrained_aba_jac_us": {
+    "a1": {
+      "lp":  {"1": 178,  "128": 182,  "256": 191},
+      "seq": {"1": 433,  "128": 2085, "256": 4524}
+    },
+    "h1": {
+      "lp":  {"1": 306,  "128": 313,  "256": 608},
+      "seq": {"1": 858,  "128": 4265, "256": 8210}
+    }
+  },
+
+  "table_V_a1_constrained_us": {
+    "1":   {"lp_constrained": 991,   "mjx_no_contact": 14065, "mjx_with_contact": 20286,   "ratio": 20},
+    "8":   {"lp_constrained": 1008,  "mjx_no_contact": 26321, "mjx_with_contact": 134317,  "ratio": 133},
+    "32":  {"lp_constrained": 1009,  "mjx_no_contact": 35307, "mjx_with_contact": 323674,  "ratio": 321},
+    "128": {"lp_constrained": 1011,  "mjx_no_contact": 69956, "mjx_with_contact": 1189748, "ratio": 1177},
+    "256": {"lp_constrained": 1960,  "mjx_no_contact": 87839, "mjx_with_contact": 2492520, "ratio": 1272}
+  },
+
+  "table_VI_h1_constrained_us": {
+    "1":   {"lp_constrained": 3730,  "mjx_no_contact": 7297,  "mjx_with_contact": 21049,   "ratio": 6},
+    "8":   {"lp_constrained": 3841,  "mjx_no_contact": 7584,  "mjx_with_contact": 50496,   "ratio": 13},
+    "32":  {"lp_constrained": 3843,  "mjx_no_contact": 9017,  "mjx_with_contact": 186768,  "ratio": 49},
+    "128": {"lp_constrained": 6037,  "mjx_no_contact": 22561, "mjx_with_contact": 564976,  "ratio": 94},
+    "256": {"lp_constrained": 12075, "mjx_no_contact": 30795, "mjx_with_contact": 1306160, "ratio": 108}
+  },
+
+  "table_VII_mpc_pattern": {
+    "10": {"seq_ms": 5.1, "lp_ms": 1.34, "speedup": 3.82, "seq_hz": 137, "lp_hz": 524},
+    "20": {"seq_ms": 6.2, "lp_ms": 1.34, "speedup": 4.65, "seq_hz": 112, "lp_hz": 522},
+    "50": {"seq_ms": 9.3, "lp_ms": 1.34, "speedup": 6.95, "seq_hz": 75,  "lp_hz": 524}
+  },
+
+  "table_VIII_mppi_rollout": {
+    "128": {"seq_ms": 41.7, "lp_ms": 3.2, "speedup": 12.96, "seq_hz": 24, "lp_hz": 311},
+    "256": {"seq_ms": 82.3, "lp_ms": 3.4, "speedup": 24.20, "seq_hz": 12, "lp_hz": 294}
+  },
+
+  "table_IX_ceiling_vs_achieved": {
+    "fn_1e3":  {"ceiling": 27,  "achieved_batch1": 1.37, "fraction_pct": 5.1},
+    "fn_1e4":  {"ceiling": 101, "achieved_batch1": 2.03, "fraction_pct": 2.0},
+    "h1_aba":  {"ceiling": 271, "achieved_batch1": 2.81, "fraction_pct": 1.0}
+  },
+
+  "inline_claims": {
+    "analytical_vs_naive_factor_range": [3.1, 4.7],
+    "fn_1e5_tiling": {"chunks": 35, "sub_batches": 4, "peak_chunk_kb": 93.8},
+    "single_sync_overhead_reduction_pct": 8,
+    "mjx_contact_overhead_at_a1_batch128": 17,
+    "lp_contact_overhead_at_a1_batch128": 6,
+    "srbm_mpc": {"instructions": 497000, "levels": 6187, "median_width": 7}
+  }
+}

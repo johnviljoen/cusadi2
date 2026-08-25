@@ -28,10 +28,14 @@ dependencies = [
 jax = ["jax[cuda13]"]
 torch = ["torch"]
 
-[tool.setuptools]
-# Pure-Python package. The CUDA kernel is generated and compiled by nvcc at use
-# time (see examples/native), not built as an extension at install time.
-packages = ["cusadi2"]
+[tool.setuptools.packages.find]
+# Pure-Python packages: cusadi2, and the merged fork's cusadi (level_parallel,
+# native, pytorch, ...). CUDA kernels are generated and compiled by nvcc at use
+# time (examples/native, cusadi/lp_kernels), not built as extensions at install
+# time; the fork's jax_ffi nanobind extension is not built by this pyproject.
+include = ["cusadi2*", "cusadi*"]
+exclude = ["cusadi.jax_ffi*"]
 
 [tool.setuptools.package-data]
 cusadi2 = ["*.h"]
+cusadi = ["native/include/*.h", "lp_kernels/README.md", "native/README.md"]
