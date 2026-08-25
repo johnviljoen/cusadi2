@@ -60,10 +60,10 @@ static int check_stage() {
 
     std::vector<double*> in(P.base.n_args_in), out(P.base.n_args_out);
     for (int a = 0; a < P.base.n_args_in; ++a) {
-        int nnz = P.base.nnz_in[a], cnt = prog.in_stage_count(a, H);
-        std::vector<double> h(size_t(B) * cnt * nnz);
+        int n = prog.default_in_spacing(a, H);  // dense: stage_count * nnz doubles per instance
+        std::vector<double> h(size_t(B) * n);
         for (int b = 0; b < B; ++b)
-            for (int s = 0; s < cnt * nnz; ++s) h[size_t(b) * cnt * nnz + s] = STAGE_EXAMPLE_ref_in[a][s];
+            for (int s = 0; s < n; ++s) h[size_t(b) * n + s] = STAGE_EXAMPLE_ref_in[a][s];
         cudaMalloc(&in[a], h.size() * sizeof(double));
         cudaMemcpy(in[a], h.data(), h.size() * sizeof(double), cudaMemcpyHostToDevice);
     }

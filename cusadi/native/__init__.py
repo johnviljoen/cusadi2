@@ -11,8 +11,8 @@ generated header, link a kernel from cusadi/lp_kernels/. See cusadi/native/examp
 """
 import os
 
-from cusadi.native.generate import generate_native_plan
+from cusadi.native.generate import generate_native_plan, generate_plan_registry
 
 NATIVE_INCLUDE_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "include")
 
-__all__ = ["generate_native_plan", "NATIVE_INCLUDE_DIR"]
+__all__ = ["generate_native_plan", "generate_plan_registry", "NATIVE_INCLUDE_DIR"]

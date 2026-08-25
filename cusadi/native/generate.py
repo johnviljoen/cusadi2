@@ -52,9 +52,15 @@ def _reference(fn, fs: FlatStageSpecs, nnz_in, nnz_out, n_stages, rng):
 
 
 def generate_native_plan(fn, filepath, input_specs=None, output_specs=None,
-                         prefix=None, n_ref=4):
+                         prefix=None, n_ref=4, emit_reference=False):
     """Write a C plan header for `fn`. If `input_specs` (a list of StageSpec) is
-    given, emit a StagePlanHost for the 2-axis stage kernel; else an LPPlanHost."""
+    given, emit a StagePlanHost for the 2-axis stage kernel; else an LPPlanHost.
+
+    `emit_reference` (opt-in) additionally evaluates `fn` through CasADi at
+    seeded random inputs over `n_ref` knots and embeds the inputs + expected
+    outputs as `{prefix}_ref_*` arrays for a runtime self-check. Off by
+    default: it costs a CasADi CPU evaluation per knot at codegen time and
+    grows the header by the reference data."""
     plan = extract_level_plan(fn)
     fp = flatten_plan(plan)
     P = prefix or _sanitize(fn.name())
@@ -67,7 +73,10 @@ def generate_native_plan(fn, filepath, input_specs=None, output_specs=None,
                             in_span=[0] * fp.n_args_in, out_mode=[0] * fp.n_args_out)
         n_stages = 1
 
-    ref_in, ref_out = _reference(fn, fs, fp.nnz_in, fp.nnz_out, n_stages, np.random.default_rng(0))
+    ref_in, ref_out = None, None
+    if emit_reference:
+        ref_in, ref_out = _reference(fn, fs, fp.nnz_in, fp.nnz_out, n_stages,
+                                     np.random.default_rng(0))
 
     os.makedirs(os.path.dirname(filepath) or ".", exist_ok=True)
     with open(filepath, "w") as o:
@@ -100,12 +109,49 @@ def generate_native_plan(fn, filepath, input_specs=None, output_specs=None,
         else:
             o.write(f"\nstatic const cusadi::LPPlanHost {P}_plan = {{\n{base}\n}};\n")
 
-        # --- embedded reference for self-check ---
-        o.write(f"\nstatic const int {P}_ref_nstages = {n_stages};\n")
-        ptrs = []
-        for a, buf in enumerate(ref_in):
-            arr(f"ref_in_{a}", list(buf), "double"); ptrs.append(f"{P}_ref_in_{a}")
-        o.write(f"static const double* const {P}_ref_in[] = {{{', '.join(ptrs)}}};\n")
-        arr("ref_out", ref_out, "double")
-        o.write(f"static const int {P}_ref_nout = {len(ref_out)};\n")
+        if emit_reference:
+            # --- embedded reference for self-check ---
+            o.write(f"\nstatic const int {P}_ref_nstages = {n_stages};\n")
+            ptrs = []
+            for a, buf in enumerate(ref_in):
+                arr(f"ref_in_{a}", list(buf), "double"); ptrs.append(f"{P}_ref_in_{a}")
+            o.write(f"static const double* const {P}_ref_in[] = {{{', '.join(ptrs)}}};\n")
+            arr("ref_out", ref_out, "double")
+            o.write(f"static const int {P}_ref_nout = {len(ref_out)};\n")
+    return filepath
+
+
+def generate_plan_registry(entries, filepath, var_name="CUSADI_PLANS",
+                           with_references=False):
+    """Aggregate previously generated stage-plan headers into one C header
+    holding a `cusadi::PlanEntry` table, so consumers can loop plans
+    generically (upload / evaluate / optionally self-check).
+
+    `entries` is a list of (name, header, prefix, n_stages) matching prior
+    generate_native_plan(..., prefix=prefix) calls: `name` a display string,
+    `header` the plan header's basename (must be includable from the same
+    directory as `filepath`), `prefix` the symbol prefix used at emission,
+    `n_stages` the horizon the plan is meant to run at.
+
+    `with_references` must mirror the emit_reference flag used for the plan
+    headers: True wires each entry's ref_in/ref_out to the embedded
+    `{prefix}_ref_*` arrays (and n_stages must equal the n_ref used there);
+    False emits nullptr refs, signalling consumers to skip self-checks.
+
+    Stage plans only (StagePlanHost); the table and its `{var_name}_COUNT`
+    are file-static, so the header can be included from one TU per program.
+    """
+    os.makedirs(os.path.dirname(filepath) or ".", exist_ok=True)
+    with open(filepath, "w") as o:
+        o.write("// AUTO-GENERATED cusadi native plan registry. Do not edit.\n")
+        o.write("#pragma once\n#include \"cusadi_native.h\"\n")
+        for _, header, _, _ in entries:
+            o.write(f"#include \"{header}\"\n")
+        o.write(f"\nstatic const cusadi::PlanEntry {var_name}[] = {{\n")
+        for name, _, prefix, n_stages in entries:
+            refs = (f"{prefix}_ref_in, {prefix}_ref_out, {prefix}_ref_nout"
+                    if with_references else "nullptr, nullptr, 0")
+            o.write(f"    {{\"{name}\", &{prefix}_plan, {int(n_stages)}, {refs}}},\n")
+        o.write("};\n")
+        o.write(f"static const int {var_name}_COUNT = {len(entries)};\n")
     return filepath

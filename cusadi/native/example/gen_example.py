@@ -19,7 +19,8 @@ def main():
     # --- 1-axis example: f(x) -> (sin(x)+x^2, sumsqr(x)) ------------------
     x = ca.SX.sym("x", 4)
     f_lp = ca.Function("lp_example", [x], [ca.sin(x) + x**2, ca.sumsqr(x)])
-    generate_native_plan(f_lp, os.path.join(GEN, "lp_example_plan.h"), prefix="LP_EXAMPLE")
+    generate_native_plan(f_lp, os.path.join(GEN, "lp_example_plan.h"), prefix="LP_EXAMPLE",
+                         emit_reference=True)
 
     # --- 2-axis stage example: per-knot running + stage*shared term -------
     xk = ca.SX.sym("xk", 3)
@@ -33,7 +34,7 @@ def main():
     out_specs = [StageSpec(StageMode.STAGE), StageSpec(StageMode.STAGE)]
     generate_native_plan(f_stage, os.path.join(GEN, "stage_example_plan.h"),
                          input_specs=in_specs, output_specs=out_specs,
-                         prefix="STAGE_EXAMPLE", n_ref=4)
+                         prefix="STAGE_EXAMPLE", n_ref=4, emit_reference=True)
     print(f"wrote {GEN}/lp_example_plan.h and stage_example_plan.h")
 
 

@@ -232,6 +232,11 @@ int evaluate_lp_stream(
 }
 
 int configure_shared_memory(int shared_bytes) {
+    // The attribute caps every later launch of the (shared) kernel, so it must
+    // only ever grow: multiple uploaded plans each call this with their own size.
+    static int configured = 0;
+    if (shared_bytes <= configured) return 0;
+    configured = shared_bytes;
     cudaFuncSetAttribute(evaluate_kernel,
                          cudaFuncAttributeMaxDynamicSharedMemorySize,
                          shared_bytes);
@@ -473,10 +478,13 @@ STAGE_KERNEL_TEMPLATE = r"""
 // Per-input-arg metadata (length n_in, with analogous arrays for outputs):
 //   stage_mode[arg]   ∈ {0=STAGE, 1=SHARED, 2=COUPLED}
 //   stage_offset[arg] : added to blockIdx.y when mode==COUPLED (e.g. +1 for x_{k+1})
-//   stage_count[arg]  : leading-axis stride per instance:
-//                         STAGE   → n_stages
-//                         SHARED  → 1
-//                         COUPLED → n_stages + span
+//   spacing[arg]      : distance IN DOUBLES between consecutive instances'
+//                       data for this argument. The dense default is
+//                       stage_count * nnz (stage_count: STAGE -> n_stages,
+//                       SHARED -> 1, COUPLED -> n_stages + span); passing a
+//                       larger spacing lets an argument live inside a bigger
+//                       per-instance block (e.g. x inside z), and spacing 0
+//                       shares one copy across all instances.
 #include <cuda_runtime.h>
 #include <math.h>
 #include <cstdio>
@@ -518,7 +526,7 @@ __global__ void evaluate_stage_kernel(
         const int * __restrict__ nnz_in,
         const int * __restrict__ in_stage_mode,
         const int * __restrict__ in_stage_offset,
-        const int * __restrict__ in_stage_count,
+        const int * __restrict__ in_spacing,
         // Compute data
         const int n_levels,
         const int * __restrict__ level_offsets,
@@ -534,7 +542,7 @@ __global__ void evaluate_stage_kernel(
         const int * __restrict__ out_elems,
         const int * __restrict__ nnz_out,
         const int * __restrict__ out_stage_mode,
-        const int * __restrict__ out_stage_count) {
+        const int * __restrict__ out_spacing) {
 
     extern __shared__ {dtype} w[];
     const int inst  = blockIdx.x;
@@ -554,7 +562,7 @@ __global__ void evaluate_stage_kernel(
         int s = (mode == 1) ? 0
               : (mode == 2) ? (stage + in_stage_offset[arg])
               :               stage;
-        long long base = ((long long)inst * in_stage_count[arg] + s) * nnz_in[arg];
+        long long base = (long long)inst * in_spacing[arg] + (long long)s * nnz_in[arg];
         w[input_slots[i]] = inputs[arg][base + input_elems[i]];
     }
     __syncthreads();
@@ -586,7 +594,7 @@ __global__ void evaluate_stage_kernel(
         int arg  = out_args[i];
         int mode = out_stage_mode[arg];
         int s = (mode == 1) ? 0 : stage;
-        long long base = ((long long)inst * out_stage_count[arg] + s) * nnz_out[arg];
+        long long base = (long long)inst * out_spacing[arg] + (long long)s * nnz_out[arg];
         outputs[arg][base + out_elems[i]] = w[out_slots[i]];
     }
 }
@@ -611,7 +619,7 @@ float evaluate_lp_stage(
         const int *nnz_in,
         const int *in_stage_mode,
         const int *in_stage_offset,
-        const int *in_stage_count,
+        const int *in_spacing,
         // Compute
         const int n_levels,
         const int *level_offsets,
@@ -627,7 +635,7 @@ float evaluate_lp_stage(
         const int *out_elems,
         const int *nnz_out,
         const int *out_stage_mode,
-        const int *out_stage_count) {
+        const int *out_spacing) {
 
     dim3 grid(total_instances, n_stages);
     dim3 block(block_size);
@@ -640,11 +648,11 @@ float evaluate_lp_stage(
         inputs, outputs, total_instances, n_stages,
         n_consts, const_slots, const_vals,
         n_inputs, input_slots, input_args, input_elems, nnz_in,
-        in_stage_mode, in_stage_offset, in_stage_count,
+        in_stage_mode, in_stage_offset, in_spacing,
         n_levels, level_offsets, level_widths,
         node_ops, node_outs, node_in_a, node_in_b,
         n_outputs, out_slots, out_args, out_elems, nnz_out,
-        out_stage_mode, out_stage_count);
+        out_stage_mode, out_spacing);
     cudaEventRecord(stop, 0);
     cudaEventSynchronize(stop);
     cudaEventElapsedTime(&milliseconds, start, stop);
@@ -670,7 +678,7 @@ int evaluate_lp_stage_stream(
         const int *nnz_in,
         const int *in_stage_mode,
         const int *in_stage_offset,
-        const int *in_stage_count,
+        const int *in_spacing,
         const int n_levels,
         const int *level_offsets,
         const int *level_widths,
@@ -684,7 +692,7 @@ int evaluate_lp_stage_stream(
         const int *out_elems,
         const int *nnz_out,
         const int *out_stage_mode,
-        const int *out_stage_count,
+        const int *out_spacing,
         cudaStream_t stream) {
 
     dim3 grid(total_instances, n_stages);
@@ -693,16 +701,21 @@ int evaluate_lp_stage_stream(
         inputs, outputs, total_instances, n_stages,
         n_consts, const_slots, const_vals,
         n_inputs, input_slots, input_args, input_elems, nnz_in,
-        in_stage_mode, in_stage_offset, in_stage_count,
+        in_stage_mode, in_stage_offset, in_spacing,
         n_levels, level_offsets, level_widths,
         node_ops, node_outs, node_in_a, node_in_b,
         n_outputs, out_slots, out_args, out_elems, nnz_out,
-        out_stage_mode, out_stage_count);
+        out_stage_mode, out_spacing);
     cudaError_t err = cudaPeekAtLastError();
     return (int)err;
 }
 
 int configure_stage_shared_memory(int shared_bytes) {
+    // The attribute caps every later launch of the (shared) kernel, so it must
+    // only ever grow: multiple uploaded plans each call this with their own size.
+    static int configured = 0;
+    if (shared_bytes <= configured) return 0;
+    configured = shared_bytes;
     cudaFuncSetAttribute(evaluate_stage_kernel,
                          cudaFuncAttributeMaxDynamicSharedMemorySize,
                          shared_bytes);

@@ -18,8 +18,18 @@ generate_native_plan(fn, "myfn_plan.h", input_specs, output_specs)  # 2-axis (ba
 ```
 
 `input_specs`/`output_specs` are lists of `cusadi.level_parallel.stage.StageSpec`
-(STAGE / SHARED / COUPLED) — one per arg. The header embeds a CasADi-evaluated
-reference for runtime self-check.
+(STAGE / SHARED / COUPLED) — one per arg. Pass `emit_reference=True` (opt-in)
+to embed a CasADi-evaluated reference for runtime self-check.
+
+Many plans? Aggregate them into a single `cusadi::PlanEntry` table so the
+C++ side can loop upload/evaluate/self-check generically:
+
+```python
+from cusadi.native import generate_plan_registry
+generate_plan_registry([(name, f"{name}_plan.h", name.upper(), N) for name in fns],
+                       "plans_registry.h", var_name="MY_PLANS",
+                       with_references=False)  # True iff plans used emit_reference
+```
 
 ## Runtime (pure C++/CUDA)
 

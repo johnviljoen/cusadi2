@@ -94,25 +94,28 @@ class CusadiStageLevelParallelFunction(LPPlanTensorsMixin):
         self._fn_library.configure_stage_shared_memory(self._shared_bytes)
 
         self._upload_plan(plan)
-        self._upload_stage_metadata()
+        self._upload_stage_metadata(f_stage)
         self._setup_io(f_stage, num_instances, n_stages)
 
     # -- Plan flattening: shared serialize.flatten_plan via the mixin. --
     def _upload_plan(self, plan: LevelPlan):
         self._upload_flat_plan(flatten_plan(plan, block_size=self._block_size))
 
-    def _upload_stage_metadata(self):
-        # Stage-axis modes/offsets come from the shared serializer; per-arg
-        # stage counts derive from n_stages (precomputed here for the kernel).
+    def _upload_stage_metadata(self, f_stage: casadi.Function):
+        # Stage-axis modes/offsets come from the shared serializer. The kernel
+        # takes per-arg instance spacings in doubles; the dense tensors this
+        # class allocates make that stage_count * nnz for every argument.
         n = self.n_stages
         specs = flatten_stage_specs(self.input_specs, self.output_specs)
-        in_counts  = [specs.in_stage_count(i, n) for i in range(len(self.input_specs))]
-        out_counts = [specs.out_stage_count(j, n) for j in range(len(self.output_specs))]
+        in_spacing  = [specs.in_stage_count(i, n) * f_stage.nnz_in(i)
+                       for i in range(len(self.input_specs))]
+        out_spacing = [specs.out_stage_count(j, n) * f_stage.nnz_out(j)
+                       for j in range(len(self.output_specs))]
         self._in_stage_mode   = _to_gpu_int(specs.in_mode   or [0])
         self._in_stage_offset = _to_gpu_int(specs.in_offset or [0])
-        self._in_stage_count  = _to_gpu_int(in_counts or [1])
+        self._in_spacing      = _to_gpu_int(in_spacing or [1])
         self._out_stage_mode  = _to_gpu_int(specs.out_mode  or [0])
-        self._out_stage_count = _to_gpu_int(out_counts or [1])
+        self._out_spacing     = _to_gpu_int(out_spacing or [1])
 
     def _setup_io(self, f_stage: casadi.Function, num_instances: int, n_stages: int):
         nin, nout = f_stage.n_in(), f_stage.n_out()
@@ -203,7 +206,7 @@ class CusadiStageLevelParallelFunction(LPPlanTensorsMixin):
             self._ptr(self._nnz_in_gpu),
             self._ptr(self._in_stage_mode),
             self._ptr(self._in_stage_offset),
-            self._ptr(self._in_stage_count),
+            self._ptr(self._in_spacing),
             # Compute
             self._n_levels,
             self._ptr(self._level_offsets),
@@ -219,7 +222,7 @@ class CusadiStageLevelParallelFunction(LPPlanTensorsMixin):
             self._ptr(self._out_elems),
             self._ptr(self._nnz_out_gpu),
             self._ptr(self._out_stage_mode),
-            self._ptr(self._out_stage_count),
+            self._ptr(self._out_spacing),
         )
 
     def get_coo(self, out_idx: int = 0):

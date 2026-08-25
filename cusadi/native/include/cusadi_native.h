@@ -52,11 +52,34 @@ extern "C" float evaluate_lp_stage(
     int n_consts, const int* const_slots, const double* const_vals,
     int n_inputs, const int* input_slots, const int* input_args, const int* input_elems,
     const int* nnz_in, const int* in_stage_mode, const int* in_stage_offset,
-    const int* in_stage_count,
+    const int* in_spacing,
     int n_levels, const int* level_offsets, const int* level_widths,
     const int* node_ops, const int* node_outs, const int* node_in_a, const int* node_in_b,
     int n_outputs, const int* out_slots, const int* out_args, const int* out_elems,
-    const int* nnz_out, const int* out_stage_mode, const int* out_stage_count);
+    const int* nnz_out, const int* out_stage_mode, const int* out_spacing);
+extern "C" int evaluate_lp_stage_stream(
+    const double* inputs[], double* outputs[], int total_instances, int n_stages,
+    int block_size, int shared_bytes,
+    int n_consts, const int* const_slots, const double* const_vals,
+    int n_inputs, const int* input_slots, const int* input_args, const int* input_elems,
+    const int* nnz_in, const int* in_stage_mode, const int* in_stage_offset,
+    const int* in_spacing,
+    int n_levels, const int* level_offsets, const int* level_widths,
+    const int* node_ops, const int* node_outs, const int* node_in_a, const int* node_in_b,
+    int n_outputs, const int* out_slots, const int* out_args, const int* out_elems,
+    const int* nnz_out, const int* out_stage_mode, const int* out_spacing,
+    cudaStream_t stream);
+extern "C" int evaluate_lp_stage_args(
+    const double* const* inputs, double* const* outputs, const int* in_spacing, const int* out_spacing,
+    int n_args_in, int n_args_out, int total_instances, int n_stages,
+    int block_size, int shared_bytes,
+    int n_consts, const int* const_slots, const double* const_vals,
+    int n_inputs, const int* input_slots, const int* input_args, const int* input_elems,
+    const int* nnz_in, const int* in_stage_mode, const int* in_stage_offset,
+    int n_levels, const int* level_offsets, const int* level_widths,
+    const int* node_ops, const int* node_outs, const int* node_in_a, const int* node_in_b,
+    int n_outputs, const int* out_slots, const int* out_args, const int* out_elems,
+    const int* nnz_out, const int* out_stage_mode, cudaStream_t stream);
 extern "C" int configure_stage_shared_memory(int shared_bytes);
 
 namespace cusadi {
@@ -77,6 +100,20 @@ struct StagePlanHost {
     LPPlanHost base;
     const int *in_stage_mode, *in_stage_offset, *in_stage_span;  // length n_args_in
     const int *out_stage_mode;                                   // length n_args_out
+};
+
+// One row of a generated plan registry (cusadi.native.generate_plan_registry):
+// a named stage plan, its intended horizon, and — only when the plans were
+// generated with emit_reference=True — an embedded CasADi self-check
+// reference. ref_in/ref_out are nullptr (ref_nout 0) otherwise; consumers
+// must skip the self-check then.
+struct PlanEntry {
+    const char* name;
+    const StagePlanHost* plan;
+    int n_stages;                 // horizon the plan is meant to run at
+    const double* const* ref_in;  // per-arg reference inputs, kernel layout
+    const double* ref_out;        // knot-major expected outputs
+    int ref_nout;
 };
 
 namespace detail {
@@ -135,13 +172,35 @@ struct LPProgram {
 };
 
 // 2-axis (batch x horizon) stage program. grid = (batch, n_stages).
+//
+// spacing[arg] = distance IN DOUBLES between consecutive instances' data for
+// that argument. The dense default is stage_count * nnz — each argument its
+// own tightly-packed (instance, stage, nnz) buffer. Custom spacings let an
+// argument live inside a larger per-instance block (e.g. the states inside a
+// full primal vector), and spacing 0 shares one copy across all instances.
+//
+// Two ways to run:
+//  * bind(...) once, then evaluate_async(batch, stream): pointers and
+//    spacings are uploaded at bind time, so evaluate_async is a pure kernel
+//    launch — no events, no syncs, nothing host-side — and is safe to record
+//    into a CUDA graph. bind() may be called again to rebind.
+//  * evaluate_async(ins, outs, n_stages, batch, stream, ...): a plain
+//    callable -- the pointer tables travel by value as a kernel parameter,
+//    so there is no bind, no device-side table, and nothing host-side but
+//    the launch itself. Use it when the same function is evaluated at
+//    different arrays over time (e.g. a line search's trial points).
+//  * evaluate(d_in, d_out, batch, n_stages): synchronous convenience with
+//    dense default spacings; returns seconds.
 struct StageProgram {
     LPProgram lp;
     StagePlanHost h{};
     const int *d_in_mode, *d_in_offset;
     const int *d_out_mode;
     std::vector<int> in_mode_, in_span_, out_mode_;
-    int *d_in_count = nullptr, *d_out_count = nullptr;   // recomputed per n_stages
+    int *d_in_spacing = nullptr, *d_out_spacing = nullptr;
+    const double** d_in = nullptr;   // argument pointer tables, set by bind()
+    double** d_out = nullptr;
+    int n_stages_ = 0;               // set by bind()
 
     void upload(const StagePlanHost& p) {
         h = p; lp.upload(p.base);
@@ -152,37 +211,116 @@ struct StageProgram {
         in_mode_.assign(p.in_stage_mode, p.in_stage_mode + ni);
         in_span_.assign(p.in_stage_span, p.in_stage_span + ni);
         out_mode_.assign(p.out_stage_mode, p.out_stage_mode + no);
-        CUSADI_NATIVE_CHECK(cudaMalloc(&d_in_count, size_t(ni) * sizeof(int)));
-        CUSADI_NATIVE_CHECK(cudaMalloc(&d_out_count, size_t(no) * sizeof(int)));
+        CUSADI_NATIVE_CHECK(cudaMalloc(&d_in_spacing, size_t(ni) * sizeof(int)));
+        CUSADI_NATIVE_CHECK(cudaMalloc(&d_out_spacing, size_t(no) * sizeof(int)));
+        CUSADI_NATIVE_CHECK(cudaMalloc(&d_in, size_t(ni) * sizeof(double*)));
+        CUSADI_NATIVE_CHECK(cudaMalloc(&d_out, size_t(no) * sizeof(double*)));
         configure_stage_shared_memory(p.base.shared_bytes);
     }
 
-    // Leading-axis stride per arg given the horizon length: STAGE->H, SHARED->1,
-    // COUPLED->H+span. (mode: 0=STAGE, 1=SHARED, 2=COUPLED)
-    int in_stage_count(int arg, int n_stages) const {
+    // Dense default spacing per arg: stage_count * nnz, with stage_count
+    // STAGE->H, SHARED->1, COUPLED->H+span. (mode: 0=STAGE, 1=SHARED, 2=COUPLED)
+    int default_in_spacing(int arg, int n_stages) const {
         int m = in_mode_[arg];
-        return m == 1 ? 1 : (m == 2 ? n_stages + in_span_[arg] : n_stages);
+        int count = m == 1 ? 1 : (m == 2 ? n_stages + in_span_[arg] : n_stages);
+        return count * h.base.nnz_in[arg];
     }
-    int out_stage_count(int arg, int n_stages) const {
-        return out_mode_[arg] == 1 ? 1 : n_stages;
+    int default_out_spacing(int arg, int n_stages) const {
+        return (out_mode_[arg] == 1 ? 1 : n_stages) * h.base.nnz_out[arg];
     }
 
-    float evaluate(const double** d_in, double** d_out, int batch, int n_stages) {
+    // Upload argument pointers + spacings to the device once. `ins`/`outs`
+    // are host arrays of device pointers, lengths n_args_in/n_args_out.
+    // nullptr spacing arrays select the dense defaults. May be called again
+    // to rebind.
+    void bind(const double* const* ins, double* const* outs, int n_stages,
+              const int* in_spacing = nullptr, const int* out_spacing = nullptr) {
         const int ni = h.base.n_args_in, no = h.base.n_args_out;
-        std::vector<int> ic(ni), oc(no);
-        for (int a = 0; a < ni; ++a) ic[a] = in_stage_count(a, n_stages);
-        for (int a = 0; a < no; ++a) oc[a] = out_stage_count(a, n_stages);
-        CUSADI_NATIVE_CHECK(cudaMemcpy(d_in_count, ic.data(), size_t(ni) * sizeof(int), cudaMemcpyHostToDevice));
-        CUSADI_NATIVE_CHECK(cudaMemcpy(d_out_count, oc.data(), size_t(no) * sizeof(int), cudaMemcpyHostToDevice));
+        n_stages_ = n_stages;
+        CUSADI_NATIVE_CHECK(cudaMemcpy(d_in, ins, size_t(ni) * sizeof(double*), cudaMemcpyHostToDevice));
+        CUSADI_NATIVE_CHECK(cudaMemcpy(d_out, outs, size_t(no) * sizeof(double*), cudaMemcpyHostToDevice));
+        std::vector<int> isp(ni), osp(no);
+        for (int a = 0; a < ni; ++a) isp[a] = in_spacing ? in_spacing[a] : default_in_spacing(a, n_stages);
+        for (int a = 0; a < no; ++a) osp[a] = out_spacing ? out_spacing[a] : default_out_spacing(a, n_stages);
+        CUSADI_NATIVE_CHECK(cudaMemcpy(d_in_spacing, isp.data(), size_t(ni) * sizeof(int), cudaMemcpyHostToDevice));
+        CUSADI_NATIVE_CHECK(cudaMemcpy(d_out_spacing, osp.data(), size_t(no) * sizeof(int), cudaMemcpyHostToDevice));
+    }
+    void bind(std::initializer_list<const double*> ins,
+              std::initializer_list<double*> outs,
+              int n_stages,
+              const int* in_spacing = nullptr,
+              const int* out_spacing = nullptr) {
+        if ((int)ins.size() != h.base.n_args_in || (int)outs.size() != h.base.n_args_out) {
+            fprintf(stderr, "cusadi StageProgram::bind: %zu in / %zu out args given, plan has %d/%d\n",
+                    ins.size(), outs.size(), h.base.n_args_in, h.base.n_args_out);
+            abort();
+        }
+        bind(ins.begin(), outs.begin(), n_stages, in_spacing, out_spacing);
+    }
+
+    // Pure kernel launch on `stream` (requires a prior bind). Returns the
+    // cudaError_t of the launch as int; no events, no synchronization.
+    int evaluate_async(int batch, cudaStream_t stream) const {
         const LPPlanHost& b = h.base;
-        return evaluate_lp_stage(d_in, d_out, batch, n_stages, b.block_size, b.shared_bytes,
+        return evaluate_lp_stage_stream(d_in, d_out, batch, n_stages_, b.block_size, b.shared_bytes,
             b.n_consts, lp.d_const_slots, lp.d_const_vals,
             b.n_input_maps, lp.d_input_slots, lp.d_input_args, lp.d_input_elems, lp.d_nnz_in,
-            d_in_mode, d_in_offset, d_in_count,
+            d_in_mode, d_in_offset, d_in_spacing,
             b.n_levels, lp.d_level_offsets, lp.d_level_widths,
             lp.d_node_ops, lp.d_node_outs, lp.d_node_in_a, lp.d_node_in_b,
             b.n_output_maps, lp.d_out_slots, lp.d_out_args, lp.d_out_elems, lp.d_nnz_out,
-            d_out_mode, d_out_count);
+            d_out_mode, d_out_spacing, stream);
+    }
+
+    // Pure kernel launch with the argument tables given per call (host
+    // arrays of device pointers; nullptr spacings select the dense defaults).
+    // Returns the cudaError_t of the launch as int.
+    int evaluate_async(const double* const* ins, double* const* outs, int n_stages, int batch,
+                       cudaStream_t stream, const int* in_spacing = nullptr,
+                       const int* out_spacing = nullptr) const {
+        const int ni = h.base.n_args_in, no = h.base.n_args_out;
+        int isp[16], osp[16];
+        for (int a = 0; a < ni; ++a) isp[a] = in_spacing ? in_spacing[a] : default_in_spacing(a, n_stages);
+        for (int a = 0; a < no; ++a) osp[a] = out_spacing ? out_spacing[a] : default_out_spacing(a, n_stages);
+        const LPPlanHost& b = h.base;
+        return evaluate_lp_stage_args(ins, outs, isp, osp, ni, no, batch, n_stages, b.block_size, b.shared_bytes,
+            b.n_consts, lp.d_const_slots, lp.d_const_vals,
+            b.n_input_maps, lp.d_input_slots, lp.d_input_args, lp.d_input_elems, lp.d_nnz_in,
+            d_in_mode, d_in_offset,
+            b.n_levels, lp.d_level_offsets, lp.d_level_widths,
+            lp.d_node_ops, lp.d_node_outs, lp.d_node_in_a, lp.d_node_in_b,
+            b.n_output_maps, lp.d_out_slots, lp.d_out_args, lp.d_out_elems, lp.d_nnz_out,
+            d_out_mode, stream);
+    }
+    int evaluate_async(std::initializer_list<const double*> ins, std::initializer_list<double*> outs,
+                       int n_stages, int batch, cudaStream_t stream,
+                       const int* in_spacing = nullptr, const int* out_spacing = nullptr) const {
+        if ((int)ins.size() != h.base.n_args_in || (int)outs.size() != h.base.n_args_out) {
+            fprintf(stderr, "cusadi StageProgram::evaluate_async: %zu in / %zu out args given, plan has %d/%d\n",
+                    ins.size(), outs.size(), h.base.n_args_in, h.base.n_args_out);
+            abort();
+        }
+        return evaluate_async(ins.begin(), outs.begin(), n_stages, batch, stream, in_spacing, out_spacing);
+    }
+
+    // Synchronous convenience: dense default spacings, caller-built device
+    // pointer tables, blocks until done. Returns seconds.
+    float evaluate(const double** in_tbl, double** out_tbl, int batch, int n_stages) {
+        const int ni = h.base.n_args_in, no = h.base.n_args_out;
+        std::vector<int> isp(ni), osp(no);
+        for (int a = 0; a < ni; ++a) isp[a] = default_in_spacing(a, n_stages);
+        for (int a = 0; a < no; ++a) osp[a] = default_out_spacing(a, n_stages);
+        CUSADI_NATIVE_CHECK(cudaMemcpy(d_in_spacing, isp.data(), size_t(ni) * sizeof(int), cudaMemcpyHostToDevice));
+        CUSADI_NATIVE_CHECK(cudaMemcpy(d_out_spacing, osp.data(), size_t(no) * sizeof(int), cudaMemcpyHostToDevice));
+        const LPPlanHost& b = h.base;
+        return evaluate_lp_stage(in_tbl, out_tbl, batch, n_stages, b.block_size, b.shared_bytes,
+            b.n_consts, lp.d_const_slots, lp.d_const_vals,
+            b.n_input_maps, lp.d_input_slots, lp.d_input_args, lp.d_input_elems, lp.d_nnz_in,
+            d_in_mode, d_in_offset, d_in_spacing,
+            b.n_levels, lp.d_level_offsets, lp.d_level_widths,
+            lp.d_node_ops, lp.d_node_outs, lp.d_node_in_a, lp.d_node_in_b,
+            b.n_output_maps, lp.d_out_slots, lp.d_out_args, lp.d_out_elems, lp.d_nnz_out,
+            d_out_mode, d_out_spacing);
     }
 };
 
