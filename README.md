@@ -62,3 +62,4 @@ pytest                    # host: plan verification + file round-trip; GPU: nvcc
 - `cusadi2/kernel_template.py` — the kernel source
 - `cusadi2/plan.py` — plan / reference file writers (format documented there)
 - `cusadi2/cusadi2.h` — loader and `Program` runtime
+- `examples/paper_results/` — A1/H1 kinematics and Jacobian latency benchmark (`bench.py`, `latency.cu`; results committed)
