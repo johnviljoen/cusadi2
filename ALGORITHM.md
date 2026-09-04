@@ -70,11 +70,13 @@ a hazard.
 
 Pass 1 assigns each compute op the level `max(level of operands) + 1`
 (longest path), which preserves the maximum available parallelism, and gives
-every value a fresh SSA id. Pass 2 maps SSA ids to physical slots with a
-free-list: a slot is released one level after its last read and reused. Within
-a level no slot is both read and written, so one barrier per level is enough,
-and the high-water mark of allocated slots is `peak_live_slots`, the block's
-shared-memory budget.
+every value a fresh SSA id. Constants and inputs sit at depth 0, so the
+scheduler numbers compute levels from 1; the plan file and the kernel index the
+level arrays from 0, which is the numbering the figure above uses. Pass 2 maps
+SSA ids to physical slots with a free-list: a slot is released one level after
+its last read and reused. Within a level no slot is both read and written, so
+one barrier per level is enough, and the high-water mark of allocated slots is
+`peak_live_slots`, the block's shared-memory budget.
 
 Assigning levels naively on the original work slots and then trying to repair
 conflicts by delaying nodes does not work: on a humanoid dynamics Jacobian the
@@ -112,9 +114,10 @@ baked into the plan file; a different horizon is a different file.
 
 `plan.py` writes the plan as one binary file and documents the layout. It
 stores everything the runtime needs so the C++ side computes nothing: block
-size (smallest power of two covering the median level width, capped at 256),
-peak live slots, float64 constants, the node arrays and slot maps, the stage
-specs and counts, and the CasADi CCS sparsity of every input and output.
+size (smallest power of two at or above the median level width, between 32 and
+256, unless the caller overrides it), peak live slots, float64 constants, the
+node arrays and slot maps, the stage specs and counts, and the CasADi CCS
+sparsity of every input and output.
 `cusadi2.h:load_plan` reads it; `Program` uploads it and `evaluate` is exactly
 one kernel launch with no host-side work, so it can be captured into a CUDA
 graph.
