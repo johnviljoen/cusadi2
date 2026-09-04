@@ -34,10 +34,10 @@ host-language-symmetric counterpart to the Python-timed MJX/warp baselines).
 Baselines run in subprocesses (jax x64 must be set before any jnp op; MJX is
 capped at B=1024 by its per-shape JIT time; warp is fp32 FK only). The CPU
 reference is CasADi's own C code generation for each per-stage function,
-compiled with gcc -O3 and timed from a small C driver: one problem (a star at
-B=1 on every panel) and B*N problems split over CPU_THREADS OpenMP threads (one
-line per thread count over the batch sweep; counts above the machine's hardware
-threads oversubscribe it). Plots follow.
+compiled with gcc -O3 and timed from a small C driver: B*N problems split over
+CPU_THREADS OpenMP threads (CPU_PLOT_THREADS of them drawn; counts above the
+machine's hardware threads oversubscribe it). One-problem latency is recorded in
+cpu_<dtype>.json but not drawn. Plots follow.
 
     python examples/paper_results/bench.py [--no-baselines] [--plot]
 
@@ -534,14 +534,15 @@ def _series(by_b, scale=1e6):
 
 
 def _cpu_point(ax, dtype, key, func, scale=1.0, per_eval=False):
-    """CasADi C codegen on the CPU: a star at B=1 for one problem, and (latency /
-    throughput panels) one line per OpenMP thread count for B*N problems."""
+    """CasADi C codegen on the CPU: on the latency / throughput panels one line per
+    thread count in CPU_PLOT_THREADS for B*N problems; on the compile panel a
+    point at B=1 for codegen + gcc."""
     cpu = _json(f"cpu_{dtype}.json")
-    v = cpu.get(key, {}).get(func)
-    if v is not None:
-        ax.plot([1], [v * scale], marker="*", ms=13, color="gold", markeredgecolor="black", ls="none",
-                label="CasADi C codegen, CPU, 1 problem")
-    if key != "latency_us":
+    if key == "compile_s":
+        v = cpu.get(key, {}).get(func)
+        if v is not None:
+            ax.plot([1], [v], marker="*", ms=13, color="gold", markeredgecolor="black", ls="none",
+                    label="CasADi C codegen + gcc, CPU")
         return
     by_thr = cpu.get("seq_us", {}).get(func, {})
     styles = ["-", "--", "-.", ":"]
