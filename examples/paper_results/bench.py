@@ -39,18 +39,21 @@ CPU_THREADS OpenMP threads (CPU_PLOT_THREADS of them drawn; counts above the
 machine's hardware threads oversubscribe it). One-problem latency is recorded in
 cpu_<dtype>.json but not drawn. Plots follow.
 
-    python examples/paper_results/bench.py [--no-baselines] [--plot]
+    python examples/paper_results/bench.py [--runs N] [--no-baselines] [--plot]
 
-Outputs in results/: latency_<dtype>.csv, latency_py_<dtype>.csv,
+Each run k writes results/runs/k/: latency_<dtype>.csv, latency_py_<dtype>.csv,
 compile_cusadi2_<dtype>.json, cpu_<dtype>.json, mjx_<robot>_<fpXX>.json,
-warp_<robot>.json, and latency_/throughput_/compile_<dtype>.png/.pdf.
+warp_<robot>.json. The plots (results/latency_/throughput_/compile_<dtype>.png,
+.pdf) aggregate every run present: mean with +-1 standard deviation caps.
 Env: CUSADI2_GPU (device index, default 0), NVCC (default "nvcc"), CC ("gcc").
 """
 import argparse
 import csv
 import ctypes
+import glob
 import json
 import os
+import statistics
 import subprocess
 import sys
 import time
@@ -161,7 +164,7 @@ def gpu_arch():
     return "sm_" + cc.replace(".", "")
 
 
-def run_cusadi2(dtype):
+def run_cusadi2(dtype, out):
     import cusadi2
     outdir = os.path.join(BUILD, dtype)
     plan_dir = os.path.join(outdir, "plans")
@@ -190,19 +193,19 @@ def run_cusadi2(dtype):
     nvcc_s = time.perf_counter() - t0
     subprocess.run(common + ["-shared", "-Xcompiler", "-fPIC", "-DCUSADI2_BENCH_LIB", "-o", libpath],
                    check=True)
-    with open(os.path.join(RESULTS, f"compile_cusadi2_{dtype}.json"), "w") as f:
+    with open(os.path.join(out, f"compile_cusadi2_{dtype}.json"), "w") as f:
         json.dump({"dtype": dtype, "codegen_s": codegen_s, "nvcc_s": nvcc_s}, f, indent=2)
     print(f"  nvcc: {nvcc_s:.1f}s (function-independent)")
 
     env = dict(os.environ, CUDA_VISIBLE_DEVICES=DEVICE)
-    csv_path = os.path.join(RESULTS, f"latency_{dtype}.csv")
+    csv_path = os.path.join(out, f"latency_{dtype}.csv")
     print(f"=== {dtype}: C++ sweep batches={BATCHES} ===")
     with open(csv_path, "w") as f:
         subprocess.run([binpath, plan_dir, str(N_WARMUP), str(N_TIMED)] + [str(b) for b in BATCHES],
                        env=env, stdout=f, check=True)
     print(f"=== {dtype}: Python (ctypes) sweep ===")
     subprocess.run([sys.executable, __file__, "--pylib", "--dtype", DT2FP[dtype], "--lib", libpath,
-                    "--plans", plan_dir, "--out", os.path.join(RESULTS, f"latency_py_{dtype}.csv")],
+                    "--plans", plan_dir, "--out", os.path.join(out, f"latency_py_{dtype}.csv")],
                    env=env, check=True)
     return csv_path
 
@@ -314,7 +317,7 @@ int main(int argc, char** argv) {
 """
 
 
-def run_cpu(dtype, n_timed=2000):
+def run_cpu(dtype, out, n_timed=2000):
     """CasADi's own C codegen for each per-stage function, gcc -O3 -march=native,
     timed from C: latency_us is one problem (one instance, one stage);
     seq_us[threads][B] is B*N problems split over that many OpenMP threads, the
@@ -346,7 +349,7 @@ def run_cpu(dtype, n_timed=2000):
         print(f"  {stem}: {lat[stem]:6.2f} us/problem   codegen + gcc {comp[stem]:4.1f} s   B=16384: "
               + "  ".join(f"{t}thr {seq[stem][str(t)]['16384'] / 1e3:7.1f} ms" for t in CPU_THREADS))
     cpu = next((l.split(":", 1)[1].strip() for l in open("/proc/cpuinfo") if l.startswith("model name")), "")
-    with open(os.path.join(RESULTS, f"cpu_{dtype}.json"), "w") as f:
+    with open(os.path.join(out, f"cpu_{dtype}.json"), "w") as f:
         json.dump({"dtype": dtype, "cpu": cpu, "threads": os.cpu_count(), "latency_us": lat,
                    "seq_us": seq, "compile_s": comp}, f, indent=2)
 
@@ -506,52 +509,75 @@ def run_warp(robot):
 
 
 # ---------------------------------------------------------------------------
-# Plots: latency (wall-clock), throughput (GPU-only, per eval), compile time
+# Plots: latency (wall-clock), throughput (GPU-only, per eval), compile time.
+# Every series is aggregated over results/runs/*: mean with +-1 std caps.
 # ---------------------------------------------------------------------------
-def _read_csv(path, col):
-    """csv -> {func: {config: ([B...], [us...])}}; nan rows dropped."""
-    if not os.path.exists(path):
-        return {}
-    rows = defaultdict(lambda: defaultdict(list))
-    with open(path) as f:
-        for r in csv.DictReader(f):
-            try:
-                rows[r["func"]][r["config"]].append((int(r["batch"]), float(r[col])))
-            except ValueError:
-                continue
-    return {fn: {c: tuple(zip(*sorted(p))) for c, p in by.items()} for fn, by in rows.items()}
+def _run_dirs():
+    return sorted(glob.glob(os.path.join(RESULTS, "runs", "*")), key=lambda d: int(os.path.basename(d)))
 
 
-def _json(name):
-    path = os.path.join(RESULTS, name)
-    return json.load(open(path)) if os.path.exists(path) else {}
+def _read_csv(name, col):
+    """All runs' csv -> {func: {config: {B: [us per run]}}}; nan rows dropped."""
+    out = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
+    for d in _run_dirs():
+        path = os.path.join(d, name)
+        if not os.path.exists(path):
+            continue
+        with open(path) as f:
+            for r in csv.DictReader(f):
+                try:
+                    out[r["func"]][r["config"]][int(r["batch"])].append(float(r[col]))
+                except ValueError:
+                    continue
+    return out
 
 
-def _series(by_b, scale=1e6):
-    """{B: seconds|None} -> ([B...], [scaled...]) or None."""
-    pts = sorted((int(b), v * scale) for b, v in (by_b or {}).items() if v is not None)
+def _jsons(name):
+    paths = (os.path.join(d, name) for d in _run_dirs())
+    return [json.load(open(p)) for p in paths if os.path.exists(p)]
+
+
+def _get(d, *keys):
+    for k in keys:
+        d = d.get(k, {}) if isinstance(d, dict) else {}
+    return d
+
+
+def _merge(jsons, *keys):
+    """Per run, walk `keys` to a {B: value|None} dict; -> {B: [values over runs]}."""
+    out = defaultdict(list)
+    for j in jsons:
+        for b, v in _get(j, *keys).items():
+            if v is not None:
+                out[b].append(v)
+    return out
+
+
+def _stat(samples, scale=1.0, per_eval=False):
+    """{B: [v...]} -> ([B], [mean], [std]) or None. per_eval divides by B*N."""
+    pts = []
+    for b, vs in sorted((int(b), v) for b, v in samples.items()):
+        vs = [x * scale / ((b * N_STAGES) if per_eval else 1) for x in vs]
+        if vs:
+            pts.append((b, statistics.mean(vs), statistics.pstdev(vs) if len(vs) > 1 else 0.0))
     return tuple(zip(*pts)) if pts else None
 
 
-def _cpu_point(ax, dtype, key, func, scale=1.0, per_eval=False):
-    """CasADi C codegen on the CPU: on the latency / throughput panels one line per
-    thread count in CPU_PLOT_THREADS for B*N problems; on the compile panel a
-    point at B=1 for codegen + gcc."""
-    cpu = _json(f"cpu_{dtype}.json")
-    if key == "compile_s":
-        v = cpu.get(key, {}).get(func)
-        if v is not None:
-            ax.plot([1], [v], marker="*", ms=13, color="gold", markeredgecolor="black", ls="none",
-                    label="CasADi C codegen + gcc, CPU")
-        return
-    by_thr = cpu.get("seq_us", {}).get(func, {})
+def _line(ax, s, **kw):
+    """Mean line with +-1 std caps; returns the line for its color."""
+    if not s:
+        return None
+    return ax.errorbar(s[0], s[1], yerr=s[2], capsize=3, elinewidth=1, **kw).lines[0]
+
+
+def _cpu_line(ax, dtype, func, per_eval=False):
+    """CasADi C codegen on the CPU: one line per thread count in CPU_PLOT_THREADS."""
+    cpu = _jsons(f"cpu_{dtype}.json")
     styles = ["-", "--", "-.", ":"]
     for n, thr in enumerate(CPU_PLOT_THREADS):
-        s = _series(by_thr.get(str(thr)), scale)
-        if s:
-            ys = [y / (b * N_STAGES) for b, y in zip(*s)] if per_eval else s[1]
-            ax.plot(s[0], ys, marker="*", ms=7, color="gold", markeredgecolor="black",
-                    ls=styles[n % 4], lw=1.5, label=f"CasADi C codegen, CPU, B·N over {thr} threads")
+        _line(ax, _stat(_merge(cpu, "seq_us", func, str(thr)), 1e3 if per_eval else 1.0, per_eval),
+              marker="*", ms=7, color="gold", markeredgecolor="black", ls=styles[n % 4], lw=1.5,
+              label=f"CasADi C codegen, CPU, B·N over {thr} threads")
 
 
 def _figure(dtype, ylabel, title, name, draw):
@@ -570,7 +596,9 @@ def _figure(dtype, ylabel, title, name, draw):
         ax.set_xlabel("batch size B")
         ax.set_ylabel(ylabel)
     fig.legend(*axes.flat[0].get_legend_handles_labels(), loc="lower center", ncol=4, fontsize=8)
-    fig.suptitle(f"{title}  ({fp}, horizon N={N_STAGES}, total work = B·N)", fontsize=13)
+    n_runs = len(_run_dirs())
+    fig.suptitle(f"{title}  ({fp}, horizon N={N_STAGES}, total work = B·N; "
+                 f"mean ± std over {n_runs} run{'s' if n_runs != 1 else ''})", fontsize=13)
     fig.tight_layout(rect=(0, 0.09, 1, 0.97))
     stem = os.path.join(RESULTS, f"{name}_{dtype}")
     for ext in ("png", "pdf"):
@@ -580,76 +608,69 @@ def _figure(dtype, ylabel, title, name, draw):
 
 
 def plot_latency(dtype):
-    data = _read_csv(os.path.join(RESULTS, f"latency_{dtype}.csv"), "wall_us")
-    py = _read_csv(os.path.join(RESULTS, f"latency_py_{dtype}.csv"), "wall_us")
+    data = _read_csv(f"latency_{dtype}.csv", "wall_us")
+    py = _read_csv(f"latency_py_{dtype}.csv", "wall_us")
 
     def draw(ax, func, robot, kind, fp):
         for cfg, label in CONFIGS:
-            s = data.get(func, {}).get(cfg)
-            if s:
-                (ln,) = ax.plot(*s, marker="o", ms=4, label=label)
-                p = py.get(func, {}).get(cfg)
-                if p:
-                    ax.plot(*p, color=ln.get_color(), ls="--", marker="x", ms=5, lw=1, alpha=0.8)
-        mjx = _json(f"mjx_{robot}_{fp}.json").get("results", {})
+            ln = _line(ax, _stat(data[func][cfg]), marker="o", ms=4, label=label)
+            if ln is not None:
+                _line(ax, _stat(py[func][cfg]), color=ln.get_color(), ls="--", marker="x", ms=5, lw=1, alpha=0.8)
+        mjx = _jsons(f"mjx_{robot}_{fp}.json")
         for suffix, ls, mk, lab in (("batched", "--", "s", "MJX batched, B·N"),
                                     ("rollout", ":", "^", "MJX rollout, N steps")):
-            s = _series(mjx.get(f"{kind}_{suffix}"))
-            if s:
-                ax.plot(*s, marker=mk, ms=4, color="black", ls=ls, label=f"{lab} ({fp})")
+            _line(ax, _stat(_merge(mjx, "results", f"{kind}_{suffix}"), 1e6), marker=mk, ms=4, color="black",
+                  ls=ls, label=f"{lab} ({fp})")
         if kind == "fk" and fp == "fp32":
-            s = _series(_json(f"warp_{robot}.json").get("results", {}).get("fk"))
-            if s:
-                ax.plot(*s, marker="D", ms=4, color="#9467bd", ls="-.", label="mujoco-warp (fp32)")
-        _cpu_point(ax, dtype, "latency_us", func)
+            _line(ax, _stat(_merge(_jsons(f"warp_{robot}.json"), "results", "fk"), 1e6), marker="D", ms=4,
+                  color="#9467bd", ls="-.", label="mujoco-warp (fp32)")
+        _cpu_line(ax, dtype, func)
         if py and func == FUNCS[0][0]:
-            ax.plot([], [], color="gray", ls="--", marker="x", ms=5, lw=1,
-                    label="dashed ×: same, called from Python (ctypes)")
+            ax.errorbar([], [], color="gray", ls="--", marker="x", ms=5, lw=1,
+                        label="dashed ×: same, called from Python (ctypes)")
     _figure(dtype, "wall-clock latency (µs)", "Single-call wall-clock latency vs batch", "latency", draw)
 
 
 def plot_throughput(dtype):
-    data = _read_csv(os.path.join(RESULTS, f"latency_{dtype}.csv"), "latency_us")
+    data = _read_csv(f"latency_{dtype}.csv", "latency_us")
 
     def draw(ax, func, robot, kind, fp):
         for cfg, label in CONFIGS:
-            s = data.get(func, {}).get(cfg)
-            if s:
-                ax.plot(s[0], [u * 1e3 / (b * N_STAGES) for b, u in zip(*s)], marker="o", ms=4, label=label)
-        g = _json(f"mjx_{robot}_{fp}.json").get("results", {}).get(f"{kind}_batched_gpu")
-        s = _series(g, 1e9)
-        if s:
-            ax.plot(s[0], [ns / (b * N_STAGES) for b, ns in zip(*s)], marker="s", ms=4, color="black",
-                    ls="--", label=f"MJX batched, GPU-only ({fp})")
-        _cpu_point(ax, dtype, "latency_us", func, 1e3, per_eval=True)   # ns per eval
+            _line(ax, _stat(data[func][cfg], 1e3, per_eval=True), marker="o", ms=4, label=label)
+        _line(ax, _stat(_merge(_jsons(f"mjx_{robot}_{fp}.json"), "results", f"{kind}_batched_gpu"), 1e9,
+                        per_eval=True), marker="s", ms=4, color="black", ls="--",
+              label=f"MJX batched, GPU-only ({fp})")
+        _cpu_line(ax, dtype, func, per_eval=True)
     _figure(dtype, "GPU time per eval (ns)", "Per-eval GPU throughput vs batch (launch overhead removed)",
             "throughput", draw)
 
 
 def plot_compile(dtype):
-    cc = _json(f"compile_cusadi2_{dtype}.json")
-    xb = [BATCHES[0], BATCHES[-1]]
+    cc = _jsons(f"compile_cusadi2_{dtype}.json")
+    xb = {str(BATCHES[0]): None, str(BATCHES[-1]): None}     # flat lines: same value at both ends
+
+    def flat(values):
+        return {b: list(values) for b in xb} if values else {}
 
     def draw(ax, func, robot, kind, fp):
-        if cc:
-            y = cc["codegen_s"].get(func, 0.0) + cc["nvcc_s"]
-            ax.plot(xb, [y, y], color="C0", lw=2, label="cusadi2 (codegen + nvcc, once)")
-        comp = _json(f"mjx_{robot}_{fp}.json").get("compile", {})
+        _line(ax, _stat(flat([c["codegen_s"].get(func, 0.0) + c["nvcc_s"] for c in cc])), color="C0", lw=2,
+              label="cusadi2 (codegen + nvcc, once)")
+        mjx = _jsons(f"mjx_{robot}_{fp}.json")
         for suffix, ls, mk, lab in (("batched", "--", "s", "MJX batched"), ("rollout", ":", "^", "MJX rollout")):
-            s = _series(comp.get(f"{kind}_{suffix}"), 1.0)
-            if s:
-                ax.plot(*s, color="black", ls=ls, marker=mk, ms=4, label=f"{lab} JIT ({fp})")
+            _line(ax, _stat(_merge(mjx, "compile", f"{kind}_{suffix}")), color="black", ls=ls, marker=mk, ms=4,
+                  label=f"{lab} JIT ({fp})")
         if kind == "fk" and fp == "fp32":
-            w = _json(f"warp_{robot}.json").get("compile_once_s")
-            if w:
-                ax.plot(xb, [w, w], color="#9467bd", ls="-.", lw=2, label="mujoco-warp (once, fp32)")
-        _cpu_point(ax, dtype, "compile_s", func)
+            w = [j["compile_once_s"] for j in _jsons(f"warp_{robot}.json") if j.get("compile_once_s")]
+            _line(ax, _stat(flat(w)), color="#9467bd", ls="-.", lw=2, label="mujoco-warp (once, fp32)")
+        _line(ax, _stat({"1": [c["compile_s"][func] for c in _jsons(f"cpu_{dtype}.json") if func in c["compile_s"]]}),
+              marker="*", ms=13, color="gold", markeredgecolor="black", ls="none", label="CasADi C codegen + gcc, CPU")
     _figure(dtype, "compile time (s)", "Compile / codegen time vs batch", "compile", draw)
 
 
 # ---------------------------------------------------------------------------
 def main():
     ap = argparse.ArgumentParser()
+    ap.add_argument("--runs", type=int, default=1, help="repeat the whole benchmark N times (results/runs/k)")
     ap.add_argument("--no-baselines", action="store_true", help="skip the MJX and mujoco-warp runs")
     ap.add_argument("--plot", action="store_true", help="only re-plot existing results")
     ap.add_argument("--cpu", action="store_true", help="only run the CPU reference, then plot")
@@ -670,21 +691,22 @@ def main():
             json.dump(out, f, indent=2)
         return print(f"wrote {args.out}")
 
-    if args.cpu:
+    for k in range(0 if args.plot else args.runs):
+        out = os.path.join(RESULTS, "runs", str(k))
+        os.makedirs(out, exist_ok=True)
+        print(f"##### run {k + 1} / {args.runs} -> {out}")
         for dtype in DTYPES:
-            run_cpu(dtype)
-    elif not args.plot:
-        for dtype in DTYPES:
-            run_cusadi2(dtype)
-            run_cpu(dtype)
-        if not args.no_baselines:
+            if not args.cpu:
+                run_cusadi2(dtype, out)
+            run_cpu(dtype, out)
+        if not (args.cpu or args.no_baselines):
             env = dict(os.environ, CUDA_VISIBLE_DEVICES=DEVICE, XLA_PYTHON_CLIENT_PREALLOCATE="false")
             for robot in ROBOTS:
                 for fp in DT2FP.values():
                     subprocess.run([sys.executable, __file__, "--mjx", "--robot", robot, "--dtype", fp,
-                                    "--out", os.path.join(RESULTS, f"mjx_{robot}_{fp}.json")], env=env)
+                                    "--out", os.path.join(out, f"mjx_{robot}_{fp}.json")], env=env)
                 subprocess.run([sys.executable, __file__, "--warp", "--robot", robot,
-                                "--out", os.path.join(RESULTS, f"warp_{robot}.json")], env=env)
+                                "--out", os.path.join(out, f"warp_{robot}.json")], env=env)
     for dtype in DTYPES:
         plot_latency(dtype)
         plot_throughput(dtype)
