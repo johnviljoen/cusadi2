@@ -567,9 +567,9 @@ def _figure(dtype, ylabel, title, name, draw):
         ax.grid(True, which="both", ls=":", alpha=0.5)
         ax.set_xlabel("batch size B")
         ax.set_ylabel(ylabel)
-    axes.flat[0].legend(fontsize=8, loc="best")
+    fig.legend(*axes.flat[0].get_legend_handles_labels(), loc="lower center", ncol=4, fontsize=8)
     fig.suptitle(f"{title}  ({fp}, horizon N={N_STAGES}, total work = B·N)", fontsize=13)
-    fig.tight_layout(rect=(0, 0, 1, 0.97))
+    fig.tight_layout(rect=(0, 0.09, 1, 0.97))
     stem = os.path.join(RESULTS, f"{name}_{dtype}")
     for ext in ("png", "pdf"):
         fig.savefig(f"{stem}.{ext}", dpi=140, bbox_inches="tight")
