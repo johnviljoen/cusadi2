@@ -2,28 +2,30 @@
 """Latency-vs-batch saturation benchmark for cusadi2's parallelism axes, with
 MuJoCo MJX and mujoco-warp baselines.
 
-For A1 and H1 forward kinematics, frame Jacobians and tracking-cost Hessians
-(Pinocchio, free-floating base, no contacts) it sweeps batch size B at fixed horizon N and times one kernel
+For A1 and H1 forward kinematics, frame Jacobians and frame Hessians (Pinocchio,
+free-floating base, no contacts) it sweeps batch size B at fixed horizon N and times one kernel
 launch for four configurations that toggle the stage and level-parallel axes:
 
-    full      staged + level-parallel + batch    grid=(B,N),  block=plan's
-    staged    staged + batch (no LP)             grid=(B,N),  block=1
-    lp        level-parallel + batch (no stages) grid=(B,1),  block=plan's
-    batch     batch only (~ original cusadi)     grid=(B,1),  block=1
+    full      staged + level-parallel + batch    per-stage plan, level kernel
+    staged    staged + batch (no LP)             per-stage plan, serial kernel
+    lp        level-parallel + batch (no stages) unrolled plan,  level kernel
+    batch     batch only (= original cusadi)     unrolled plan,  serial kernel
 
-full/staged use the per-stage plan and spread the horizon across the grid's
-stage axis (B*N small blocks). lp/batch use the unrolled plan (the per-stage
-function stamped N times into one DAG) with one block per instance (B big blocks,
-~N x the shared memory). All four do B*N evaluations. N=8 is the largest horizon
-whose unrolled FK/Jacobian plans fit the device's per-block shared-memory limit;
-an unrolled plan that does not fit is reported as nan (a gap in the curve).
+full/staged use the per-stage plan and spread the horizon across B*N items;
+lp/batch use the unrolled plan (the per-stage function stamped N times into one
+DAG, ~N x the work vector) over B items. full/lp run the level-parallel kernel
+(one block per item, work vector in shared memory); staged/batch run the serial
+kernel (one thread per item, work vector in global scratch: the original cusadi
+execution model). All four do B*N evaluations. N=8 is the largest horizon whose
+unrolled FK/Jacobian plans fit the per-block shared-memory limit; the unrolled
+Hessians do not, so their lp config is nan (a gap in the curve).
 
 Both backends evaluate the identical link set: the MuJoCo body frames excluding
 'world' (every such name is also a Pinocchio BODY frame). FK returns each link's
 world placement (translation + flattened rotation); the Jacobian returns each
-link's 6 x nv LOCAL_WORLD_ALIGNED geometric Jacobian; the Hessian is d2c/dq2 of
-c(q) = 0.5 * sum_links |p_link(q) - p_ref|^2 with p_ref a second (per-stage)
-input (MJX: jax.hessian of the same cost, p_ref fixed at the model's rest pose).
+link's 6 x nv LOCAL_WORLD_ALIGNED geometric Jacobian; the Hessian is the
+derivative of that stacked Jacobian with respect to q, a (6 nv n_links) x nq
+matrix (MJX: jax.jacobian of MuJoCo's analytical body Jacobians).
 
 Per dtype this writes the kernel and, per function, a per-stage and an unrolled
 plan into build/<dtype>/, compiles latency.cu, runs the sweep, then reruns it
@@ -68,10 +70,10 @@ DT2FP = {"double": "fp64", "float": "fp32"}
 ROBOTS = {"a1": ("a1_description", "a1_mj_description"),
           "h1": ("h1_description", "h1_mj_description")}
 FUNCS = [("a1_fk", "A1 forward kinematics"), ("a1_fkjac", "A1 frame Jacobians"),
-         ("a1_hess", "A1 tracking-cost Hessian"),
+         ("a1_fkhess", "A1 frame Hessians"),
          ("h1_fk", "H1 forward kinematics"), ("h1_fkjac", "H1 frame Jacobians"),
-         ("h1_hess", "H1 tracking-cost Hessian")]
-KIND = {"fk": "fk", "fkjac": "jac", "hess": "hess"}      # function stem suffix -> MJX quantity
+         ("h1_fkhess", "H1 frame Hessians")]
+KIND = {"fk": "fk", "fkjac": "jac", "fkhess": "hess"}    # function stem suffix -> MJX quantity
 CONFIGS = [("full", "staged + LP + batch (full)"), ("staged", "staged + batch (no LP)"),
            ("lp", "LP + batch, unrolled (no stages)"), ("batch", "batch only, unrolled (~ orig cusadi)")]
 
@@ -102,21 +104,19 @@ def _model(robot):
 
 
 def build_function(stem):
-    """stem = '<robot>_fk' | '<robot>_fkjac' | '<robot>_hess' -> per-stage CasADi Function."""
+    """stem = '<robot>_fk' | '<robot>_fkjac' | '<robot>_fkhess' -> per-stage CasADi Function of q."""
     import pinocchio as pin
     import pinocchio.casadi as cpin
     robot, kind = stem.split("_")
+    if kind == "fkhess":                   # d/dq of the stacked frame Jacobians
+        J = build_function(f"{robot}_fkjac")
+        q = ca.SX.sym("q", J.nnz_in(0))
+        return ca.Function(stem, [q], [ca.jacobian(J(q), q)])
     cmodel, cdata, q, fids = _model(robot)
     if kind == "fk":
         cpin.framesForwardKinematics(cmodel, cdata, q)
         outs = [ca.vertcat(cdata.oMf[i].translation, ca.reshape(cdata.oMf[i].rotation, 9, 1))
                 for i in fids]
-    elif kind == "hess":
-        cpin.framesForwardKinematics(cmodel, cdata, q)
-        p = ca.vertcat(*[cdata.oMf[i].translation for i in fids])
-        p_ref = ca.SX.sym("p_ref", p.numel())
-        H = ca.hessian(0.5 * ca.sumsqr(p - p_ref), q)[0]
-        return ca.Function(stem, [q, p_ref], [H])
     else:
         cpin.forwardKinematics(cmodel, cdata, q)
         cpin.updateFramePlacements(cmodel, cdata)
@@ -138,10 +138,10 @@ def unroll(f, n):
 
 
 def config_plan(plan_dir, stem, cfg):
-    """config -> (plan path, block override; 0 keeps the plan's, n_stages)."""
+    """config -> (plan path, serial kernel?, n_stages)."""
     unrolled = cfg in ("lp", "batch")
     path = os.path.join(plan_dir, f"{stem}{'_unr' if unrolled else ''}.plan")
-    return path, (1 if cfg in ("staged", "batch") else 0), (1 if unrolled else N_STAGES)
+    return path, int(cfg in ("staged", "batch")), (1 if unrolled else N_STAGES)
 
 
 # ---------------------------------------------------------------------------
@@ -211,8 +211,8 @@ def run_pylib(lib_path, fp, plan_dir, out_csv):
     for stem, _ in FUNCS:
         for B in BATCHES:
             for cfg, _ in CONFIGS:
-                path, block, nst = config_plan(plan_dir, stem, cfg)
-                h = lib.c2_setup(path.encode(), block, B)
+                path, serial, nst = config_plan(plan_dir, stem, cfg)
+                h = lib.c2_setup(path.encode(), serial, B)
                 if h < 0:
                     rows.append(f"{dt},{stem},{cfg},{B},{nst},{B * nst},nan,nan")
                     continue
@@ -284,10 +284,8 @@ def run_mjx(robot, fp):
     def kin(q):
         return mjx.com_pos(mx, mjx.kinematics(mx, dx.replace(qpos=q)))
 
-    p_ref = kin(jnp.asarray(q0, dtype)).xpos[1:]
-
-    def hess_of(d):                        # d2/dq2 of the link-position tracking cost
-        return jax.hessian(lambda q: 0.5 * jnp.sum((kin(q).xpos[1:] - p_ref) ** 2))(d.qpos).reshape(-1)
+    def hess_of(d):                        # d/dq of the stacked body Jacobians
+        return jax.jacobian(lambda q: jac_of(kin(q)))(d.qpos).reshape(-1)
 
     def make_rollout(of):
         def roll(q):
