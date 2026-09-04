@@ -1,6 +1,6 @@
 // Latency-vs-batch saturation benchmark for cusadi2's three parallelism axes.
 //
-// For each function (A1/H1 forward kinematics and frame Jacobians) it times one
+// For each function (A1/H1 forward kinematics, frame Jacobians, cost Hessians) it times one
 // kernel launch, sweeping batch size B at fixed horizon N, for four configs:
 //
 //   full    staged + level-parallel + batch   per-stage plan, grid=(B,N), block=plan's
@@ -124,7 +124,7 @@ extern "C" void c2_teardown(int h) {
 }
 
 #ifndef CUSADI2_BENCH_LIB
-static const char* FUNCS[] = {"a1_fk", "a1_fkjac", "h1_fk", "h1_fkjac"};
+static const char* FUNCS[] = {"a1_fk", "a1_fkjac", "a1_hess", "h1_fk", "h1_fkjac", "h1_hess"};
 static const char* CONFIGS[] = {"full", "staged", "lp", "batch"};
 
 // config -> plan file and block override (0 keeps the plan's block size).

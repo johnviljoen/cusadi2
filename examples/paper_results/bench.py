@@ -2,8 +2,8 @@
 """Latency-vs-batch saturation benchmark for cusadi2's parallelism axes, with
 MuJoCo MJX and mujoco-warp baselines.
 
-For A1 and H1 forward kinematics and frame Jacobians (Pinocchio, free-floating
-base, no contacts) it sweeps batch size B at fixed horizon N and times one kernel
+For A1 and H1 forward kinematics, frame Jacobians and tracking-cost Hessians
+(Pinocchio, free-floating base, no contacts) it sweeps batch size B at fixed horizon N and times one kernel
 launch for four configurations that toggle the stage and level-parallel axes:
 
     full      staged + level-parallel + batch    grid=(B,N),  block=plan's
@@ -15,12 +15,15 @@ full/staged use the per-stage plan and spread the horizon across the grid's
 stage axis (B*N small blocks). lp/batch use the unrolled plan (the per-stage
 function stamped N times into one DAG) with one block per instance (B big blocks,
 ~N x the shared memory). All four do B*N evaluations. N=8 is the largest horizon
-whose unrolled plans fit the device's per-block shared-memory limit.
+whose unrolled FK/Jacobian plans fit the device's per-block shared-memory limit;
+an unrolled plan that does not fit is reported as nan (a gap in the curve).
 
 Both backends evaluate the identical link set: the MuJoCo body frames excluding
 'world' (every such name is also a Pinocchio BODY frame). FK returns each link's
 world placement (translation + flattened rotation); the Jacobian returns each
-link's 6 x nv LOCAL_WORLD_ALIGNED geometric Jacobian.
+link's 6 x nv LOCAL_WORLD_ALIGNED geometric Jacobian; the Hessian is d2c/dq2 of
+c(q) = 0.5 * sum_links |p_link(q) - p_ref|^2 with p_ref a second (per-stage)
+input (MJX: jax.hessian of the same cost, p_ref fixed at the model's rest pose).
 
 Per dtype this writes the kernel and, per function, a per-stage and an unrolled
 plan into build/<dtype>/, compiles latency.cu, runs the sweep, then reruns it
@@ -65,7 +68,10 @@ DT2FP = {"double": "fp64", "float": "fp32"}
 ROBOTS = {"a1": ("a1_description", "a1_mj_description"),
           "h1": ("h1_description", "h1_mj_description")}
 FUNCS = [("a1_fk", "A1 forward kinematics"), ("a1_fkjac", "A1 frame Jacobians"),
-         ("h1_fk", "H1 forward kinematics"), ("h1_fkjac", "H1 frame Jacobians")]
+         ("a1_hess", "A1 tracking-cost Hessian"),
+         ("h1_fk", "H1 forward kinematics"), ("h1_fkjac", "H1 frame Jacobians"),
+         ("h1_hess", "H1 tracking-cost Hessian")]
+KIND = {"fk": "fk", "fkjac": "jac", "hess": "hess"}      # function stem suffix -> MJX quantity
 CONFIGS = [("full", "staged + LP + batch (full)"), ("staged", "staged + batch (no LP)"),
            ("lp", "LP + batch, unrolled (no stages)"), ("batch", "batch only, unrolled (~ orig cusadi)")]
 
@@ -96,7 +102,7 @@ def _model(robot):
 
 
 def build_function(stem):
-    """stem = '<robot>_fk' | '<robot>_fkjac' -> per-stage CasADi Function of q."""
+    """stem = '<robot>_fk' | '<robot>_fkjac' | '<robot>_hess' -> per-stage CasADi Function."""
     import pinocchio as pin
     import pinocchio.casadi as cpin
     robot, kind = stem.split("_")
@@ -105,6 +111,12 @@ def build_function(stem):
         cpin.framesForwardKinematics(cmodel, cdata, q)
         outs = [ca.vertcat(cdata.oMf[i].translation, ca.reshape(cdata.oMf[i].rotation, 9, 1))
                 for i in fids]
+    elif kind == "hess":
+        cpin.framesForwardKinematics(cmodel, cdata, q)
+        p = ca.vertcat(*[cdata.oMf[i].translation for i in fids])
+        p_ref = ca.SX.sym("p_ref", p.numel())
+        H = ca.hessian(0.5 * ca.sumsqr(p - p_ref), q)[0]
+        return ca.Function(stem, [q, p_ref], [H])
     else:
         cpin.forwardKinematics(cmodel, cdata, q)
         cpin.updateFramePlacements(cmodel, cdata)
@@ -272,6 +284,11 @@ def run_mjx(robot, fp):
     def kin(q):
         return mjx.com_pos(mx, mjx.kinematics(mx, dx.replace(qpos=q)))
 
+    p_ref = kin(jnp.asarray(q0, dtype)).xpos[1:]
+
+    def hess_of(d):                        # d2/dq2 of the link-position tracking cost
+        return jax.hessian(lambda q: 0.5 * jnp.sum((kin(q).xpos[1:] - p_ref) ** 2))(d.qpos).reshape(-1)
+
     def make_rollout(of):
         def roll(q):
             def step(d, _):
@@ -295,7 +312,7 @@ def run_mjx(robot, fp):
 
     rng = np.random.default_rng(0)
     results, compile_t = {}, {}
-    for kind, of in (("fk", fk_of), ("jac", jac_of)):
+    for kind, of in (("fk", fk_of), ("jac", jac_of), ("hess", hess_of)):
         for variant, fn, per_inst in (("batched", jax.jit(jax.vmap(lambda q, of=of: of(kin(q)))), N_STAGES),
                                       ("rollout", make_rollout(of), 1)):
             key = f"{kind}_{variant}"
@@ -404,10 +421,10 @@ def _figure(dtype, ylabel, title, name, draw):
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
     fp = DT2FP[dtype]
-    fig, axes = plt.subplots(2, 2, figsize=(11, 8), sharex=True)
+    fig, axes = plt.subplots(2, 3, figsize=(16, 8), sharex=True)
     for ax, (func, ftitle) in zip(axes.flat, FUNCS):
         robot, kind = func.split("_")
-        draw(ax, func, robot, "jac" if kind == "fkjac" else "fk", fp)
+        draw(ax, func, robot, KIND[kind], fp)
         ax.set_xscale("log", base=2)
         ax.set_yscale("log")
         ax.set_title(ftitle)
