@@ -71,7 +71,8 @@ N_WARMUP, N_TIMED = 5, 20
 MJX_BATCHES = [b for b in BATCHES if b <= 1024]
 MJX_N_WARMUP, MJX_N_EVALS = 8, 20
 DTYPES = ("double", "float")
-CPU_THREADS = [1, 16, 32, 64]          # OpenMP threads for the CPU sweep
+CPU_THREADS = [1, 16, 32, 64]          # OpenMP threads measured for the CPU sweep
+CPU_PLOT_THREADS = [16]                # ... and the subset drawn (the machine's hardware threads)
 DT2FP = {"double": "fp64", "float": "fp32"}
 
 ROBOTS = {"a1": ("a1_description", "a1_mj_description"),
@@ -544,12 +545,12 @@ def _cpu_point(ax, dtype, key, func, scale=1.0, per_eval=False):
         return
     by_thr = cpu.get("seq_us", {}).get(func, {})
     styles = ["-", "--", "-.", ":"]
-    for n, (thr, by_b) in enumerate(sorted(by_thr.items(), key=lambda kv: int(kv[0]))):
-        s = _series(by_b, scale)
+    for n, thr in enumerate(CPU_PLOT_THREADS):
+        s = _series(by_thr.get(str(thr)), scale)
         if s:
             ys = [y / (b * N_STAGES) for b, y in zip(*s)] if per_eval else s[1]
             ax.plot(s[0], ys, marker="*", ms=7, color="gold", markeredgecolor="black",
-                    ls=styles[n % 4], lw=1.5, label=f"CasADi C codegen, CPU, B·N over {thr} thread(s)")
+                    ls=styles[n % 4], lw=1.5, label=f"CasADi C codegen, CPU, B·N over {thr} threads")
 
 
 def _figure(dtype, ylabel, title, name, draw):
