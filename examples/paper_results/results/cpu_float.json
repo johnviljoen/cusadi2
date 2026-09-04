@@ -1,0 +1,20 @@
+{
+  "dtype": "float",
+  "cpu": "AMD Ryzen 7 5800X3D 8-Core Processor",
+  "latency_us": {
+    "a1_fk": 0.2,
+    "a1_fkjac": 0.26,
+    "a1_fkhess": 0.942,
+    "h1_fk": 0.26,
+    "h1_fkjac": 0.581,
+    "h1_fkhess": 2.204
+  },
+  "compile_s": {
+    "a1_fk": 0.7498962190002203,
+    "a1_fkjac": 1.3251527419924969,
+    "a1_fkhess": 3.0361529210058507,
+    "h1_fk": 1.2758620779932244,
+    "h1_fkjac": 2.869069000997115,
+    "h1_fkhess": 7.204371460000402
+  }
+}

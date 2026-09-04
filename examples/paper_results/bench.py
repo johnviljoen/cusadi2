@@ -25,21 +25,24 @@ Both backends evaluate the identical link set: the MuJoCo body frames excluding
 world placement (translation + flattened rotation); the Jacobian returns each
 link's 6 x nv LOCAL_WORLD_ALIGNED geometric Jacobian; the Hessian is the
 derivative of that stacked Jacobian with respect to q, a (6 nv n_links) x nq
-matrix (MJX: jax.jacobian of MuJoCo's analytical body Jacobians).
+matrix (MJX: jax.jacfwd of MuJoCo's analytical body Jacobians).
 
 Per dtype this writes the kernel and, per function, a per-stage and an unrolled
 plan into build/<dtype>/, compiles latency.cu, runs the sweep, then reruns it
 through a ctypes-loaded shared build of latency.cu timed from Python (the
 host-language-symmetric counterpart to the Python-timed MJX/warp baselines).
 Baselines run in subprocesses (jax x64 must be set before any jnp op; MJX is
-capped at B=1024 by its per-shape JIT time; warp is fp32 FK only). Plots follow.
+capped at B=1024 by its per-shape JIT time; warp is fp32 FK only). The CPU
+reference is CasADi's own C code generation for each per-stage function,
+compiled with gcc -O3 and timed on one problem from a small C driver: a single
+point at B=1 on every panel. Plots follow.
 
     python examples/paper_results/bench.py [--no-baselines] [--plot]
 
 Outputs in results/: latency_<dtype>.csv, latency_py_<dtype>.csv,
-compile_cusadi2_<dtype>.json, mjx_<robot>_<fpXX>.json, warp_<robot>.json, and
-latency_/throughput_/compile_<dtype>.png/.pdf.
-Env: CUSADI2_GPU (device index, default 0), NVCC (default "nvcc").
+compile_cusadi2_<dtype>.json, cpu_<dtype>.json, mjx_<robot>_<fpXX>.json,
+warp_<robot>.json, and latency_/throughput_/compile_<dtype>.png/.pdf.
+Env: CUSADI2_GPU (device index, default 0), NVCC (default "nvcc"), CC ("gcc").
 """
 import argparse
 import csv
@@ -58,6 +61,7 @@ BUILD = os.path.join(HERE, "build")
 RESULTS = os.path.join(HERE, "results")
 DEVICE = os.environ.get("CUSADI2_GPU", "0")
 NVCC = os.environ.get("NVCC", "nvcc")
+CC = os.environ.get("CC", "gcc")
 
 N_STAGES = 8
 BATCHES = [1, 4, 16, 64, 256, 1024, 4096, 16384]
@@ -233,6 +237,81 @@ def run_pylib(lib_path, fp, plan_dir, out_csv):
 
 
 # ---------------------------------------------------------------------------
+# CPU reference: CasADi C codegen, one problem, timed from C
+# ---------------------------------------------------------------------------
+CPU_DRIVER = r"""// Times a CasADi-generated function on one problem: median of n_timed calls.
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
+#include FN_H
+#define CAT_(a, b) a##b
+#define CAT(a, b) CAT_(a, b)
+static casadi_int nnz(const casadi_int* sp) {         // {nrow, ncol, 1} is compact dense
+    return sp[2] == 1 ? sp[0] * sp[1] : sp[2 + sp[1]];
+}
+static int cmp(const void* a, const void* b) {
+    double x = *(const double*)a, y = *(const double*)b; return (x > y) - (x < y);
+}
+int main(int argc, char** argv) {
+    int n_warm = atoi(argv[1]), n_timed = atoi(argv[2]);
+    casadi_int sz_arg, sz_res, sz_iw, sz_w;
+    CAT(FN, _work)(&sz_arg, &sz_res, &sz_iw, &sz_w);
+    const casadi_real** arg = calloc(sz_arg + 1, sizeof(*arg));
+    casadi_real** res = calloc(sz_res + 1, sizeof(*res));
+    casadi_int* iw = calloc(sz_iw + 1, sizeof(*iw));
+    casadi_real* w = calloc(sz_w + 1, sizeof(*w));
+    for (casadi_int i = 0; i < CAT(FN, _n_in)(); ++i) {
+        casadi_int n = nnz(CAT(FN, _sparsity_in)(i));
+        casadi_real* x = malloc(n * sizeof(*x));
+        for (casadi_int k = 0; k < n; ++k) x[k] = (casadi_real)(2.0 * rand() / RAND_MAX - 1.0);
+        arg[i] = x;
+    }
+    for (casadi_int i = 0; i < CAT(FN, _n_out)(); ++i)
+        res[i] = malloc(nnz(CAT(FN, _sparsity_out)(i)) * sizeof(casadi_real));
+    for (int k = 0; k < n_warm; ++k) FN(arg, res, iw, w, 0);
+    double* t = malloc(n_timed * sizeof(double));
+    struct timespec t0, t1;
+    for (int k = 0; k < n_timed; ++k) {
+        clock_gettime(CLOCK_MONOTONIC, &t0);
+        FN(arg, res, iw, w, 0);
+        clock_gettime(CLOCK_MONOTONIC, &t1);
+        t[k] = (t1.tv_sec - t0.tv_sec) * 1e6 + (t1.tv_nsec - t0.tv_nsec) * 1e-3;
+    }
+    qsort(t, n_timed, sizeof(double), cmp);
+    printf("%.4f\n", t[n_timed / 2]);
+    return 0;
+}
+"""
+
+
+def run_cpu(dtype, n_warmup=200, n_timed=2000):
+    """CasADi's own C codegen for each per-stage function, gcc -O3 -march=native,
+    one problem (one instance, one stage) timed from C. compile_s is codegen +
+    gcc, the CPU counterpart of cusadi2's codegen + nvcc."""
+    outdir = os.path.join(BUILD, dtype, "cpu")
+    os.makedirs(outdir, exist_ok=True)
+    driver = os.path.join(outdir, "driver.c")
+    with open(driver, "w") as f:
+        f.write(CPU_DRIVER)
+    lat, comp = {}, {}
+    print(f"=== {dtype}: CasADi C codegen on CPU (1 problem) ===")
+    for stem, _ in FUNCS:
+        t0 = time.perf_counter()
+        gen = ca.CodeGenerator(stem, {"with_header": True, "casadi_real": dtype})
+        gen.add(build_function(stem))
+        gen.generate(outdir + os.sep)
+        exe = os.path.join(outdir, stem)
+        subprocess.run([CC, "-O3", "-march=native", f"-DFN={stem}", f'-DFN_H="{stem}.h"', f"-I{outdir}",
+                        driver, os.path.join(outdir, f"{stem}.c"), "-lm", "-o", exe], check=True)
+        comp[stem] = time.perf_counter() - t0
+        lat[stem] = float(subprocess.check_output([exe, str(n_warmup), str(n_timed)]))
+        print(f"  {stem}: {lat[stem]:9.2f} us   codegen + gcc {comp[stem]:6.1f} s")
+    cpu = next((l.split(":", 1)[1].strip() for l in open("/proc/cpuinfo") if l.startswith("model name")), "")
+    with open(os.path.join(RESULTS, f"cpu_{dtype}.json"), "w") as f:
+        json.dump({"dtype": dtype, "cpu": cpu, "latency_us": lat, "compile_s": comp}, f, indent=2)
+
+
+# ---------------------------------------------------------------------------
 # Baselines: MuJoCo MJX (fk/jac, batched + rollout + GPU-only) and mujoco-warp (fk)
 # ---------------------------------------------------------------------------
 def _median_wall(fn, n_warmup, n_evals, sync):
@@ -284,8 +363,8 @@ def run_mjx(robot, fp):
     def kin(q):
         return mjx.com_pos(mx, mjx.kinematics(mx, dx.replace(qpos=q)))
 
-    def hess_of(d):                        # d/dq of the stacked body Jacobians
-        return jax.jacobian(lambda q: jac_of(kin(q)))(d.qpos).reshape(-1)
+    def hess_of(d):                        # d/dq of the stacked body Jacobians (forward mode: nq inputs)
+        return jax.jacfwd(lambda q: jac_of(kin(q)))(d.qpos).reshape(-1)
 
     def make_rollout(of):
         def roll(q):
@@ -414,6 +493,14 @@ def _series(by_b, scale=1e6):
     return tuple(zip(*pts)) if pts else None
 
 
+def _cpu_point(ax, dtype, key, func, scale=1.0):
+    """CasADi C codegen on the CPU, one problem: a star at B=1."""
+    v = _json(f"cpu_{dtype}.json").get(key, {}).get(func)
+    if v is not None:
+        ax.plot([1], [v * scale], marker="*", ms=13, color="gold", markeredgecolor="black", ls="none",
+                label="CasADi C codegen, CPU, 1 problem")
+
+
 def _figure(dtype, ylabel, title, name, draw):
     import matplotlib
     matplotlib.use("Agg")
@@ -461,6 +548,7 @@ def plot_latency(dtype):
             s = _series(_json(f"warp_{robot}.json").get("results", {}).get("fk"))
             if s:
                 ax.plot(*s, marker="D", ms=4, color="#9467bd", ls="-.", label="mujoco-warp (fp32)")
+        _cpu_point(ax, dtype, "latency_us", func)
         if py and func == FUNCS[0][0]:
             ax.plot([], [], color="gray", ls="--", marker="x", ms=5, lw=1,
                     label="dashed ×: same, called from Python (ctypes)")
@@ -480,6 +568,7 @@ def plot_throughput(dtype):
         if s:
             ax.plot(s[0], [ns / (b * N_STAGES) for b, ns in zip(*s)], marker="s", ms=4, color="black",
                     ls="--", label=f"MJX batched, GPU-only ({fp})")
+        _cpu_point(ax, dtype, "latency_us", func, 1e3)     # 1 eval: ns per eval = us * 1e3
     _figure(dtype, "GPU time per eval (ns)", "Per-eval GPU throughput vs batch (launch overhead removed)",
             "throughput", draw)
 
@@ -501,6 +590,7 @@ def plot_compile(dtype):
             w = _json(f"warp_{robot}.json").get("compile_once_s")
             if w:
                 ax.plot(xb, [w, w], color="#9467bd", ls="-.", lw=2, label="mujoco-warp (once, fp32)")
+        _cpu_point(ax, dtype, "compile_s", func)
     _figure(dtype, "compile time (s)", "Compile / codegen time vs batch", "compile", draw)
 
 
@@ -509,6 +599,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--no-baselines", action="store_true", help="skip the MJX and mujoco-warp runs")
     ap.add_argument("--plot", action="store_true", help="only re-plot existing results")
+    ap.add_argument("--cpu", action="store_true", help="only run the CPU reference, then plot")
     ap.add_argument("--pylib", action="store_true", help="(internal) Python-timed cusadi2 sweep")
     ap.add_argument("--mjx", action="store_true", help="(internal) MJX baseline")
     ap.add_argument("--warp", action="store_true", help="(internal) mujoco-warp baseline")
@@ -526,9 +617,13 @@ def main():
             json.dump(out, f, indent=2)
         return print(f"wrote {args.out}")
 
-    if not args.plot:
+    if args.cpu:
+        for dtype in DTYPES:
+            run_cpu(dtype)
+    elif not args.plot:
         for dtype in DTYPES:
             run_cusadi2(dtype)
+            run_cpu(dtype)
         if not args.no_baselines:
             env = dict(os.environ, CUDA_VISIBLE_DEVICES=DEVICE, XLA_PYTHON_CLIENT_PREALLOCATE="false")
             for robot in ROBOTS:
