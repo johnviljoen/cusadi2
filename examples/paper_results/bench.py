@@ -35,8 +35,9 @@ Baselines run in subprocesses (jax x64 must be set before any jnp op; MJX is
 capped at B=1024 by its per-shape JIT time; warp is fp32 FK only). The CPU
 reference is CasADi's own C code generation for each per-stage function,
 compiled with gcc -O3 and timed from a small C driver: one problem (a star at
-B=1 on every panel) and B*N problems evaluated back to back on one core (a line
-over the batch sweep). Plots follow.
+B=1 on every panel) and B*N problems split over CPU_THREADS OpenMP threads (one
+line per thread count over the batch sweep; counts above the machine's hardware
+threads oversubscribe it). Plots follow.
 
     python examples/paper_results/bench.py [--no-baselines] [--plot]
 
@@ -70,6 +71,7 @@ N_WARMUP, N_TIMED = 5, 20
 MJX_BATCHES = [b for b in BATCHES if b <= 1024]
 MJX_N_WARMUP, MJX_N_EVALS = 8, 20
 DTYPES = ("double", "float")
+CPU_THREADS = [1, 16, 32, 64]          # OpenMP threads for the CPU sweep
 DT2FP = {"double": "fp64", "float": "fp32"}
 
 ROBOTS = {"a1": ("a1_description", "a1_mj_description"),
@@ -240,8 +242,11 @@ def run_pylib(lib_path, fp, plan_dir, out_csv):
 # ---------------------------------------------------------------------------
 # CPU reference: CasADi C codegen, one problem, timed from C
 # ---------------------------------------------------------------------------
-CPU_DRIVER = r"""// Times a CasADi-generated function over n_items problems evaluated back to
-// back (distinct inputs, one output buffer): median of n_timed repetitions, us.
+CPU_DRIVER = r"""// Times a CasADi-generated function over n_items problems (distinct inputs)
+// split statically over n_threads OpenMP threads, each with its own work
+// vectors and output buffer: median of n_timed repetitions, us.
+//   driver <n_warm> <n_timed> <n_items> <n_threads>
+#include <omp.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
@@ -257,12 +262,22 @@ static int cmp(const void* a, const void* b) {
 int main(int argc, char** argv) {
     int n_warm = atoi(argv[1]), n_timed = atoi(argv[2]);
     long n_items = atol(argv[3]);
-    casadi_int sz_arg, sz_res, sz_iw, sz_w, n_in = CAT(FN, _n_in)();
+    int n_threads = atoi(argv[4]);
+    omp_set_num_threads(n_threads);
+    casadi_int sz_arg, sz_res, sz_iw, sz_w, n_in = CAT(FN, _n_in)(), n_out = CAT(FN, _n_out)();
     CAT(FN, _work)(&sz_arg, &sz_res, &sz_iw, &sz_w);
-    const casadi_real** arg = calloc(sz_arg + 1, sizeof(*arg));
-    casadi_real** res = calloc(sz_res + 1, sizeof(*res));
-    casadi_int* iw = calloc(sz_iw + 1, sizeof(*iw));
-    casadi_real* w = calloc(sz_w + 1, sizeof(*w));
+    const casadi_real*** args = malloc(n_threads * sizeof(*args));   // per-thread work
+    casadi_real*** ress = malloc(n_threads * sizeof(*ress));
+    casadi_int** iws = malloc(n_threads * sizeof(*iws));
+    casadi_real** ws = malloc(n_threads * sizeof(*ws));
+    for (int t = 0; t < n_threads; ++t) {
+        args[t] = calloc(sz_arg + 1, sizeof(**args));
+        ress[t] = calloc(sz_res + 1, sizeof(**ress));
+        iws[t] = calloc(sz_iw + 1, sizeof(**iws));
+        ws[t] = calloc(sz_w + 1, sizeof(**ws));
+        for (casadi_int i = 0; i < n_out; ++i)
+            ress[t][i] = malloc(nnz(CAT(FN, _sparsity_out)(i)) * sizeof(casadi_real));
+    }
     casadi_real** in = malloc(n_in * sizeof(*in));       // per input: n_items problems
     casadi_int* nin = malloc(n_in * sizeof(*nin));
     for (casadi_int i = 0; i < n_in; ++i) {
@@ -270,12 +285,17 @@ int main(int argc, char** argv) {
         in[i] = malloc(n_items * nin[i] * sizeof(casadi_real));
         for (long k = 0; k < n_items * nin[i]; ++k) in[i][k] = (casadi_real)(2.0 * rand() / RAND_MAX - 1.0);
     }
-    for (casadi_int i = 0; i < CAT(FN, _n_out)(); ++i)
-        res[i] = malloc(nnz(CAT(FN, _sparsity_out)(i)) * sizeof(casadi_real));
+#define EVAL_ONE(t, j)                                                          \
+    {                                                                           \
+        for (casadi_int i = 0; i < n_in; ++i) args[t][i] = in[i] + j * nin[i]; \
+        FN(args[t], ress[t], iws[t], ws[t], 0);                                 \
+    }
 #define EVAL_ALL                                                                \
-    for (long j = 0; j < n_items; ++j) {                                        \
-        for (casadi_int i = 0; i < n_in; ++i) arg[i] = in[i] + j * nin[i];    \
-        FN(arg, res, iw, w, 0);                                                 \
+    if (n_threads == 1) {                     /* no fork/join on the 1-thread path */ \
+        for (long j = 0; j < n_items; ++j) EVAL_ONE(0, j)                       \
+    } else {                                                                    \
+        _Pragma("omp parallel for schedule(static)")                            \
+        for (long j = 0; j < n_items; ++j) EVAL_ONE(omp_get_thread_num(), j)    \
     }
     for (int k = 0; k < n_warm; ++k) EVAL_ALL
     double* t = malloc(n_timed * sizeof(double));
@@ -295,9 +315,9 @@ int main(int argc, char** argv) {
 
 def run_cpu(dtype, n_timed=2000):
     """CasADi's own C codegen for each per-stage function, gcc -O3 -march=native,
-    timed from C: latency_us is one problem (one instance, one stage); seq_us[B]
-    is B*N problems evaluated back to back on one core, the sequential CPU
-    counterpart of every GPU curve. compile_s is codegen + gcc."""
+    timed from C: latency_us is one problem (one instance, one stage);
+    seq_us[threads][B] is B*N problems split over that many OpenMP threads, the
+    CPU counterpart of every GPU curve. compile_s is codegen + gcc."""
     outdir = os.path.join(BUILD, dtype, "cpu")
     os.makedirs(outdir, exist_ok=True)
     driver = os.path.join(outdir, "driver.c")
@@ -305,28 +325,29 @@ def run_cpu(dtype, n_timed=2000):
         f.write(CPU_DRIVER)
     lat, seq, comp = {}, {}, {}
 
-    def run(exe, n_items):                 # median us for n_items sequential evaluations
+    def run(exe, n_items, threads=1):      # median us for n_items evaluations over threads
         reps = max(5, n_timed // n_items)
-        return float(subprocess.check_output([exe, str(max(1, reps // 10)), str(reps), str(n_items)]))
+        return float(subprocess.check_output(
+            [exe, str(max(1, reps // 10)), str(reps), str(n_items), str(threads)]))
 
-    print(f"=== {dtype}: CasADi C codegen on CPU (1 problem, then B*N sequential) ===")
+    print(f"=== {dtype}: CasADi C codegen on CPU (1 problem, then B*N over {CPU_THREADS} threads) ===")
     for stem, _ in FUNCS:
         t0 = time.perf_counter()
         gen = ca.CodeGenerator(stem, {"with_header": True, "casadi_real": dtype})
         gen.add(build_function(stem))
         gen.generate(outdir + os.sep)
         exe = os.path.join(outdir, stem)
-        subprocess.run([CC, "-O3", "-march=native", f"-DFN={stem}", f'-DFN_H="{stem}.h"', f"-I{outdir}",
-                        driver, os.path.join(outdir, f"{stem}.c"), "-lm", "-o", exe], check=True)
+        subprocess.run([CC, "-O3", "-march=native", "-fopenmp", f"-DFN={stem}", f'-DFN_H="{stem}.h"',
+                        f"-I{outdir}", driver, os.path.join(outdir, f"{stem}.c"), "-lm", "-o", exe], check=True)
         comp[stem] = time.perf_counter() - t0
         lat[stem] = run(exe, 1)
-        seq[stem] = {str(B): run(exe, B * N_STAGES) for B in BATCHES}
-        print(f"  {stem}: {lat[stem]:9.2f} us/problem   codegen + gcc {comp[stem]:5.1f} s   "
-              f"B=16384: {seq[stem]['16384'] / 1e3:9.1f} ms")
+        seq[stem] = {str(t): {str(B): run(exe, B * N_STAGES, t) for B in BATCHES} for t in CPU_THREADS}
+        print(f"  {stem}: {lat[stem]:6.2f} us/problem   codegen + gcc {comp[stem]:4.1f} s   B=16384: "
+              + "  ".join(f"{t}thr {seq[stem][str(t)]['16384'] / 1e3:7.1f} ms" for t in CPU_THREADS))
     cpu = next((l.split(":", 1)[1].strip() for l in open("/proc/cpuinfo") if l.startswith("model name")), "")
     with open(os.path.join(RESULTS, f"cpu_{dtype}.json"), "w") as f:
-        json.dump({"dtype": dtype, "cpu": cpu, "latency_us": lat, "seq_us": seq, "compile_s": comp},
-                  f, indent=2)
+        json.dump({"dtype": dtype, "cpu": cpu, "threads": os.cpu_count(), "latency_us": lat,
+                   "seq_us": seq, "compile_s": comp}, f, indent=2)
 
 
 # ---------------------------------------------------------------------------
@@ -513,17 +534,22 @@ def _series(by_b, scale=1e6):
 
 def _cpu_point(ax, dtype, key, func, scale=1.0, per_eval=False):
     """CasADi C codegen on the CPU: a star at B=1 for one problem, and (latency /
-    throughput panels) a line for B*N problems evaluated sequentially."""
+    throughput panels) one line per OpenMP thread count for B*N problems."""
     cpu = _json(f"cpu_{dtype}.json")
     v = cpu.get(key, {}).get(func)
     if v is not None:
         ax.plot([1], [v * scale], marker="*", ms=13, color="gold", markeredgecolor="black", ls="none",
                 label="CasADi C codegen, CPU, 1 problem")
-    s = _series(cpu.get("seq_us", {}).get(func), scale) if key == "latency_us" else None
-    if s:
-        ys = [y / (b * N_STAGES) for b, y in zip(*s)] if per_eval else s[1]
-        ax.plot(s[0], ys, marker="*", ms=7, color="gold", markeredgecolor="black", ls="-", lw=1.5,
-                label="CasADi C codegen, CPU, B·N sequential")
+    if key != "latency_us":
+        return
+    by_thr = cpu.get("seq_us", {}).get(func, {})
+    styles = ["-", "--", "-.", ":"]
+    for n, (thr, by_b) in enumerate(sorted(by_thr.items(), key=lambda kv: int(kv[0]))):
+        s = _series(by_b, scale)
+        if s:
+            ys = [y / (b * N_STAGES) for b, y in zip(*s)] if per_eval else s[1]
+            ax.plot(s[0], ys, marker="*", ms=7, color="gold", markeredgecolor="black",
+                    ls=styles[n % 4], lw=1.5, label=f"CasADi C codegen, CPU, B·N over {thr} thread(s)")
 
 
 def _figure(dtype, ylabel, title, name, draw):
