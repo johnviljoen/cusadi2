@@ -7,6 +7,7 @@
 //   cusadi2::Plan plan = cusadi2::load_plan("f.plan");
 //   cusadi2::Program prog(plan);
 //   prog.evaluate(d_in, d_out, batch, stream);   // pure launch; graph-capturable
+//   prog.use_serial(scratch_bytes);              // optional: thread-per-instance mode
 //
 // d_in / d_out are DEVICE-resident arrays of device buffer pointers, one per
 // argument. Buffer a holds batch * plan.in[a].count * nnz elements, laid out
@@ -44,6 +45,7 @@
 int cusadi2_launch(
     const CUSADI2_SCALAR* const* inputs, CUSADI2_SCALAR* const* outputs,
     int total_instances, int n_stages, int block_size, int shared_bytes,
+    CUSADI2_SCALAR* scratch, int n_threads,
     int n_consts, const int* const_slots, const CUSADI2_SCALAR* const_vals,
     int n_inputs, const int* input_slots, const int* input_args, const int* input_elems,
     const int* nnz_in, const int* in_stage_mode, const int* in_stage_offset,
@@ -122,6 +124,8 @@ struct Reader {
     }
 };
 
+inline int device() { int d = 0; cudaGetDevice(&d); return d; }
+
 template <class T> const T* dev(const std::vector<T>& h) {
     T* d = nullptr;
     size_t n = h.empty() ? 1 : h.size();   // non-null even when empty
@@ -166,6 +170,11 @@ inline Plan load_plan(const std::string& path) {
 
 // A plan uploaded to the device. evaluate() is a single kernel launch on the
 // given stream with no host-side work, so it can be captured into a CUDA graph.
+// Default mode is level-parallel (one block per instance and stage, work vector
+// in shared memory). use_serial() switches to one thread per instance and stage
+// with the work vector in a global scratch buffer; it suits functions whose
+// levels are too narrow to fill a block, and it is the no-level-parallelism
+// baseline. Scratch is allocated once, so evaluate() stays allocation-free.
 class Program {
 public:
     Program() = default;
@@ -182,9 +191,9 @@ public:
     void upload(const Plan& p) {
         using detail::dev;
         release();
-        h_ = Hdr{p.n_stages, p.block_size, p.shared_bytes(), (int)p.const_slots.size(),
-                 (int)p.input_slots.size(), (int)p.level_offsets.size(),
-                 (int)p.out_slots.size(), p.n_in(), p.n_out()};
+        h_ = Hdr{p.n_stages, p.block_size, p.shared_bytes(), p.peak_live_slots,
+                 (int)p.const_slots.size(), (int)p.input_slots.size(),
+                 (int)p.level_offsets.size(), (int)p.out_slots.size(), p.n_in(), p.n_out()};
         std::vector<int> nnz_in, nnz_out, in_mode, in_offset, in_count, out_mode, out_count;
         for (const Arg& a : p.in) {
             nnz_in.push_back(a.nnz()); in_mode.push_back(a.mode);
@@ -204,13 +213,37 @@ public:
         d_.node_ops = dev(p.node_ops); d_.node_outs = dev(p.node_outs);
         d_.node_in_a = dev(p.node_in_a); d_.node_in_b = dev(p.node_in_b);
         d_.out_slots = dev(p.out_slots); d_.out_args = dev(p.out_args); d_.out_elems = dev(p.out_elems);
-        CUSADI2_CHECK((cudaError_t)cusadi2_set_shared_memory(h_.shared_bytes));
+        // Raise the level kernel's shared-memory cap if the device can honour it;
+        // a plan too large for level mode can still run in serial mode.
+        int max_smem = 0;
+        cudaDeviceGetAttribute(&max_smem, cudaDevAttrMaxSharedMemoryPerBlockOptin, detail::device());
+        if (h_.shared_bytes <= max_smem)
+            CUSADI2_CHECK((cudaError_t)cusadi2_set_shared_memory(h_.shared_bytes));
     }
+
+    // Serial mode with peak_live_slots scalars of scratch per thread: threads =
+    // min(scratch_bytes / per-thread bytes, max_threads); when batch * n_stages
+    // exceeds that, threads loop over items.
+    void use_serial(size_t scratch_bytes = size_t(256) << 20, int block_size = 256,
+                    int max_threads = 1 << 20) {
+        use_level();
+        size_t per_thread = (size_t)h_.peak_live_slots * sizeof(Scalar);
+        size_t n = scratch_bytes / per_thread;
+        if (n < 1) throw std::runtime_error("cusadi2: serial scratch budget below one thread");
+        h_.serial_threads = (int)(n < (size_t)max_threads ? n : (size_t)max_threads);
+        h_.serial_block = block_size;
+        CUSADI2_CHECK(cudaMalloc(&d_.scratch, per_thread * h_.serial_threads));
+    }
+    void use_level() { cudaFree(d_.scratch); d_.scratch = nullptr; h_.serial_threads = 0; }
+    bool serial() const { return d_.scratch != nullptr; }
 
     // Launch on `stream`; returns cudaPeekAtLastError() (0 on success).
     int evaluate(const Scalar* const* d_in, Scalar* const* d_out, int batch,
                  cudaStream_t stream = 0) const {
-        return cusadi2_launch(d_in, d_out, batch, h_.n_stages, h_.block_size, h_.shared_bytes,
+        long long items = (long long)batch * h_.n_stages;
+        int threads = items < h_.serial_threads ? (int)items : h_.serial_threads;
+        return cusadi2_launch(d_in, d_out, batch, h_.n_stages,
+            d_.scratch ? h_.serial_block : h_.block_size, h_.shared_bytes, d_.scratch, threads,
             h_.n_consts, d_.const_slots, d_.const_vals,
             h_.n_input_maps, d_.input_slots, d_.input_args, d_.input_elems,
             d_.nnz_in, d_.in_mode, d_.in_offset, d_.in_count,
@@ -230,13 +263,15 @@ public:
             d_.input_args, d_.input_elems, d_.level_offsets, d_.level_widths, d_.node_ops,
             d_.node_outs, d_.node_in_a, d_.node_in_b, d_.out_slots, d_.out_args, d_.out_elems};
         for (const void* q : ptrs) if (q) cudaFree(const_cast<void*>(q));
+        cudaFree(d_.scratch);
         d_ = Dev{};
     }
 
 private:
     struct Hdr {
-        int n_stages = 1, block_size = 32, shared_bytes = 0, n_consts = 0, n_input_maps = 0,
-            n_levels = 0, n_output_maps = 0, n_in = 0, n_out = 0;
+        int n_stages = 1, block_size = 32, shared_bytes = 0, peak_live_slots = 0, n_consts = 0,
+            n_input_maps = 0, n_levels = 0, n_output_maps = 0, n_in = 0, n_out = 0;
+        int serial_threads = 0, serial_block = 256;
     } h_;
     struct Dev {
         const int *nnz_in = nullptr, *nnz_out = nullptr, *in_mode = nullptr,
@@ -246,6 +281,7 @@ private:
             *node_ops = nullptr, *node_outs = nullptr, *node_in_a = nullptr, *node_in_b = nullptr,
             *out_slots = nullptr, *out_args = nullptr, *out_elems = nullptr;
         const Scalar* const_vals = nullptr;
+        Scalar* scratch = nullptr;
     } d_;
 };
 

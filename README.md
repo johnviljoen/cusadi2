@@ -41,13 +41,17 @@ Compile `kernel.cu` into your program with `cusadi2.h` on the include path
 cusadi2::Plan plan = cusadi2::load_plan("fn.plan");
 cusadi2::Program prog(plan);
 prog.evaluate(d_in, d_out, batch, stream);     // one launch, graph-capturable
+prog.use_serial(scratch_bytes);                // optional: one thread per (instance, stage)
 ```
 
 `d_in` / `d_out` are device-resident arrays of device buffer pointers, one per
 argument; buffer `a` holds `plan.in[a].len(batch)` elements laid out
 (instance, stage_count, nnz). `plan.in[a].sp` / `plan.out[a].sp` carry the CasADi
 CCS sparsity (`coo_row()` / `coo_col()` for COO). Build with
-`-DCUSADI2_SCALAR=float` to match a float kernel.
+`-DCUSADI2_SCALAR=float` to match a float kernel. `use_serial` swaps the
+level-parallel kernel for a thread-per-instance one (work vector in a global
+scratch buffer sized by the budget; threads loop when the batch is larger),
+for functions whose levels are too narrow to fill a block.
 
 ## Tests
 

@@ -83,7 +83,19 @@ conflicts by delaying nodes does not work: on a humanoid dynamics Jacobian the
 critical path explodes from a few hundred levels to over ten thousand, because
 the parallelism was hidden by slot reuse. Renaming is required.
 
-### 3.3 Verifying a plan
+### 3.3 Serial mode
+
+The same plan also runs thread-per-instance: `cusadi2_kernel_serial` gives each
+(instance, stage) one thread that executes the node arrays in order with no
+barriers, keeping its work vector in a global scratch buffer laid out slot-major
+so a warp's accesses to any slot coalesce. Level order is a topological order,
+so no renaming or barrier is needed. `Program::use_serial(bytes)` sizes the
+thread count from a scratch budget; larger batches loop over items. This is the
+original cusadi execution model; it wins when levels are too narrow to fill a
+block, and it is the no-level-parallelism baseline in the benchmarks. Its cost
+is the scratch: `peak_live_slots` scalars per thread instead of per block.
+
+### 3.4 Verifying a plan
 
 A sequential interpreter of the plan would hide intra-level conflicts, because
 it executes nodes in a level one after another. `dag.py:verify_plan` executes
