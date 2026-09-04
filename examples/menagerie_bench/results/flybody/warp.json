@@ -1,4 +1,0 @@
-{
-  "robot": "flybody",
-  "error": "warp_unavailable: NotImplementedError('noslip solver not implemented.')"
-}

@@ -1,4 +1,0 @@
-{
-  "robot": "dynamixel_2r",
-  "error": "warp_unavailable: NotImplementedError('noslip solver not implemented.')"
-}

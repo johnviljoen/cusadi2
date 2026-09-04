@@ -1,4 +1,0 @@
-{
-  "robot": "flybody",
-  "error": "mjx_unavailable: NotImplementedError('[<mjtTrn.mjTRN_BODY: 5>] not supported')"
-}

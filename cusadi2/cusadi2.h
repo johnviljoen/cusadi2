@@ -1,25 +1,32 @@
-// cusadi2 — host-free C++/CUDA runtime for the function-independent level-parallel
-// stage kernel. No torch, no jax, no Python at runtime.
-//
-// Pair a generated plan header (see cusadi2.generate.generate_native_plan) with the
-// kernel source emitted by cusadi2.kernel_template:
+// cusadi2: host-free C++/CUDA runtime for the level-parallel kernel.
+// No Python at deployment: load a plan file written by cusadi2.plan.write_plan,
+// upload it, evaluate. Compile this header's consumer together with the kernel
+// source written by cusadi2.kernel_template.write_kernel_source.
 //
 //   #include "cusadi2.h"
-//   #include "myfn_plan.h"           // generated: provides MYFN_plan (StagePlanHost)
-//   cusadi2::StageProgram prog; prog.upload(MYFN_plan);
-//   prog.evaluate(d_in, d_out, batch, n_stages);   // d_in/d_out: device pointer arrays
+//   cusadi2::Plan plan = cusadi2::load_plan("f.plan");
+//   cusadi2::Program prog(plan);
+//   prog.evaluate(d_in, d_out, batch, stream);   // pure launch; graph-capturable
 //
-// Stage is the one path: the kernel runs one block per (instance, stage) over a
-// (batch x n_stages) grid, and every block runs the full level-parallel evaluation.
-// Plain batch-only level parallelism is just n_stages == 1 with every arg STAGE.
-// Inputs/outputs are caller-owned device buffers laid out batch-major (instance *
-// nnz + element); the pointer arrays themselves live in device memory.
+// d_in / d_out are DEVICE-resident arrays of device buffer pointers, one per
+// argument. Buffer a holds batch * plan.in[a].count * nnz elements, laid out
+// (instance, stage_count, nnz); the horizon and per-arg stage counts are baked
+// into the plan. Buffers are caller-owned.
 #pragma once
 
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <fstream>
+#include <stdexcept>
+#include <string>
 #include <vector>
 #include <cuda_runtime.h>
+
+// Scalar type; must match the dtype the kernel .cu was written with.
+#ifndef CUSADI2_SCALAR
+#define CUSADI2_SCALAR double
+#endif
 
 #ifndef CUSADI2_CHECK
 #define CUSADI2_CHECK(call)                                                    \
@@ -27,37 +34,16 @@
         cudaError_t _e = (call);                                               \
         if (_e != cudaSuccess) {                                               \
             fprintf(stderr, "cusadi2 CUDA error '%s' at %s:%d\n",              \
-                cudaGetErrorString(_e), __FILE__, __LINE__);                   \
+                    cudaGetErrorString(_e), __FILE__, __LINE__);               \
             abort();                                                           \
         }                                                                      \
     } while (0)
 #endif
 
-// Scalar precision: must match the dtype the kernel (.cu) was emitted with.
-// Compile a float build with -DCUSADI2_SCALAR=float; defaults to double.
-#ifndef CUSADI2_SCALAR
-#define CUSADI2_SCALAR double
-#endif
-
-// --- kernel entry points (defined in the cusadi2.kernel_template .cu) ---------
-// Names/signature match the wrappers write_kernel_source emits exactly.
-float evaluate_cusadi(
-    const CUSADI2_SCALAR* inputs[], CUSADI2_SCALAR* outputs[], int total_instances, int n_stages,
-    int block_size, int shared_bytes,
-    int n_consts, const int* const_slots, const CUSADI2_SCALAR* const_vals,
-    int n_inputs, const int* input_slots, const int* input_args, const int* input_elems,
-    const int* nnz_in, const int* in_stage_mode, const int* in_stage_offset,
-    const int* in_stage_count,
-    int n_levels, const int* level_offsets, const int* level_widths,
-    const int* node_ops, const int* node_outs, const int* node_in_a, const int* node_in_b,
-    int n_outputs, const int* out_slots, const int* out_args, const int* out_elems,
-    const int* nnz_out, const int* out_stage_mode, const int* out_stage_count);
-// Stream-aware sibling: identical, launches on `stream` and does NOT synchronize
-// (no event timing, no cudaDeviceSynchronize). Use this for single-stream pipelines
-// and CUDA-graph capture. Returns cudaPeekAtLastError() as int.
-int evaluate_cusadi_stream(
-    const CUSADI2_SCALAR* inputs[], CUSADI2_SCALAR* outputs[], int total_instances, int n_stages,
-    int block_size, int shared_bytes,
+// --- kernel entry points (defined in the emitted kernel .cu) -----------------
+int cusadi2_launch(
+    const CUSADI2_SCALAR* const* inputs, CUSADI2_SCALAR* const* outputs,
+    int total_instances, int n_stages, int block_size, int shared_bytes,
     int n_consts, const int* const_slots, const CUSADI2_SCALAR* const_vals,
     int n_inputs, const int* input_slots, const int* input_args, const int* input_elems,
     const int* nnz_in, const int* in_stage_mode, const int* in_stage_offset,
@@ -67,153 +53,200 @@ int evaluate_cusadi_stream(
     int n_outputs, const int* out_slots, const int* out_args, const int* out_elems,
     const int* nnz_out, const int* out_stage_mode, const int* out_stage_count,
     cudaStream_t stream);
-int configure_cusadi_shared_memory(int shared_bytes);
+int cusadi2_set_shared_memory(int shared_bytes);
 
 namespace cusadi2 {
 
-// --- host-side plan descriptors (emitted by generate_native_plan) ------------
-// LPPlanHost is the level-parallel program: the compute graph (level/node arrays)
-// plus the constant/input/output slot maps. StagePlanHost wraps it with the
-// per-arg stage-axis overlay (mode/offset/span). One descriptor, one program.
-struct LPPlanHost {
-    int n_args_in, n_args_out;
-    const int *nnz_in, *nnz_out;
-    int block_size, shared_bytes;
-    int n_consts;       const int *const_slots; const CUSADI2_SCALAR *const_vals;
-    int n_input_maps;   const int *input_slots, *input_args, *input_elems;
-    int n_levels;       const int *level_offsets, *level_widths;
-    int n_nodes;        const int *node_ops, *node_outs, *node_in_a, *node_in_b;
-    int n_output_maps;  const int *out_slots, *out_args, *out_elems;
+using Scalar = CUSADI2_SCALAR;
+
+// CasADi compressed-column sparsity of one argument.
+struct Sparsity {
+    int rows = 0, cols = 0;
+    std::vector<int> colptr;   // cols + 1
+    std::vector<int> rowidx;   // nnz, column-major nonzero order
+    int nnz() const { return (int)rowidx.size(); }
+    // COO views in nonzero (column-major) order: the row of each nonzero is
+    // rowidx itself; the column is expanded from colptr.
+    const std::vector<int>& coo_row() const { return rowidx; }
+    std::vector<int> coo_col() const {
+        std::vector<int> c(rowidx.size());
+        for (int j = 0; j < cols; ++j)
+            for (int k = colptr[j]; k < colptr[j + 1]; ++k) c[k] = j;
+        return c;
+    }
 };
 
-struct StagePlanHost {
-    LPPlanHost base;
-    const int *in_stage_mode, *in_stage_offset, *in_stage_span;  // length n_args_in
-    const int *out_stage_mode;                                   // length n_args_out
+// One argument: sparsity plus its stage-axis layout (mode 0=STAGE 1=SHARED
+// 2=COUPLED; count = leading-axis length at the plan's horizon).
+struct Arg {
+    Sparsity sp;
+    int mode = 0, offset = 0, span = 0, count = 1;
+    int nnz() const { return sp.nnz(); }
+    size_t len(int batch) const { return (size_t)batch * count * sp.nnz(); }  // elements
+};
+
+// A plan file, fully in host memory.
+struct Plan {
+    std::string name;
+    int n_stages = 1, block_size = 32, peak_live_slots = 0;
+    std::vector<Arg> in, out;
+    std::vector<int> const_slots; std::vector<double> const_vals;
+    std::vector<int> input_slots, input_args, input_elems;
+    std::vector<int> level_offsets, level_widths;
+    std::vector<int> node_ops, node_outs, node_in_a, node_in_b;
+    std::vector<int> out_slots, out_args, out_elems;
+    int n_in() const { return (int)in.size(); }
+    int n_out() const { return (int)out.size(); }
+    int shared_bytes() const { return peak_live_slots * (int)sizeof(Scalar); }
 };
 
 namespace detail {
-inline const int* dev_i(const int* h, int n) {
-    int* d = nullptr; n = n > 0 ? n : 1;
-    CUSADI2_CHECK(cudaMalloc(&d, size_t(n) * sizeof(int)));
-    CUSADI2_CHECK(cudaMemcpy(d, h, size_t(n) * sizeof(int), cudaMemcpyHostToDevice));
-    return d;
-}
-inline const CUSADI2_SCALAR* dev_d(const CUSADI2_SCALAR* h, int n) {
-    CUSADI2_SCALAR* d = nullptr; n = n > 0 ? n : 1;
-    CUSADI2_CHECK(cudaMalloc(&d, size_t(n) * sizeof(CUSADI2_SCALAR)));
-    CUSADI2_CHECK(cudaMemcpy(d, h, size_t(n) * sizeof(CUSADI2_SCALAR), cudaMemcpyHostToDevice));
+struct Reader {
+    std::ifstream f;
+    std::string path;
+    explicit Reader(const std::string& p) : f(p, std::ios::binary), path(p) {
+        if (!f) throw std::runtime_error("cusadi2: cannot open plan file: " + p);
+    }
+    void raw(void* dst, size_t bytes) {
+        f.read((char*)dst, (std::streamsize)bytes);
+        if (!f) throw std::runtime_error("cusadi2: short read in " + path);
+    }
+    int32_t i() { int32_t v; raw(&v, 4); return v; }
+    template <class T> std::vector<T> arr(size_t n) {
+        std::vector<T> v(n); if (n) raw(v.data(), n * sizeof(T)); return v;
+    }
+    void ia(std::vector<int>& v, size_t n) { v = arr<int32_t>(n); }
+    void sparsity(Sparsity& s, int rows, int cols, int nnz) {
+        s.rows = rows; s.cols = cols;
+        ia(s.colptr, (size_t)cols + 1); ia(s.rowidx, (size_t)nnz);
+    }
+};
+
+template <class T> const T* dev(const std::vector<T>& h) {
+    T* d = nullptr;
+    size_t n = h.empty() ? 1 : h.size();   // non-null even when empty
+    CUSADI2_CHECK(cudaMalloc(&d, n * sizeof(T)));
+    if (!h.empty()) CUSADI2_CHECK(cudaMemcpy(d, h.data(), n * sizeof(T), cudaMemcpyHostToDevice));
     return d;
 }
 }  // namespace detail
 
-// 2-axis (batch x horizon) stage program. grid = (batch, n_stages); one block per
-// (instance, stage), each running the full level-parallel evaluation. Batch-only
-// level parallelism is this with n_stages == 1 and every arg STAGE.
-struct StageProgram {
-    StagePlanHost h{};
-    // device copies of the base (level-parallel) program arrays
-    const int *d_nnz_in, *d_nnz_out;
-    const int *d_const_slots; const CUSADI2_SCALAR *d_const_vals;
-    const int *d_input_slots, *d_input_args, *d_input_elems;
-    const int *d_level_offsets, *d_level_widths;
-    const int *d_node_ops, *d_node_outs, *d_node_in_a, *d_node_in_b;
-    const int *d_out_slots, *d_out_args, *d_out_elems;
-    // device copies of the stage-axis arrays
-    const int *d_in_mode, *d_in_offset, *d_out_mode;
-    // host copies for the per-n_stages count recompute
-    std::vector<int> in_mode_, in_span_, out_mode_;
-    int *d_in_count = nullptr, *d_out_count = nullptr;   // recomputed per n_stages
-    // persistent count cache for the stream path: the per-arg stage counts depend only
-    // on n_stages, so we upload them once and skip the memcpy on subsequent same-n_stages
-    // calls (keeps the hot path a pure kernel launch -> single-stream, graph-capturable).
-    std::vector<int> ic_, oc_;
-    int count_stages_ = -1;
+inline Plan load_plan(const std::string& path) {
+    detail::Reader r(path);
+    char magic[4]; r.raw(magic, 4);
+    if (std::string(magic, 4) != "CS2P")
+        throw std::runtime_error("cusadi2: bad magic in " + path);
+    int version = r.i();
+    if (version != 1)
+        throw std::runtime_error("cusadi2: unsupported plan version in " + path);
+    Plan p;
+    int name_len = r.i();
+    p.name.resize(name_len); if (name_len) r.raw(&p.name[0], name_len);
+    int n_in = r.i(), n_out = r.i();
+    p.n_stages = r.i(); p.block_size = r.i(); p.peak_live_slots = r.i();
+    p.in.resize(n_in);
+    for (Arg& a : p.in) {
+        int rows = r.i(), cols = r.i(), nnz = r.i();
+        a.mode = r.i(); a.offset = r.i(); a.span = r.i(); a.count = r.i();
+        r.sparsity(a.sp, rows, cols, nnz);
+    }
+    p.out.resize(n_out);
+    for (Arg& a : p.out) {
+        int rows = r.i(), cols = r.i(), nnz = r.i();
+        a.mode = r.i(); a.count = r.i();
+        r.sparsity(a.sp, rows, cols, nnz);
+    }
+    int n = r.i(); r.ia(p.const_slots, n); p.const_vals = r.arr<double>(n);
+    n = r.i(); r.ia(p.input_slots, n); r.ia(p.input_args, n); r.ia(p.input_elems, n);
+    n = r.i(); r.ia(p.level_offsets, n); r.ia(p.level_widths, n);
+    n = r.i(); r.ia(p.node_ops, n); r.ia(p.node_outs, n); r.ia(p.node_in_a, n); r.ia(p.node_in_b, n);
+    n = r.i(); r.ia(p.out_slots, n); r.ia(p.out_args, n); r.ia(p.out_elems, n);
+    return p;
+}
 
-    void upload(const StagePlanHost& p) {
-        using namespace detail;
-        h = p;
-        const LPPlanHost& b = p.base;
-        d_nnz_in = dev_i(b.nnz_in, b.n_args_in);   d_nnz_out = dev_i(b.nnz_out, b.n_args_out);
-        d_const_slots = dev_i(b.const_slots, b.n_consts);
-        d_const_vals  = dev_d(b.const_vals, b.n_consts);
-        d_input_slots = dev_i(b.input_slots, b.n_input_maps);
-        d_input_args  = dev_i(b.input_args, b.n_input_maps);
-        d_input_elems = dev_i(b.input_elems, b.n_input_maps);
-        d_level_offsets = dev_i(b.level_offsets, b.n_levels);
-        d_level_widths  = dev_i(b.level_widths, b.n_levels);
-        d_node_ops  = dev_i(b.node_ops, b.n_nodes);  d_node_outs = dev_i(b.node_outs, b.n_nodes);
-        d_node_in_a = dev_i(b.node_in_a, b.n_nodes); d_node_in_b = dev_i(b.node_in_b, b.n_nodes);
-        d_out_slots = dev_i(b.out_slots, b.n_output_maps);
-        d_out_args  = dev_i(b.out_args, b.n_output_maps);
-        d_out_elems = dev_i(b.out_elems, b.n_output_maps);
-
-        const int ni = b.n_args_in, no = b.n_args_out;
-        d_in_mode = dev_i(p.in_stage_mode, ni);
-        d_in_offset = dev_i(p.in_stage_offset, ni);
-        d_out_mode = dev_i(p.out_stage_mode, no);
-        in_mode_.assign(p.in_stage_mode, p.in_stage_mode + ni);
-        in_span_.assign(p.in_stage_span, p.in_stage_span + ni);
-        out_mode_.assign(p.out_stage_mode, p.out_stage_mode + no);
-        CUSADI2_CHECK(cudaMalloc(&d_in_count, size_t(ni) * sizeof(int)));
-        CUSADI2_CHECK(cudaMalloc(&d_out_count, size_t(no) * sizeof(int)));
-        configure_cusadi_shared_memory(b.shared_bytes);
+// A plan uploaded to the device. evaluate() is a single kernel launch on the
+// given stream with no host-side work, so it can be captured into a CUDA graph.
+class Program {
+public:
+    Program() = default;
+    explicit Program(const Plan& p) { upload(p); }
+    ~Program() { release(); }
+    Program(const Program&) = delete;
+    Program& operator=(const Program&) = delete;
+    Program(Program&& o) noexcept { *this = std::move(o); }
+    Program& operator=(Program&& o) noexcept {
+        if (this != &o) { release(); h_ = o.h_; d_ = o.d_; o.d_ = Dev{}; }
+        return *this;
     }
 
-    // Leading-axis stride per arg given the horizon length: STAGE->H, SHARED->1,
-    // COUPLED->H+span. (mode: 0=STAGE, 1=SHARED, 2=COUPLED)
-    int in_stage_count(int arg, int n_stages) const {
-        int m = in_mode_[arg];
-        return m == 1 ? 1 : (m == 2 ? n_stages + in_span_[arg] : n_stages);
-    }
-    int out_stage_count(int arg, int n_stages) const {
-        return out_mode_[arg] == 1 ? 1 : n_stages;
-    }
-
-    float evaluate(const CUSADI2_SCALAR** d_in, CUSADI2_SCALAR** d_out, int batch, int n_stages) {
-        const LPPlanHost& b = h.base;
-        const int ni = b.n_args_in, no = b.n_args_out;
-        std::vector<int> ic(ni), oc(no);
-        for (int a = 0; a < ni; ++a) ic[a] = in_stage_count(a, n_stages);
-        for (int a = 0; a < no; ++a) oc[a] = out_stage_count(a, n_stages);
-        CUSADI2_CHECK(cudaMemcpy(d_in_count, ic.data(), size_t(ni) * sizeof(int), cudaMemcpyHostToDevice));
-        CUSADI2_CHECK(cudaMemcpy(d_out_count, oc.data(), size_t(no) * sizeof(int), cudaMemcpyHostToDevice));
-        return evaluate_cusadi(d_in, d_out, batch, n_stages, b.block_size, b.shared_bytes,
-            b.n_consts, d_const_slots, d_const_vals,
-            b.n_input_maps, d_input_slots, d_input_args, d_input_elems, d_nnz_in,
-            d_in_mode, d_in_offset, d_in_count,
-            b.n_levels, d_level_offsets, d_level_widths,
-            d_node_ops, d_node_outs, d_node_in_a, d_node_in_b,
-            b.n_output_maps, d_out_slots, d_out_args, d_out_elems, d_nnz_out,
-            d_out_mode, d_out_count);
-    }
-
-    // Stream-aware, sync-free evaluate. All work (count upload + kernel) is ordered on
-    // `stream`; the count upload is skipped whenever n_stages is unchanged, so a steady
-    // run is a single kernel launch per call with no host sync -> capturable in a graph.
-    int evaluate(const CUSADI2_SCALAR** d_in, CUSADI2_SCALAR** d_out, int batch, int n_stages,
-                 cudaStream_t stream) {
-        const LPPlanHost& b = h.base;
-        const int ni = b.n_args_in, no = b.n_args_out;
-        if (n_stages != count_stages_) {                 // one-time (or on n_stages change)
-            ic_.resize(ni); oc_.resize(no);
-            for (int a = 0; a < ni; ++a) ic_[a] = in_stage_count(a, n_stages);
-            for (int a = 0; a < no; ++a) oc_[a] = out_stage_count(a, n_stages);
-            CUSADI2_CHECK(cudaMemcpyAsync(d_in_count, ic_.data(), size_t(ni) * sizeof(int),
-                                          cudaMemcpyHostToDevice, stream));
-            CUSADI2_CHECK(cudaMemcpyAsync(d_out_count, oc_.data(), size_t(no) * sizeof(int),
-                                          cudaMemcpyHostToDevice, stream));
-            count_stages_ = n_stages;
+    void upload(const Plan& p) {
+        using detail::dev;
+        release();
+        h_ = Hdr{p.n_stages, p.block_size, p.shared_bytes(), (int)p.const_slots.size(),
+                 (int)p.input_slots.size(), (int)p.level_offsets.size(),
+                 (int)p.out_slots.size(), p.n_in(), p.n_out()};
+        std::vector<int> nnz_in, nnz_out, in_mode, in_offset, in_count, out_mode, out_count;
+        for (const Arg& a : p.in) {
+            nnz_in.push_back(a.nnz()); in_mode.push_back(a.mode);
+            in_offset.push_back(a.offset); in_count.push_back(a.count);
         }
-        return evaluate_cusadi_stream(d_in, d_out, batch, n_stages, b.block_size, b.shared_bytes,
-            b.n_consts, d_const_slots, d_const_vals,
-            b.n_input_maps, d_input_slots, d_input_args, d_input_elems, d_nnz_in,
-            d_in_mode, d_in_offset, d_in_count,
-            b.n_levels, d_level_offsets, d_level_widths,
-            d_node_ops, d_node_outs, d_node_in_a, d_node_in_b,
-            b.n_output_maps, d_out_slots, d_out_args, d_out_elems, d_nnz_out,
-            d_out_mode, d_out_count, stream);
+        for (const Arg& a : p.out) {
+            nnz_out.push_back(a.nnz()); out_mode.push_back(a.mode); out_count.push_back(a.count);
+        }
+        std::vector<Scalar> consts(p.const_vals.begin(), p.const_vals.end());
+        d_.nnz_in = dev(nnz_in); d_.nnz_out = dev(nnz_out);
+        d_.in_mode = dev(in_mode); d_.in_offset = dev(in_offset); d_.in_count = dev(in_count);
+        d_.out_mode = dev(out_mode); d_.out_count = dev(out_count);
+        d_.const_slots = dev(p.const_slots); d_.const_vals = dev(consts);
+        d_.input_slots = dev(p.input_slots); d_.input_args = dev(p.input_args);
+        d_.input_elems = dev(p.input_elems);
+        d_.level_offsets = dev(p.level_offsets); d_.level_widths = dev(p.level_widths);
+        d_.node_ops = dev(p.node_ops); d_.node_outs = dev(p.node_outs);
+        d_.node_in_a = dev(p.node_in_a); d_.node_in_b = dev(p.node_in_b);
+        d_.out_slots = dev(p.out_slots); d_.out_args = dev(p.out_args); d_.out_elems = dev(p.out_elems);
+        CUSADI2_CHECK((cudaError_t)cusadi2_set_shared_memory(h_.shared_bytes));
     }
+
+    // Launch on `stream`; returns cudaPeekAtLastError() (0 on success).
+    int evaluate(const Scalar* const* d_in, Scalar* const* d_out, int batch,
+                 cudaStream_t stream = 0) const {
+        return cusadi2_launch(d_in, d_out, batch, h_.n_stages, h_.block_size, h_.shared_bytes,
+            h_.n_consts, d_.const_slots, d_.const_vals,
+            h_.n_input_maps, d_.input_slots, d_.input_args, d_.input_elems,
+            d_.nnz_in, d_.in_mode, d_.in_offset, d_.in_count,
+            h_.n_levels, d_.level_offsets, d_.level_widths,
+            d_.node_ops, d_.node_outs, d_.node_in_a, d_.node_in_b,
+            h_.n_output_maps, d_.out_slots, d_.out_args, d_.out_elems,
+            d_.nnz_out, d_.out_mode, d_.out_count, stream);
+    }
+
+    int n_stages() const { return h_.n_stages; }
+    int n_in() const { return h_.n_in; }
+    int n_out() const { return h_.n_out; }
+
+    void release() {
+        const void* ptrs[] = {d_.nnz_in, d_.nnz_out, d_.in_mode, d_.in_offset, d_.in_count,
+            d_.out_mode, d_.out_count, d_.const_slots, d_.const_vals, d_.input_slots,
+            d_.input_args, d_.input_elems, d_.level_offsets, d_.level_widths, d_.node_ops,
+            d_.node_outs, d_.node_in_a, d_.node_in_b, d_.out_slots, d_.out_args, d_.out_elems};
+        for (const void* q : ptrs) if (q) cudaFree(const_cast<void*>(q));
+        d_ = Dev{};
+    }
+
+private:
+    struct Hdr {
+        int n_stages = 1, block_size = 32, shared_bytes = 0, n_consts = 0, n_input_maps = 0,
+            n_levels = 0, n_output_maps = 0, n_in = 0, n_out = 0;
+    } h_;
+    struct Dev {
+        const int *nnz_in = nullptr, *nnz_out = nullptr, *in_mode = nullptr,
+            *in_offset = nullptr, *in_count = nullptr, *out_mode = nullptr, *out_count = nullptr,
+            *const_slots = nullptr, *input_slots = nullptr, *input_args = nullptr,
+            *input_elems = nullptr, *level_offsets = nullptr, *level_widths = nullptr,
+            *node_ops = nullptr, *node_outs = nullptr, *node_in_a = nullptr, *node_in_b = nullptr,
+            *out_slots = nullptr, *out_args = nullptr, *out_elems = nullptr;
+        const Scalar* const_vals = nullptr;
+    } d_;
 };
 
 }  // namespace cusadi2

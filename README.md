@@ -1,30 +1,64 @@
 # cusadi2
 
-- We add another axes of parallelism to the original cusadi in the form of level-parallel parallelism
-- We also added stage-parallel execution - but this seems to have been done in a way in the 2D formulation in cusadi proper - but we do it in a way that we only compile a single stage - dramatically decreasing compilation times for structured problems
+Batched evaluation of CasADi functions on the GPU with one function-independent
+CUDA kernel. Two parallel axes on top of the batch: **level-parallel** (the
+expression DAG runs one topological level at a time, all nodes in a level in
+parallel within a block) and **stage-parallel** (a per-stage function evaluated
+over a horizon, one block per (instance, stage)). See `ALGORITHM.md`.
 
-# How does it work
+Python is used only at build time. Deployment is C++/CUDA: a header-only
+runtime plus a binary plan file per function.
 
-Read files in this order:
-1. cusadi_operations.py
-2. kernel_template.py
-3. dag.py
-4. generate.py
-5. cusadi2.h
+## Install
 
+```bash
+pip install -e .          # casadi, numpy
+```
 
-# The `cusadi/` package (merged from johnviljoen/cusadi_dev)
+## Build time (Python)
 
-The earlier fork of se-hwan/cusadi lives here too, history preserved (merged
-2026-08-25 so there is one cusadi codebase). It is what cuipm_mk2 builds against:
+```python
+import casadi as ca
+from cusadi2 import write_kernel_source, write_plan
 
-- `cusadi/level_parallel/` — level-parallel DAG codegen; `codegen.py` holds the
-  hand-authored CUDA kernel templates (source of truth for `cusadi/lp_kernels/*.cu`,
-  which are generated and gitignored: `python -c "from cusadi.level_parallel.codegen import
-  write_kernel_source, write_stage_kernel_source; write_kernel_source('cusadi/lp_kernels/level_parallel_kernel.cu');
-  write_stage_kernel_source('cusadi/lp_kernels/level_parallel_stage_kernel.cu')"`).
-- `cusadi/native/` — plan serialization to C headers + the header-only runtime
-  `include/cusadi_native.h` (`StageProgram::evaluate_async`: a pure launch with the
-  argument tables passed by value). See `cusadi/native/README.md`.
-- `cusadi/pytorch/`, `cusadi/jax_ffi/` — the torch / JAX bindings; `experiments/`,
-  `ALGORITHM.md`, `HANDOFF.md` — the fork's benchmarks and notes.
+write_kernel_source("kernel.cu")                 # once per project; dtype="float" for f32
+write_plan(fn, "fn.plan")                        # batch-only (n_stages == 1)
+write_plan(fn_stage, "fn_stage.plan", n_stages=30,
+           in_mode=["coupled", "shared"], in_offset=[0, 0], in_span=[1, 0])
+```
+
+Stage modes per input: `"stage"` (one value per stage), `"shared"` (broadcast),
+`"coupled"` (stage k reads element k+offset of a buffer of length n_stages+span).
+Outputs are always `"stage"`. The horizon is baked into the plan file.
+
+## Run time (C++/CUDA)
+
+Compile `kernel.cu` into your program with `cusadi2.h` on the include path
+(`python -c "import cusadi2; print(cusadi2.INCLUDE_DIR)"`).
+
+```cpp
+#include "cusadi2.h"
+cusadi2::Plan plan = cusadi2::load_plan("fn.plan");
+cusadi2::Program prog(plan);
+prog.evaluate(d_in, d_out, batch, stream);     // one launch, graph-capturable
+```
+
+`d_in` / `d_out` are device-resident arrays of device buffer pointers, one per
+argument; buffer `a` holds `plan.in[a].len(batch)` elements laid out
+(instance, stage_count, nnz). `plan.in[a].sp` / `plan.out[a].sp` carry the CasADi
+CCS sparsity (`coo_row()` / `coo_col()` for COO). Build with
+`-DCUSADI2_SCALAR=float` to match a float kernel.
+
+## Tests
+
+```bash
+pytest                    # host: plan verification + file round-trip; GPU: nvcc self-check
+```
+
+## Layout
+
+- `cusadi2/dag.py` — CasADi instructions to level-decomposed SSA plan; host verifier
+- `cusadi2/ops.py` — the op table (CUDA double/float forms, Python form)
+- `cusadi2/kernel_template.py` — the kernel source
+- `cusadi2/plan.py` — plan / reference file writers (format documented there)
+- `cusadi2/cusadi2.h` — loader and `Program` runtime

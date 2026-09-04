@@ -1,4 +1,0 @@
-{
-  "robot": "agilex_piper",
-  "error": "mjx_unavailable: JaxRuntimeError('INTERNAL: CUDA error: Error recording CUDA event: CUDA_ERROR_MISALIGNED_ADDRESS: misaligned address')"
-}

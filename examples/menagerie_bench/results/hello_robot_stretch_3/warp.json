@@ -1,4 +1,0 @@
-{
-  "robot": "hello_robot_stretch_3",
-  "error": "warp_unavailable: NotImplementedError('noslip solver not implemented.')"
-}

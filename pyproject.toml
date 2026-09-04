@@ -4,38 +4,24 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cusadi2"
-version = "0.1.0"
-description = "Level and stage parallel GPU evaluation of batched CasADi functions."
+version = "0.2.0"
+description = "Level- and stage-parallel GPU evaluation of batched CasADi functions."
 readme = "README.md"
 requires-python = ">=3.9"
 license = "MIT"
 authors = [
     { name = "John Viljoen", email = "john_viljoen@berkeley.edu" },
 ]
+dependencies = ["casadi", "numpy"]
 
-dependencies = [
-    "casadi",
-    "numpy",
-    "matplotlib",
-]
-
-# At least one of these provides a CUDA toolchain (the nvcc used to compile the
-# generated kernels) and keeps cusadi2 interoperable with the jax / torch stacks
-# for later Python-side work.
-#   pip install -e ".[jax]"
-#   pip install -e ".[torch]"
 [project.optional-dependencies]
-jax = ["jax[cuda13]"]
-torch = ["torch"]
+test = ["pytest"]
 
 [tool.setuptools.packages.find]
-# Pure-Python packages: cusadi2, and the merged fork's cusadi (level_parallel,
-# native, pytorch, ...). CUDA kernels are generated and compiled by nvcc at use
-# time (examples/native, cusadi/lp_kernels), not built as extensions at install
-# time; the fork's jax_ffi nanobind extension is not built by this pyproject.
-include = ["cusadi2*", "cusadi*"]
-exclude = ["cusadi.jax_ffi*"]
+include = ["cusadi2*"]
 
 [tool.setuptools.package-data]
 cusadi2 = ["*.h"]
-cusadi = ["native/include/*.h", "lp_kernels/README.md", "native/README.md"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

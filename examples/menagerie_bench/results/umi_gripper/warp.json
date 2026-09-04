@@ -1,4 +1,0 @@
-{
-  "robot": "umi_gripper",
-  "error": "warp_unavailable: NotImplementedError('noslip solver not implemented.')"
-}

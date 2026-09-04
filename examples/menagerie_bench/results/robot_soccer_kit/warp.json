@@ -1,4 +1,0 @@
-{
-  "robot": "robot_soccer_kit",
-  "error": "warp_unavailable: NotImplementedError('noslip solver not implemented.')"
-}

@@ -1,4 +1,0 @@
-{
-  "robot": "google_robot",
-  "error": "mjx_unavailable: JaxRuntimeError('INTERNAL: CUDA error: Error recording CUDA event: CUDA_ERROR_ILLEGAL_ADDRESS: an illegal memory access was encountered')"
-}

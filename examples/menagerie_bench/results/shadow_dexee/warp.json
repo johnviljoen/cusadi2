@@ -1,4 +1,0 @@
-{
-  "robot": "shadow_dexee",
-  "error": "warp_unavailable: NotImplementedError('noslip solver not implemented.')"
-}
