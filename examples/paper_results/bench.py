@@ -52,8 +52,8 @@ import csv
 import ctypes
 import glob
 import json
+import math
 import os
-import statistics
 import subprocess
 import sys
 import time
@@ -559,7 +559,8 @@ def _stat(samples, scale=1.0, per_eval=False):
     for b, vs in sorted((int(b), v) for b, v in samples.items()):
         vs = [x * scale / ((b * N_STAGES) if per_eval else 1) for x in vs]
         if vs:
-            pts.append((b, statistics.mean(vs), statistics.pstdev(vs) if len(vs) > 1 else 0.0))
+            m = sum(vs) / len(vs)
+            pts.append((b, m, math.sqrt(sum((x - m) ** 2 for x in vs) / len(vs))))
     return tuple(zip(*pts)) if pts else None
 
 
