@@ -9,8 +9,9 @@
 //   batch   batch only (= original cusadi)    unrolled plan,  serial kernel, B threads
 //
 // full/lp run the level-parallel kernel (one block per item, work vector in shared
-// memory); staged/batch run the serial kernel (one thread per item, work vector in
-// global scratch, Program::use_serial), the original cusadi execution model. The
+// memory); staged/batch run the serial kernel (one thread per item walking CasADi's
+// instruction stream, sz_w-slot work vector in global scratch, Program::use_serial),
+// the original cusadi execution model interpreted rather than unrolled. The
 // unrolled plans stamp the per-stage function N times into one DAG (~N x the work
 // vector). All four do the same total work (B*N evaluations).
 //
@@ -85,7 +86,7 @@ template <class T> static T** upload_ptrs(const std::vector<T*>& h) {
 static Case* setup_case(const Plan& p, bool serial, int batch) {
     int smem = 0; cudaDeviceGetAttribute(&smem, cudaDevAttrMaxSharedMemoryPerBlockOptin, 0);
     if (!serial && p.shared_bytes() > smem) return nullptr;
-    double bytes = serial ? (double)std::min(SERIAL_SCRATCH, (size_t)p.shared_bytes() << 20) : 0;
+    double bytes = serial ? (double)std::min(SERIAL_SCRATCH, p.serial_bytes() << 20) : 0;
     for (const Arg& a : p.in) bytes += (double)a.len(batch) * sizeof(S);
     for (const Arg& a : p.out) bytes += (double)a.len(batch) * sizeof(S);
     size_t freeb = 0, totb = 0; cudaMemGetInfo(&freeb, &totb);

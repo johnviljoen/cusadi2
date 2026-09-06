@@ -85,15 +85,32 @@ the parallelism was hidden by slot reuse. Renaming is required.
 
 ### 3.3 Serial mode
 
-The same plan also runs thread-per-instance: `cusadi2_kernel_serial` gives each
-(instance, stage) one thread that executes the node arrays in order with no
-barriers, keeping its work vector in a global scratch buffer laid out slot-major
-so a warp's accesses to any slot coalesce. Level order is a topological order,
-so no renaming or barrier is needed. `Program::use_serial(bytes)` sizes the
-thread count from a scratch budget; larger batches loop over items. This is the
-original cusadi execution model; it wins when levels are too narrow to fill a
-block, and it is the no-level-parallelism baseline in the benchmarks. Its cost
-is the scratch: `peak_live_slots` scalars per thread instead of per block.
+The plan file also carries CasADi's own instruction stream verbatim: op ids in
+instruction order on CasADi's work slots (`sz_w` of them), with the constant,
+input and output moves inline where CasADi placed them. They cannot be hoisted
+out of the stream the way the level kernel hoists them, because CasADi reuses
+a constant's or input's slot after its last read and an output's source slot
+after the OUTPUT instruction; even the ten-instruction demo function has both
+hazards. `cusadi2_kernel_serial` gives each (instance, stage) one thread that
+walks that stream with no barriers, keeping its `sz_w` work vector in a global
+scratch buffer laid out slot-major so a warp's accesses to any slot coalesce.
+`Program::use_serial(bytes)` sizes the thread count from a scratch budget
+(capped at 2^20 threads); larger batches loop over items.
+
+This is the thread-per-instance evaluation of the original cusadi, and the
+no-level-parallelism baseline in the benchmarks. It matches the original in
+thread mapping, instruction order and slot reuse, and its results are
+bit-identical to the level kernel's (section 6). It differs in three ways.
+It interprets the stream, four index loads and a switch per instruction,
+where the original unrolled it into straight-line device code that nvcc
+register-allocated; no change to the plan recovers that. Its work vector is
+slot-major and coalesced where the original's was thread-major and strided.
+And it needs the stream at all because the level program cannot stand in for
+it: level order is breadth-first and keeps three to four times more values
+live than CasADi's order (`peak_live_slots` 96 against `sz_w` 28 on a
+300-level function), and recycling slots sequentially over the level order
+barely helps, so a faithful scratch footprint needs CasADi's order itself.
+Serial mode wins when levels are too narrow to fill a block.
 
 ### 3.4 Verifying a plan
 
@@ -128,8 +145,9 @@ baked into the plan file; a different horizon is a different file.
 stores everything the runtime needs so the C++ side computes nothing: block
 size (smallest power of two at or above the median level width, between 32 and
 256, unless the caller overrides it), peak live slots, float64 constants, the
-node arrays and slot maps, the stage specs and counts, and the CasADi CCS
-sparsity of every input and output.
+node arrays and slot maps, CasADi's instruction stream and `sz_w` for serial
+mode, the stage specs and counts, and the CasADi CCS sparsity of every input
+and output.
 `cusadi2.h:load_plan` reads it; `Program` uploads it and `evaluate` is exactly
 one kernel launch with no host-side work, so it can be captured into a CUDA
 graph. Upload raises the kernel's shared-memory cap to the plan's budget only

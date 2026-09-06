@@ -7,13 +7,14 @@ C++ runtime (``cusadi2.h``).
 
 The file is one plan for one function at one horizon. Everything the runtime
 needs is stored, so the C++ side computes nothing: block size, per-arg stage
-counts, the flat level-parallel program, and the CasADi CCS sparsity of every
-argument (from which the loader can derive COO). Constants are float64 always;
-the runtime casts to its compiled scalar type on upload.
+counts, the flat level-parallel program, CasADi's own instruction stream for
+the serial kernel, and the CasADi CCS sparsity of every argument (from which
+the loader can derive COO). Constants are float64 always; the runtime casts to
+its compiled scalar type on upload.
 
 Layout (little-endian; i32 = int32, f64 = float64; arrays are contiguous):
 
-    magic "CS2P", i32 version = 1
+    magic "CS2P", i32 version = 2
     i32 name_len, bytes name
     i32 n_in, n_out, n_stages, block_size, peak_live_slots
     per input  a: i32 rows, cols, nnz, mode, offset, span, count
@@ -25,6 +26,14 @@ Layout (little-endian; i32 = int32, f64 = float64; arrays are contiguous):
     i32 n_levels;      i32 level_offsets[], level_widths[]
     i32 n_nodes;       i32 node_ops[], node_outs[], node_in_a[], node_in_b[]
     i32 n_output_maps; i32 out_slots[], out_args[], out_elems[]
+    i32 sz_w
+    i32 n_instr;       i32 serial_ops[], serial_outs[], serial_in_a[], serial_in_b[]
+    i32 n_serial_consts; f64 serial_const_vals[]
+
+The level program (node arrays) is SSA-renamed and hazard-free per level; the
+serial program is CasADi's stream verbatim on CasADi's `sz_w` work slots with
+CONST / INPUT / OUTPUT inline (see ``dag.SerialProgram``). Each kernel reads
+only its own program.
 
 ``write_reference`` writes a sibling self-check file (random inputs laid out as
 the kernel reads them, plus CasADi's outputs) for the GPU test; it is test data,
@@ -41,10 +50,10 @@ import struct
 import casadi as ca
 import numpy as np
 
-from cusadi2.dag import (STAGE_MODES, LevelPlan, extract_level_plan, pick_block_size,
-                         stage_count, validate_specs)
+from cusadi2.dag import (STAGE_MODES, LevelPlan, SerialProgram, extract_level_plan,
+                         extract_serial_program, pick_block_size, stage_count, validate_specs)
 
-PLAN_MAGIC, REF_MAGIC, VERSION = b"CS2P", b"CS2R", 1
+PLAN_MAGIC, REF_MAGIC, VERSION = b"CS2P", b"CS2R", 2
 
 
 def _specs(fn, n_stages, in_mode, in_offset, in_span, out_mode):
@@ -72,12 +81,14 @@ class _W:
 
 def write_plan(fn: ca.Function, path: str, n_stages: int = 1, in_mode=None,
                in_offset=None, in_span=None, out_mode=None, block_size=None,
-               plan: LevelPlan = None) -> str:
-    """Extract `fn`'s level-parallel plan and write it, with the stage specs and
-    horizon baked in, to `path`. Pass `plan` to reuse an already extracted one."""
+               plan: LevelPlan = None, serial: SerialProgram = None) -> str:
+    """Extract `fn`'s level-parallel plan and serial program and write them, with
+    the stage specs and horizon baked in, to `path`. Pass `plan` / `serial` to
+    reuse already extracted ones."""
     in_mode, in_offset, in_span, out_mode = _specs(fn, n_stages, in_mode, in_offset,
                                                    in_span, out_mode)
     plan = plan or extract_level_plan(fn)
+    serial = serial or extract_serial_program(fn)
     name = fn.name().encode()
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
     with open(path, "wb") as f:
@@ -102,6 +113,9 @@ def write_plan(fn: ca.Function, path: str, n_stages: int = 1, in_mode=None,
         w.i(plan.n_levels); w.ia(plan.level_offsets); w.ia(plan.level_widths)
         w.i(plan.n_nodes); w.ia(plan.node_ops); w.ia(plan.node_outs); w.ia(plan.node_in_a); w.ia(plan.node_in_b)
         w.i(len(plan.out_slots)); w.ia(plan.out_slots); w.ia(plan.out_args); w.ia(plan.out_elems)
+        w.i(serial.sz_w)
+        w.i(serial.n_instr); w.ia(serial.ops); w.ia(serial.outs); w.ia(serial.in_a); w.ia(serial.in_b)
+        w.i(len(serial.const_vals)); w.fa(serial.const_vals)
     return path
 
 
@@ -154,6 +168,9 @@ def read_plan(path: str) -> dict:
     n = i(); d["level_offsets"] = ia(n); d["level_widths"] = ia(n)
     n = i(); d["node_ops"] = ia(n); d["node_outs"] = ia(n); d["node_in_a"] = ia(n); d["node_in_b"] = ia(n)
     n = i(); d["out_slots"] = ia(n); d["out_args"] = ia(n); d["out_elems"] = ia(n)
+    d["sz_w"] = i()
+    n = i(); d["serial_ops"] = ia(n); d["serial_outs"] = ia(n); d["serial_in_a"] = ia(n); d["serial_in_b"] = ia(n)
+    n = i(); d["serial_const_vals"] = fa(n)
     if pos != len(buf):
         raise ValueError(f"{path}: {len(buf) - pos} trailing bytes")
     return d

@@ -1,10 +1,12 @@
-"""Host-side tests: plan extraction is correct under simulated parallel
-execution, and the plan file round-trips."""
+"""Host-side tests: the level plan is correct under simulated parallel
+execution, the serial program is bit-exact sequentially, and the plan file
+round-trips."""
 import casadi as ca
 import pytest
 
-from cusadi2 import extract_level_plan, read_plan, verify_plan, write_plan
-from cusadi2.dag import _demo_function, pick_block_size, validate_specs
+from cusadi2 import (extract_level_plan, extract_serial_program, read_plan, verify_plan,
+                     verify_serial_program, write_plan)
+from cusadi2.dag import IO_OPS, _demo_function, pick_block_size, validate_specs
 
 
 def dyn_function():
@@ -29,6 +31,27 @@ def test_plan_matches_casadi_under_parallel_execution(make):
     assert verify_plan(f, plan) < 1e-12
 
 
+@pytest.mark.parametrize("make", [_demo_function, dyn_function, wide_function])
+def test_serial_program_is_casadi_stream_and_bit_exact(make):
+    f = make()
+    prog = extract_serial_program(f)
+    assert prog.n_instr == f.n_instructions() and prog.sz_w == f.sz_w()
+    assert all(op in IO_OPS for op in prog.ops if op >= min(IO_OPS))
+    assert verify_serial_program(f, prog) == 0.0
+
+
+def test_level_plan_hoists_io_but_serial_program_cannot():
+    # CasADi reuses IO slots, so the stream keeps its IO moves inline; the level
+    # plan renames them away. Both must be full-coverage descriptions of `f`.
+    f = wide_function()
+    plan, prog = extract_level_plan(f), extract_serial_program(f)
+    assert not any(op in IO_OPS for op in plan.node_ops)
+    n_io = sum(op in IO_OPS for op in prog.ops)
+    assert n_io == len(plan.const_slots) + len(plan.input_slots) + len(plan.out_slots)
+    assert prog.n_instr - n_io == plan.n_nodes
+    assert prog.sz_w < plan.peak_live_slots
+
+
 def test_slot_recycling_bounds_shared_memory():
     plan = extract_level_plan(wide_function())
     assert plan.peak_live_slots < plan.n_nodes
@@ -37,7 +60,7 @@ def test_slot_recycling_bounds_shared_memory():
 
 def test_plan_file_roundtrip(tmp_path):
     f = dyn_function()
-    plan = extract_level_plan(f)
+    plan, prog = extract_level_plan(f), extract_serial_program(f)
     path = write_plan(f, str(tmp_path / "dyn.plan"), n_stages=4,
                       in_mode=["coupled", "shared"], in_offset=[0, 0], in_span=[1, 0])
     d = read_plan(path)
@@ -52,6 +75,9 @@ def test_plan_file_roundtrip(tmp_path):
               "level_offsets", "level_widths", "node_ops", "node_outs", "node_in_a",
               "node_in_b", "out_slots", "out_args", "out_elems"):
         assert d[k] == getattr(plan, k), k
+    assert d["sz_w"] == prog.sz_w
+    for k in ("ops", "outs", "in_a", "in_b", "const_vals"):
+        assert d["serial_" + k] == getattr(prog, k), k
 
 
 def test_validate_specs_rejects_bad_coupling():

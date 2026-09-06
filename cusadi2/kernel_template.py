@@ -10,19 +10,22 @@ Two kernels consume the same plan:
   * ``cusadi2_kernel`` (level-parallel): grid (batch, n_stages), one block per
     (instance, stage), the block's threads sweep each level with one barrier
     between levels; work vector in shared memory.
-  * ``cusadi2_kernel_serial``: one thread per (instance, stage), nodes executed
-    in order with no barriers; work vector in a global scratch buffer laid out
-    slot-major (``scratch[slot * n_threads + thread]``) so a warp's accesses
-    coalesce. Threads loop over items when there are more items than threads.
-    This is the thread-per-instance evaluation of the original cusadi; it wins
-    when levels are too narrow to fill a block, and it is the "no level
-    parallelism" baseline.
+  * ``cusadi2_kernel_serial``: one thread per (instance, stage), walking
+    CasADi's own instruction stream (the plan's serial program: instruction
+    order, CasADi's ``sz_w`` work slots, CONST / INPUT / OUTPUT inline) with no
+    barriers; work vector in a global scratch buffer laid out slot-major
+    (``scratch[slot * n_threads + thread]``) so a warp's accesses coalesce.
+    Threads loop over items when there are more items than threads. This is
+    the thread-per-instance evaluation of the original cusadi, interpreted
+    instead of unrolled; it wins when levels are too narrow to fill a block,
+    and it is the "no level parallelism" baseline.
 
 Plain batch-only evaluation is the ``n_stages == 1``, all-"stage" case. The
-stage arithmetic lives only in the input/output loops.
+stage arithmetic lives only in the input/output moves.
 
 Emitted host entry points (declared in cusadi2.h):
-    cusadi2_launch(...)              one launch on a stream (serial when scratch != nullptr)
+    cusadi2_launch(...)              one level-parallel launch on a stream
+    cusadi2_launch_serial(...)       one serial launch on a stream
     cusadi2_set_shared_memory(bytes) raise-only dynamic shared-memory cap
 """
 import os
@@ -47,7 +50,8 @@ enum CasadiOp {
     OP_FLOOR, OP_CEIL, OP_FMOD, OP_FABS, OP_SIGN, OP_COPYSIGN,// 26-31
     OP_IF_ELSE_ZERO, OP_ERF, OP_FMIN, OP_FMAX, OP_INV,        // 32-36
     OP_SINH, OP_COSH, OP_TANH, OP_ASINH, OP_ACOSH, OP_ATANH,  // 37-42
-    OP_ATAN2                                                    // 43
+    OP_ATAN2,                                                   // 43
+    OP_CONST, OP_INPUT, OP_OUTPUT                               // 44-46: serial stream only
 };
 
 __EXEC_OP__
@@ -121,43 +125,54 @@ __global__ void cusadi2_kernel(CUSADI2_KERNEL_PARAMS) {
     }
 }
 
-__global__ void cusadi2_kernel_serial(CUSADI2_KERNEL_PARAMS,
-                                      {dtype} * __restrict__ scratch, const int n_threads) {
+// CasADi's instruction stream verbatim, one thread per (instance, stage).
+// IO moves are inline where CasADi placed them (its slot reuse forbids hoisting).
+__global__ void cusadi2_kernel_serial(
+        const {dtype} * const * __restrict__ inputs,
+        {dtype} * const * __restrict__ outputs,
+        const int total_instances, const int n_stages,
+        const int * __restrict__ nnz_in,
+        const int * __restrict__ in_stage_mode,
+        const int * __restrict__ in_stage_offset,
+        const int * __restrict__ in_stage_count,
+        const int * __restrict__ nnz_out,
+        const int * __restrict__ out_stage_count,
+        const int n_instr,
+        const int * __restrict__ s_ops,
+        const int * __restrict__ s_outs,
+        const int * __restrict__ s_in_a,
+        const int * __restrict__ s_in_b,
+        const {dtype} * __restrict__ s_const_vals,
+        {dtype} * __restrict__ scratch, const int n_threads) {
     const int t = blockIdx.x * blockDim.x + threadIdx.x;
     if (t >= n_threads) return;
     {dtype}* w = scratch + t;                     // slot s of this thread: w[s * n_threads]
 #define W(s) w[(size_t)(s) * n_threads]
-    const int n_nodes = n_levels ? level_offsets[n_levels - 1] + level_widths[n_levels - 1] : 0;
     const long long n_items = (long long)total_instances * n_stages;
     for (long long g = t; g < n_items; g += n_threads) {
         const int inst = (int)(g / n_stages), stage = (int)(g % n_stages);
-        for (int i = 0; i < n_consts; i++) W(const_slots[i]) = const_vals[i];
-        for (int i = 0; i < n_inputs; i++) {
-            int arg = input_args[i];
-            int s = (in_stage_mode[arg] == 1) ? 0 : (stage + in_stage_offset[arg]);
-            long long base = ((long long)inst * in_stage_count[arg] + s) * nnz_in[arg];
-            W(input_slots[i]) = inputs[arg][base + input_elems[i]];
-        }
-        for (int i = 0; i < n_nodes; i++)     // level order is a topological order
-            W(node_outs[i]) = exec_op(node_ops[i], W(node_in_a[i]), W(node_in_b[i]));
-        for (int i = 0; i < n_outputs; i++) {
-            int arg = out_args[i];
-            int s = (out_stage_mode[arg] == 1) ? 0 : stage;
-            long long base = ((long long)inst * out_stage_count[arg] + s) * nnz_out[arg];
-            outputs[arg][base + out_elems[i]] = W(out_slots[i]);
+        for (int i = 0; i < n_instr; i++) {
+            const int op = s_ops[i], o = s_outs[i], a = s_in_a[i], b = s_in_b[i];
+            if (op < OP_CONST) {
+                W(o) = exec_op(op, W(a), W(b));
+            } else if (op == OP_CONST) {          // a: index into s_const_vals
+                W(o) = s_const_vals[a];
+            } else if (op == OP_INPUT) {          // a: arg, b: element
+                int s = (in_stage_mode[a] == 1) ? 0 : (stage + in_stage_offset[a]);
+                W(o) = inputs[a][((long long)inst * in_stage_count[a] + s) * nnz_in[a] + b];
+            } else {                              // OP_OUTPUT: o read into arg a element b
+                outputs[a][((long long)inst * out_stage_count[a] + stage) * nnz_out[a] + b] = W(o);
+            }
         }
     }
 #undef W
 }
 
-// One launch. scratch == nullptr: level-parallel kernel, grid (instances, stages),
-// block_size threads, shared_bytes of dynamic shared memory. Otherwise: serial
-// kernel over n_threads threads in blocks of block_size, scratch holding
-// peak_live_slots * n_threads scalars.
+// One level-parallel launch: grid (instances, stages), block_size threads,
+// shared_bytes of dynamic shared memory.
 int cusadi2_launch(
         const {dtype} * const * inputs, {dtype} * const * outputs,
         int total_instances, int n_stages, int block_size, int shared_bytes,
-        {dtype} *scratch, int n_threads,
         int n_consts, const int *const_slots, const {dtype} *const_vals,
         int n_inputs, const int *input_slots, const int *input_args, const int *input_elems,
         const int *nnz_in, const int *in_stage_mode, const int *in_stage_offset,
@@ -167,22 +182,32 @@ int cusadi2_launch(
         int n_outputs, const int *out_slots, const int *out_args, const int *out_elems,
         const int *nnz_out, const int *out_stage_mode, const int *out_stage_count,
         cudaStream_t stream) {
-#define CUSADI2_KERNEL_ARGS                                                    \
-        inputs, outputs, total_instances, n_stages,                            \
-        n_consts, const_slots, const_vals,                                     \
-        n_inputs, input_slots, input_args, input_elems, nnz_in,                \
-        in_stage_mode, in_stage_offset, in_stage_count,                        \
-        n_levels, level_offsets, level_widths,                                 \
-        node_ops, node_outs, node_in_a, node_in_b,                             \
-        n_outputs, out_slots, out_args, out_elems, nnz_out,                    \
-        out_stage_mode, out_stage_count
-    if (scratch)
-        cusadi2_kernel_serial<<<(n_threads + block_size - 1) / block_size, block_size, 0, stream>>>(
-            CUSADI2_KERNEL_ARGS, scratch, n_threads);
-    else
-        cusadi2_kernel<<<dim3(total_instances, n_stages), block_size, shared_bytes, stream>>>(
-            CUSADI2_KERNEL_ARGS);
-#undef CUSADI2_KERNEL_ARGS
+    cusadi2_kernel<<<dim3(total_instances, n_stages), block_size, shared_bytes, stream>>>(
+        inputs, outputs, total_instances, n_stages,
+        n_consts, const_slots, const_vals,
+        n_inputs, input_slots, input_args, input_elems, nnz_in,
+        in_stage_mode, in_stage_offset, in_stage_count,
+        n_levels, level_offsets, level_widths,
+        node_ops, node_outs, node_in_a, node_in_b,
+        n_outputs, out_slots, out_args, out_elems, nnz_out,
+        out_stage_mode, out_stage_count);
+    return (int)cudaPeekAtLastError();
+}
+
+// One serial launch: n_threads threads in blocks of block_size, scratch holding
+// sz_w * n_threads scalars.
+int cusadi2_launch_serial(
+        const {dtype} * const * inputs, {dtype} * const * outputs,
+        int total_instances, int n_stages, int block_size,
+        const int *nnz_in, const int *in_stage_mode, const int *in_stage_offset,
+        const int *in_stage_count, const int *nnz_out, const int *out_stage_count,
+        int n_instr, const int *s_ops, const int *s_outs, const int *s_in_a, const int *s_in_b,
+        const {dtype} *s_const_vals, {dtype} *scratch, int n_threads,
+        cudaStream_t stream) {
+    cusadi2_kernel_serial<<<(n_threads + block_size - 1) / block_size, block_size, 0, stream>>>(
+        inputs, outputs, total_instances, n_stages,
+        nnz_in, in_stage_mode, in_stage_offset, in_stage_count, nnz_out, out_stage_count,
+        n_instr, s_ops, s_outs, s_in_a, s_in_b, s_const_vals, scratch, n_threads);
     return (int)cudaPeekAtLastError();
 }
 

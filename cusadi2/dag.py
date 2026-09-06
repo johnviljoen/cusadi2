@@ -29,6 +29,15 @@ Two passes (``extract_level_plan``):
 ``verify_plan`` executes a plan on the host the way the kernel does (all reads
 of a level before all writes) and compares against CasADi. It is the guard for
 the conflict class of bug that a sequential interpreter would hide.
+
+``SerialProgram`` (``extract_serial_program``) is the other program in a plan
+file: CasADi's instruction stream verbatim, in instruction order on CasADi's
+own work slots (``sz_w`` of them), with the CONST / INPUT / OUTPUT moves inline
+where CasADi placed them. The serial kernel walks it one thread per item. The
+IO moves cannot be hoisted out of the stream: CasADi reuses a constant's or
+input's slot after its last read and an output's source slot after the OUTPUT
+instruction. ``verify_serial_program`` runs it sequentially on the host; it is
+bit-exact against CasADi.
 """
 import dataclasses
 from typing import Dict, List, Tuple
@@ -36,6 +45,8 @@ from typing import Dict, List, Tuple
 import casadi
 import numpy as np
 from casadi import OP_CONST, OP_INPUT, OP_OUTPUT, OP_SQ
+
+IO_OPS = (OP_CONST, OP_INPUT, OP_OUTPUT)   # inline in SerialProgram; never in LevelPlan nodes
 
 
 @dataclasses.dataclass
@@ -72,6 +83,76 @@ class LevelPlan:
     @property
     def n_nodes(self) -> int:
         return len(self.node_ops)
+
+
+@dataclasses.dataclass
+class SerialProgram:
+    """CasADi's instruction stream verbatim, for the serial kernel. Instruction
+    i is ``ops[i]`` on CasADi's work slots. Compute ops write ``outs[i]`` from
+    ``in_a[i]`` / ``in_b[i]``; OP_CONST writes ``outs[i]`` from
+    ``const_vals[in_a[i]]``; OP_INPUT writes ``outs[i]`` from input arg
+    ``in_a[i]`` element ``in_b[i]``; OP_OUTPUT reads ``outs[i]`` into output
+    arg ``in_a[i]`` element ``in_b[i]``. The work vector has ``sz_w`` slots."""
+    sz_w: int
+    ops: List[int]
+    outs: List[int]
+    in_a: List[int]
+    in_b: List[int]
+    const_vals: List[float]
+
+    @property
+    def n_instr(self) -> int:
+        return len(self.ops)
+
+
+def extract_serial_program(f: casadi.Function) -> SerialProgram:
+    """Copy `f`'s instruction stream, order and slots untouched."""
+    ops, outs, in_a, in_b, consts = [], [], [], [], []
+    for k in range(f.n_instructions()):
+        op = f.instruction_id(k)
+        inp = tuple(f.instruction_input(k))
+        out = tuple(f.instruction_output(k))
+        if op == OP_CONST:
+            o, a, b = out[0], len(consts), 0
+            consts.append(float(f.instruction_constant(k)))
+        elif op == OP_INPUT:
+            o, a, b = out[0], inp[0], inp[1]
+        elif op == OP_OUTPUT:
+            o, a, b = inp[0], out[0], out[1]
+        else:
+            o = out[0] if out else 0
+            a = inp[0] if inp else 0
+            b = inp[1] if (len(inp) > 1 and op != OP_SQ) else 0
+        ops.append(op); outs.append(o); in_a.append(a); in_b.append(b)
+    return SerialProgram(sz_w=f.sz_w(), ops=ops, outs=outs, in_a=in_a, in_b=in_b,
+                         const_vals=consts)
+
+
+def verify_serial_program(f: casadi.Function, prog: SerialProgram, n_samples: int = 3,
+                          lo: float = -1.0, up: float = 1.0, seed: int = 0) -> float:
+    """Run `prog` sequentially on the host at random inputs and return the max
+    abs error against `f`. Same ops, same order, same slots: expect exactly 0."""
+    from cusadi2.ops import OP_PY
+    rng = np.random.default_rng(seed)
+    w = [0.0] * prog.sz_w
+    err = 0.0
+    for _ in range(n_samples):
+        args = [rng.uniform(lo, up, f.nnz_in(a)) for a in range(f.n_in())]
+        got = [np.zeros(f.nnz_out(a)) for a in range(f.n_out())]
+        for op, o, a, b in zip(prog.ops, prog.outs, prog.in_a, prog.in_b):
+            if op == OP_CONST:
+                w[o] = prog.const_vals[a]
+            elif op == OP_INPUT:
+                w[o] = float(args[a][b])
+            elif op == OP_OUTPUT:
+                got[a][b] = w[o]
+            else:
+                w[o] = OP_PY[op](w[a], w[b])
+        ref = f(*[casadi.DM(x) for x in args])
+        ref = ref if isinstance(ref, (list, tuple)) else [ref]
+        for g, r in zip(got, ref):
+            err = max(err, float(np.max(np.abs(g - np.array(casadi.DM(r).nonzeros())), initial=0.0)))
+    return err
 
 
 def _extract_pass1(f: casadi.Function):
@@ -336,3 +417,6 @@ if __name__ == "__main__":
     plan = extract_level_plan(f)
     _print_plan(plan)
     print("max abs err vs casadi:", verify_plan(f, plan))
+    prog = extract_serial_program(f)
+    print(f"serial program: {prog.n_instr} instructions, sz_w={prog.sz_w}, "
+          f"max abs err vs casadi: {verify_serial_program(f, prog)}")

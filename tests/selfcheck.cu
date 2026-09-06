@@ -1,7 +1,8 @@
 // GPU self-check: for each (plan, reference) pair on the command line, load the
 // plan, run it over a batch of two identical instances in both the level-parallel
-// and the serial mode, and compare against the CasADi reference. Exit code is the
-// number of failures.
+// and the serial mode, each launched directly and replayed from a captured CUDA
+// graph, and compare against the CasADi reference. Exit code is the number of
+// failures.
 //
 //   selfcheck f.plan f.ref [g.plan g.ref ...]
 #include "cusadi2.h"
@@ -46,17 +47,9 @@ static int run(const char* plan_path, const char* ref_path) {
     Scalar** d_out; cudaMalloc(&d_out, hout.size() * sizeof(Scalar*));
     cudaMemcpy(d_out, hout.data(), hout.size() * sizeof(Scalar*), cudaMemcpyHostToDevice);
 
-    int fails = 0;
-    for (const char* mode : {"level", "serial"}) {
-        if (mode[0] == 's')                            // room for 3 threads: staged cases loop
-            prog.use_serial(3 * plan.peak_live_slots * sizeof(Scalar), 32);
-        for (int a = 0; a < plan.n_out(); ++a) cudaMemset(hout[a], 0, plan.out[a].len(batch) * sizeof(Scalar));
-        int rc = prog.evaluate(d_in, d_out, batch);
-        cudaError_t err = cudaDeviceSynchronize();
-        if (rc || err) { printf("[%s] %s launch failed: %s\n", plan.name.c_str(), mode, cudaGetErrorString(err ? err : (cudaError_t)rc)); return 1; }
-
-        // relative error, so deep DAGs and float builds are judged fairly
-        double maxrel = 0;
+    // relative error, so deep DAGs and float builds are judged fairly
+    auto maxrel = [&]() {
+        double m = 0;
         for (int a = 0; a < plan.n_out(); ++a) {
             std::vector<Scalar> got(plan.out[a].len(batch));
             cudaMemcpy(got.data(), hout[a], got.size() * sizeof(Scalar), cudaMemcpyDeviceToHost);
@@ -64,15 +57,47 @@ static int run(const char* plan_path, const char* ref_path) {
             for (int b = 0; b < batch; ++b)
                 for (size_t i = 0; i < want.size(); ++i) {
                     double g = got[b * want.size() + i], w = want[i];
-                    maxrel = fmax(maxrel, fabs(g - w) / (1.0 + fabs(w)));
+                    m = fmax(m, fabs(g - w) / (1.0 + fabs(w)));
                 }
         }
-        double tol = sizeof(Scalar) == 4 ? 1e-4 : 1e-9;
-        bool ok = maxrel < tol;
-        printf("[%-8s] %s %-6s n_stages=%d batch=%d maxrel=%.3e -> %s\n", plan.name.c_str(),
-               sizeof(Scalar) == 4 ? "f32" : "f64", mode, plan.n_stages, batch, maxrel, ok ? "PASS" : "FAIL");
+        return m;
+    };
+    auto clear = [&]() {
+        for (int a = 0; a < plan.n_out(); ++a) cudaMemset(hout[a], 0, plan.out[a].len(batch) * sizeof(Scalar));
+    };
+    const double tol = sizeof(Scalar) == 4 ? 1e-4 : 1e-9;
+    cudaStream_t stream; cudaStreamCreate(&stream);
+
+    int fails = 0;
+    for (const char* mode : {"level", "serial"}) {
+        if (mode[0] == 's')                            // room for 3 threads: staged cases loop
+            prog.use_serial(3 * plan.serial_bytes(), 32);
+        clear();
+        int rc = prog.evaluate(d_in, d_out, batch);
+        cudaError_t err = cudaDeviceSynchronize();
+        if (rc || err) { printf("[%s] %s launch failed: %s\n", plan.name.c_str(), mode, cudaGetErrorString(err ? err : (cudaError_t)rc)); return 1; }
+        double direct = maxrel();
+
+        // the same evaluate() captured into a graph and replayed
+        cudaGraph_t graph; cudaGraphExec_t exec;
+        cudaStreamBeginCapture(stream, cudaStreamCaptureModeGlobal);
+        rc = prog.evaluate(d_in, d_out, batch, stream);
+        err = cudaStreamEndCapture(stream, &graph);
+        if (rc || err) { printf("[%s] %s capture failed: %s\n", plan.name.c_str(), mode, cudaGetErrorString(err ? err : (cudaError_t)rc)); return 1; }
+        cudaGraphInstantiate(&exec, graph, 0);
+        clear();
+        cudaGraphLaunch(exec, stream);
+        err = cudaStreamSynchronize(stream);
+        if (err) { printf("[%s] %s graph replay failed: %s\n", plan.name.c_str(), mode, cudaGetErrorString(err)); return 1; }
+        double replay = maxrel();
+        cudaGraphExecDestroy(exec); cudaGraphDestroy(graph);
+
+        bool ok = direct < tol && replay < tol;
+        printf("[%-8s] %s %-6s n_stages=%d batch=%d maxrel=%.3e graph=%.3e -> %s\n", plan.name.c_str(),
+               sizeof(Scalar) == 4 ? "f32" : "f64", mode, plan.n_stages, batch, direct, replay, ok ? "PASS" : "FAIL");
         fails += !ok;
     }
+    cudaStreamDestroy(stream);
 
     for (auto p : hin) cudaFree((void*)p);
     for (auto p : hout) cudaFree(p);
