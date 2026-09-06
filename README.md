@@ -25,6 +25,7 @@ write_kernel_source("kernel.cu")                 # once per project; dtype="floa
 write_plan(fn, "fn.plan")                        # batch-only (n_stages == 1)
 write_plan(fn_stage, "fn_stage.plan", n_stages=30,
            in_mode=["coupled", "shared"], in_offset=[0, 0], in_span=[1, 0])
+write_unrolled_source(fn, "fn_unrolled.cu")     # optional: original-cusadi-style per-function kernel
 ```
 
 Stage modes per input: `"stage"` (one value per stage), `"shared"` (broadcast),
@@ -52,7 +53,11 @@ CCS sparsity (`coo_row()` / `coo_col()` for COO). Build with
 level-parallel kernel for a thread-per-instance one that walks CasADi's own
 instruction stream (also in the plan; work vector of `sz_w` slots in a global
 scratch buffer sized by the budget; threads loop when the batch is larger),
-for functions whose levels are too narrow to fill a block.
+for functions whose levels are too narrow to fill a block; `thread_major=true`
+reproduces the original cusadi's strided work-vector layout. `write_unrolled_source`
+emits the original cusadi's unrolled per-function kernel from the same stream
+(symbols `<name>_unrolled_launch` / `_sz_w` / `_n_stages`), for comparison; it
+costs a per-function nvcc compile.
 
 ## Tests
 
@@ -66,5 +71,6 @@ pytest                    # host: plan verification + file round-trip; GPU: nvcc
 - `cusadi2/ops.py` — the op table (CUDA double/float forms, Python form)
 - `cusadi2/kernel_template.py` — the kernel source
 - `cusadi2/plan.py` — plan / reference file writers (format documented there)
+- `cusadi2/unrolled.py` — original-cusadi-style unrolled kernel emitter (baseline)
 - `cusadi2/cusadi2.h` — loader and `Program` runtime
-- `examples/paper_results/` — A1/H1 kinematics and Jacobian latency benchmark (`bench.py`, `latency.cu`; results committed)
+- `examples/paper_results/` — A1/H1 kinematics, Jacobian and Hessian latency benchmark (`bench.py`, `latency.cu`; results committed)

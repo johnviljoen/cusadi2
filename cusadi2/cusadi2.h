@@ -8,7 +8,7 @@
 //   cusadi2::Program prog(plan);
 //   prog.evaluate(d_in, d_out, batch, stream);   // pure launch; graph-capturable
 //   prog.use_serial(scratch_bytes);              // optional: thread-per-instance mode
-//                                                // (runs CasADi's instruction stream)
+//                                                // (interprets CasADi's instruction stream)
 //
 // d_in / d_out are DEVICE-resident arrays of device buffer pointers, one per
 // argument. Buffer a holds batch * plan.in[a].count * nnz elements, laid out
@@ -62,7 +62,7 @@ int cusadi2_launch_serial(
     const int* in_stage_count, const int* nnz_out, const int* out_stage_count,
     int n_instr, const int* s_ops, const int* s_outs, const int* s_in_a, const int* s_in_b,
     const CUSADI2_SCALAR* s_const_vals, CUSADI2_SCALAR* scratch, int n_threads,
-    cudaStream_t stream);
+    int sz_w, int thread_major, cudaStream_t stream);
 int cusadi2_set_shared_memory(int shared_bytes);
 
 namespace cusadi2 {
@@ -244,15 +244,17 @@ public:
 
     // Serial mode with sz_w scalars of scratch per thread: threads =
     // min(scratch_bytes / per-thread bytes, max_threads); when batch * n_stages
-    // exceeds that, threads loop over items.
+    // exceeds that, threads loop over items. Scratch is slot-major (coalesced)
+    // unless thread_major, which reproduces the original cusadi's strided layout.
     void use_serial(size_t scratch_bytes = size_t(256) << 20, int block_size = 256,
-                    int max_threads = 1 << 20) {
+                    int max_threads = 1 << 20, bool thread_major = false) {
         use_level();
         size_t per_thread = (size_t)h_.sz_w * sizeof(Scalar);
         size_t n = scratch_bytes / per_thread;
         if (n < 1) throw std::runtime_error("cusadi2: serial scratch budget below one thread");
         h_.serial_threads = (int)(n < (size_t)max_threads ? n : (size_t)max_threads);
         h_.serial_block = block_size;
+        h_.thread_major = thread_major ? 1 : 0;
         CUSADI2_CHECK(cudaMalloc(&d_.scratch, per_thread * h_.serial_threads));
     }
     void use_level() { cudaFree(d_.scratch); d_.scratch = nullptr; h_.serial_threads = 0; }
@@ -267,7 +269,7 @@ public:
             return cusadi2_launch_serial(d_in, d_out, batch, h_.n_stages, h_.serial_block,
                 d_.nnz_in, d_.in_mode, d_.in_offset, d_.in_count, d_.nnz_out, d_.out_count,
                 h_.n_instr, d_.s_ops, d_.s_outs, d_.s_in_a, d_.s_in_b, d_.s_const_vals,
-                d_.scratch, threads, stream);
+                d_.scratch, threads, h_.sz_w, h_.thread_major, stream);
         }
         return cusadi2_launch(d_in, d_out, batch, h_.n_stages, h_.block_size, h_.shared_bytes,
             h_.n_consts, d_.const_slots, d_.const_vals,
@@ -298,7 +300,7 @@ private:
     struct Hdr {
         int n_stages = 1, block_size = 32, shared_bytes = 0, sz_w = 0, n_consts = 0,
             n_input_maps = 0, n_levels = 0, n_output_maps = 0, n_in = 0, n_out = 0, n_instr = 0;
-        int serial_threads = 0, serial_block = 256;
+        int serial_threads = 0, serial_block = 256, thread_major = 0;
     } h_;
     struct Dev {
         const int *nnz_in = nullptr, *nnz_out = nullptr, *in_mode = nullptr,

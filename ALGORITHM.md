@@ -97,20 +97,34 @@ scratch buffer laid out slot-major so a warp's accesses to any slot coalesce.
 `Program::use_serial(bytes)` sizes the thread count from a scratch budget
 (capped at 2^20 threads); larger batches loop over items.
 
-This is the thread-per-instance evaluation of the original cusadi, and the
-no-level-parallelism baseline in the benchmarks. It matches the original in
-thread mapping, instruction order and slot reuse, and its results are
-bit-identical to the level kernel's (section 6). It differs in three ways.
-It interprets the stream, four index loads and a switch per instruction,
-where the original unrolled it into straight-line device code that nvcc
-register-allocated; no change to the plan recovers that. Its work vector is
-slot-major and coalesced where the original's was thread-major and strided.
-And it needs the stream at all because the level program cannot stand in for
-it: level order is breadth-first and keeps three to four times more values
-live than CasADi's order (`peak_live_slots` 96 against `sz_w` 28 on a
-300-level function), and recycling slots sequentially over the level order
-barely helps, so a faithful scratch footprint needs CasADi's order itself.
-Serial mode wins when levels are too narrow to fill a block.
+This is the thread-per-instance evaluation of the original cusadi, with the
+same thread mapping, instruction order and slot reuse, so its results are
+bit-identical to the level kernel's (section 6). Two things still differ from
+the original, and each is an option that removes the difference:
+
+* **Layout.** The original kept its work vector thread-major
+  (`work[thread * sz_w + slot]`), so a warp's accesses to one slot were
+  strided; `use_serial(..., thread_major=true)` reproduces that.
+* **Code shape.** The original unrolled the stream into straight-line device
+  code, one statement per instruction, compiled by nvcc per function.
+  `unrolled.py:write_unrolled_source` emits exactly that from the same stream
+  (thread-major global work vector, literal constants, chunks of 200k
+  instructions as the original's subfiles), so the only change between the
+  interpreter and the original is the code shape. It pays the per-function
+  nvcc compile cusadi2 exists to avoid, and nvcc's default multiply-add
+  contraction across statements makes its rounding differ from the
+  interpreter's by an ulp (`-fmad=false` restores bit identity).
+
+The benchmark's `staged` and `batch` configs run the unrolled kernels, so
+their no-level-parallelism baseline is the original cusadi itself, and its
+per-function compile time is measured rather than quoted.
+
+Why the level program cannot stand in for the stream: level order is
+breadth-first and keeps three to four times more values live than CasADi's
+order (`peak_live_slots` 96 against `sz_w` 28 on a 300-level function), and
+recycling slots sequentially over the level order barely helps, so a faithful
+scratch footprint needs CasADi's order itself. Serial mode wins when levels
+are too narrow to fill a block.
 
 ### 3.4 Verifying a plan
 

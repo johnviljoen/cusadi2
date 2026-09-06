@@ -5,7 +5,7 @@ import casadi as ca
 import pytest
 
 from cusadi2 import (extract_level_plan, extract_serial_program, read_plan, verify_plan,
-                     verify_serial_program, write_plan)
+                     verify_serial_program, write_plan, write_unrolled_source)
 from cusadi2.dag import IO_OPS, _demo_function, pick_block_size, validate_specs
 
 
@@ -50,6 +50,17 @@ def test_level_plan_hoists_io_but_serial_program_cannot():
     assert n_io == len(plan.const_slots) + len(plan.input_slots) + len(plan.out_slots)
     assert prog.n_instr - n_io == plan.n_nodes
     assert prog.sz_w < plan.peak_live_slots
+
+
+@pytest.mark.parametrize("chunk", [200000, 5])
+def test_unrolled_source_has_one_statement_per_instruction(tmp_path, chunk):
+    f = wide_function()
+    path = write_unrolled_source(f, str(tmp_path / "wide.cu"), n_stages=3, chunk=chunk)
+    src = open(path).read()
+    body = [ln.strip() for ln in src.splitlines() if ln.startswith("    w[") or ln.startswith("    outputs[")]
+    assert len(body) == f.n_instructions()
+    assert src.count("_p0") >= 1 and (chunk == 5) == ("__noinline__" in src)
+    assert f"SZ_W = {f.sz_w()}" in src and "N_STAGES = 3" in src
 
 
 def test_slot_recycling_bounds_shared_memory():

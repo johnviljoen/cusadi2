@@ -1,13 +1,14 @@
 // GPU self-check: for each (plan, reference) pair on the command line, load the
-// plan, run it over a batch of two identical instances in both the level-parallel
-// and the serial mode, each launched directly and replayed from a captured CUDA
-// graph, and compare against the CasADi reference. Exit code is the number of
-// failures.
+// plan, run it over a batch of two identical instances in the level-parallel
+// mode and both serial layouts (slot-major, thread-major), each launched directly
+// and replayed from a captured CUDA graph, and compare against the CasADi
+// reference. Exit code is the number of failures.
 //
 //   selfcheck f.plan f.ref [g.plan g.ref ...]
 #include "cusadi2.h"
 #include <cmath>
 #include <cstdio>
+#include <cstring>
 #include <vector>
 using cusadi2::Scalar;
 
@@ -69,9 +70,9 @@ static int run(const char* plan_path, const char* ref_path) {
     cudaStream_t stream; cudaStreamCreate(&stream);
 
     int fails = 0;
-    for (const char* mode : {"level", "serial"}) {
+    for (const char* mode : {"level", "serial", "serial_tm"}) {
         if (mode[0] == 's')                            // room for 3 threads: staged cases loop
-            prog.use_serial(3 * plan.serial_bytes(), 32);
+            prog.use_serial(3 * plan.serial_bytes(), 32, 1 << 20, strlen(mode) > 6);
         clear();
         int rc = prog.evaluate(d_in, d_out, batch);
         cudaError_t err = cudaDeviceSynchronize();
@@ -93,7 +94,7 @@ static int run(const char* plan_path, const char* ref_path) {
         cudaGraphExecDestroy(exec); cudaGraphDestroy(graph);
 
         bool ok = direct < tol && replay < tol;
-        printf("[%-8s] %s %-6s n_stages=%d batch=%d maxrel=%.3e graph=%.3e -> %s\n", plan.name.c_str(),
+        printf("[%-8s] %s %-9s n_stages=%d batch=%d maxrel=%.3e graph=%.3e -> %s\n", plan.name.c_str(),
                sizeof(Scalar) == 4 ? "f32" : "f64", mode, plan.n_stages, batch, direct, replay, ok ? "PASS" : "FAIL");
         fails += !ok;
     }

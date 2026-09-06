@@ -7,16 +7,19 @@ free-floating base, no contacts) it sweeps batch size B at fixed horizon N and t
 launch for four configurations that toggle the stage and level-parallel axes:
 
     full      staged + level-parallel + batch    per-stage plan, level kernel
-    staged    staged + batch (no LP)             per-stage plan, serial kernel
-    lp        level-parallel + batch (no stages) unrolled plan,  level kernel
-    batch     batch only (= original cusadi)     unrolled plan,  serial kernel
+    staged    staged + batch (no LP)             per-stage function, original cusadi codegen
+    lp        level-parallel + batch (no stages) horizon-unrolled plan, level kernel
+    batch     batch only (= original cusadi)     horizon-unrolled function, original cusadi codegen
 
-full/staged use the per-stage plan and spread the horizon across B*N items;
-lp/batch use the unrolled plan (the per-stage function stamped N times into one
-DAG, ~N x the work vector) over B items. full/lp run the level-parallel kernel
-(one block per item, work vector in shared memory); staged/batch run the serial
-kernel (one thread per item, work vector in global scratch: the original cusadi
-execution model). All four do B*N evaluations. N=8 is the largest horizon whose
+full/staged use the per-stage function and spread the horizon across B*N items;
+lp/batch use the horizon-unrolled function (the per-stage function stamped N
+times into one DAG, ~N x the work vector) over B items. full/lp run cusadi2's
+level-parallel kernel (one block per item, work vector in shared memory).
+staged/batch run the original cusadi execution model exactly: a per-function
+kernel emitted by cusadi2.unrolled from the same instruction stream (straight-
+line code, one thread per item, thread-major global work vector) and compiled
+by nvcc per function, that compile time recorded. All four do B*N evaluations.
+N=8 is the largest horizon whose
 unrolled FK/Jacobian plans fit the per-block shared-memory limit; the unrolled
 Hessians do not, so their lp config is nan (a gap in the curve).
 
@@ -27,8 +30,9 @@ link's 6 x nv LOCAL_WORLD_ALIGNED geometric Jacobian; the Hessian is the
 derivative of that stacked Jacobian with respect to q, a (6 nv n_links) x nq
 matrix (MJX: jax.jacfwd of MuJoCo's analytical body Jacobians).
 
-Per dtype this writes the kernel and, per function, a per-stage and an unrolled
-plan into build/<dtype>/, compiles latency.cu, runs the sweep, then reruns it
+Per dtype this writes the kernel and, per function, a per-stage and a horizon-
+unrolled plan plus the two matching original-cusadi kernels into build/<dtype>/,
+compiles latency.cu, runs the sweep, then reruns it
 through a ctypes-loaded shared build of latency.cu timed from Python (the
 host-language-symmetric counterpart to the Python-timed MJX/warp baselines).
 Baselines run in subprocesses (jax x64 must be set before any jnp op; MJX is
@@ -85,8 +89,8 @@ FUNCS = [("a1_fk", "A1 forward kinematics"), ("a1_fkjac", "A1 frame Jacobians"),
          ("h1_fk", "H1 forward kinematics"), ("h1_fkjac", "H1 frame Jacobians"),
          ("h1_fkhess", "H1 frame Hessians")]
 KIND = {"fk": "fk", "fkjac": "jac", "fkhess": "hess"}    # function stem suffix -> MJX quantity
-CONFIGS = [("full", "staged + LP + batch (full)"), ("staged", "staged + batch (no LP)"),
-           ("lp", "LP + batch, unrolled (no stages)"), ("batch", "batch only, unrolled (~ orig cusadi)")]
+CONFIGS = [("full", "staged + LP + batch (full)"), ("staged", "staged + batch, orig cusadi codegen (no LP)"),
+           ("lp", "LP + batch, horizon-unrolled (no stages)"), ("batch", "batch only, orig cusadi codegen")]
 
 
 # ---------------------------------------------------------------------------
@@ -169,33 +173,63 @@ def run_cusadi2(dtype, out):
     outdir = os.path.join(BUILD, dtype)
     plan_dir = os.path.join(outdir, "plans")
     os.makedirs(plan_dir, exist_ok=True)
+    unr_dir = os.path.join(outdir, "unrolled")
+    os.makedirs(unr_dir, exist_ok=True)
     cusadi2.write_kernel_source(os.path.join(outdir, "kernel.cu"), dtype=dtype)
-    print(f"=== {dtype}: plans (N={N_STAGES}) ===")
-    codegen_s = {}
+    print(f"=== {dtype}: plans + original-cusadi kernels (N={N_STAGES}) ===")
+    codegen_s, codegen_unrolled_s = {}, {}
+    unrolled = []                                  # (name, .cu) in table order
     for stem, _ in FUNCS:
         t0 = time.perf_counter()
         fn = build_function(stem)
         cusadi2.write_plan(fn, os.path.join(plan_dir, f"{stem}.plan"), n_stages=N_STAGES)
-        cusadi2.write_plan(unroll(fn, N_STAGES), os.path.join(plan_dir, f"{stem}_unr.plan"))
+        fu = unroll(fn, N_STAGES)
+        cusadi2.write_plan(fu, os.path.join(plan_dir, f"{stem}_unr.plan"))
         codegen_s[stem] = time.perf_counter() - t0
+        for f_, nst in ((fn, N_STAGES), (fu, 1)):     # original cusadi codegen: per function
+            t0 = time.perf_counter()
+            src = cusadi2.write_unrolled_source(f_, os.path.join(unr_dir, f"{f_.name()}.cu"),
+                                                dtype=dtype, n_stages=nst)
+            codegen_unrolled_s[f_.name()] = time.perf_counter() - t0
+            unrolled.append((f_.name(), src))
         ps = cusadi2.read_plan(os.path.join(plan_dir, f"{stem}.plan"))
         pu = cusadi2.read_plan(os.path.join(plan_dir, f"{stem}_unr.plan"))
-        print(f"  {stem}: nout={fn.nnz_out(0)} instr={fn.n_instructions()} "
+        print(f"  {stem}: nout={fn.nnz_out(0)} instr={fn.n_instructions()} sz_w={ps['sz_w']} "
               f"smem={ps['peak_live_slots'] * 8 / 1024:.1f}KB block={ps['block_size']} | "
-              f"unrolled smem={pu['peak_live_slots'] * 8 / 1024:.1f}KB  codegen={codegen_s[stem]:.2f}s")
+              f"unrolled instr={fu.n_instructions()} smem={pu['peak_live_slots'] * 8 / 1024:.1f}KB  "
+              f"codegen={codegen_s[stem]:.2f}s")
+    with open(os.path.join(outdir, "unrolled_table.h"), "w") as f:
+        f.write("// generated by bench.py: original-cusadi kernels linked into latency.cu\n")
+        for name, _ in unrolled:
+            f.write(f'extern "C" int {name}_unrolled_sz_w();\nextern "C" int {name}_unrolled_n_stages();\n'
+                    f'extern "C" int {name}_unrolled_launch(const S* const*, S* const*, S*, int, int, cudaStream_t);\n')
+        f.write("static const UnrolledFn UNROLLED[] = {\n" + "".join(
+            f'    {{"{n}", {n}_unrolled_sz_w, {n}_unrolled_n_stages, {n}_unrolled_launch}},\n' for n, _ in unrolled)
+            + "};\n")
 
-    common = [NVCC, "-std=c++17", "-O3", f"-arch={gpu_arch()}", f"-DCUSADI2_SCALAR={dtype}",
-              f"-I{cusadi2.INCLUDE_DIR}", os.path.join(HERE, "latency.cu"),
+    arch = f"-arch={gpu_arch()}"
+    nvcc_unrolled_s, objs = {}, []
+    for name, src in unrolled:                     # one nvcc per function, timed: the original's cost
+        obj = src[:-3] + ".o"
+        t0 = time.perf_counter()
+        subprocess.run([NVCC, "-std=c++17", "-O3", arch, "-Xcompiler", "-fPIC", "-c", src, "-o", obj], check=True)
+        nvcc_unrolled_s[name] = time.perf_counter() - t0
+        objs.append(obj)
+        print(f"  nvcc {name}: {nvcc_unrolled_s[name]:.1f}s (original cusadi, per function)")
+
+    common = [NVCC, "-std=c++17", "-O3", arch, f"-DCUSADI2_SCALAR={dtype}",
+              f"-I{cusadi2.INCLUDE_DIR}", f"-I{outdir}", os.path.join(HERE, "latency.cu"),
               os.path.join(outdir, "kernel.cu")]
     binpath, libpath = os.path.join(outdir, "latency"), os.path.join(outdir, "latency_lib.so")
     t0 = time.perf_counter()
-    subprocess.run(common + ["-o", binpath], check=True)
+    subprocess.run(common + objs + ["-o", binpath], check=True)
     nvcc_s = time.perf_counter() - t0
-    subprocess.run(common + ["-shared", "-Xcompiler", "-fPIC", "-DCUSADI2_BENCH_LIB", "-o", libpath],
+    subprocess.run(common + objs + ["-shared", "-Xcompiler", "-fPIC", "-DCUSADI2_BENCH_LIB", "-o", libpath],
                    check=True)
     with open(os.path.join(out, f"compile_cusadi2_{dtype}.json"), "w") as f:
-        json.dump({"dtype": dtype, "codegen_s": codegen_s, "nvcc_s": nvcc_s}, f, indent=2)
-    print(f"  nvcc: {nvcc_s:.1f}s (function-independent)")
+        json.dump({"dtype": dtype, "codegen_s": codegen_s, "nvcc_s": nvcc_s,
+                   "codegen_unrolled_s": codegen_unrolled_s, "nvcc_unrolled_s": nvcc_unrolled_s}, f, indent=2)
+    print(f"  nvcc: {nvcc_s:.1f}s (cusadi2 kernel + driver; function-independent, includes linking the above)")
 
     env = dict(os.environ, CUDA_VISIBLE_DEVICES=DEVICE)
     csv_path = os.path.join(out, f"latency_{dtype}.csv")
@@ -656,6 +690,10 @@ def plot_compile(dtype):
     def draw(ax, func, robot, kind, fp):
         _line(ax, _stat(flat([c["codegen_s"].get(func, 0.0) + c["nvcc_s"] for c in cc])), color="C0", lw=2,
               label="cusadi2 (codegen + nvcc, once)")
+        for name, color, label in ((func, "C1", "orig cusadi codegen + nvcc, per-stage fn (staged)"),
+                                   (func + "_unr", "C3", "orig cusadi codegen + nvcc, horizon-unrolled fn (batch)")):
+            _line(ax, _stat(flat([c["codegen_unrolled_s"][name] + c["nvcc_unrolled_s"][name] for c in cc
+                                  if name in c.get("nvcc_unrolled_s", {})])), color=color, ls="--", lw=2, label=label)
         mjx = _jsons(f"mjx_{robot}_{fp}.json")
         for suffix, ls, mk, lab in (("batched", "--", "s", "MJX batched"), ("rollout", ":", "^", "MJX rollout")):
             _line(ax, _stat(_merge(mjx, "compile", f"{kind}_{suffix}")), color="black", ls=ls, marker=mk, ms=4,

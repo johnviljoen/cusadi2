@@ -15,10 +15,12 @@ Two kernels consume the same plan:
     order, CasADi's ``sz_w`` work slots, CONST / INPUT / OUTPUT inline) with no
     barriers; work vector in a global scratch buffer laid out slot-major
     (``scratch[slot * n_threads + thread]``) so a warp's accesses coalesce.
-    Threads loop over items when there are more items than threads. This is
-    the thread-per-instance evaluation of the original cusadi, interpreted
-    instead of unrolled; it wins when levels are too narrow to fill a block,
-    and it is the "no level parallelism" baseline.
+    Threads loop over items when there are more items than threads. With
+    ``thread_major`` the layout is the original cusadi's instead
+    (``scratch[thread * sz_w + slot]``, strided across a warp). This is the
+    thread-per-instance evaluation of the original cusadi, interpreted instead
+    of unrolled (``unrolled.py`` emits the unrolled form); it wins when levels
+    are too narrow to fill a block.
 
 Plain batch-only evaluation is the ``n_stages == 1``, all-"stage" case. The
 stage arithmetic lives only in the input/output moves.
@@ -143,11 +145,15 @@ __global__ void cusadi2_kernel_serial(
         const int * __restrict__ s_in_a,
         const int * __restrict__ s_in_b,
         const {dtype} * __restrict__ s_const_vals,
-        {dtype} * __restrict__ scratch, const int n_threads) {
+        {dtype} * __restrict__ scratch, const int n_threads,
+        const int sz_w, const int thread_major) {
     const int t = blockIdx.x * blockDim.x + threadIdx.x;
     if (t >= n_threads) return;
-    {dtype}* w = scratch + t;                     // slot s of this thread: w[s * n_threads]
-#define W(s) w[(size_t)(s) * n_threads]
+    // slot-major (default): slot s of thread t at scratch[s * n_threads + t], coalesced;
+    // thread-major (original cusadi): scratch[t * sz_w + s], strided across a warp.
+    {dtype}* w = scratch + (thread_major ? (size_t)t * sz_w : (size_t)t);
+    const size_t stride = thread_major ? 1 : (size_t)n_threads;
+#define W(s) w[(size_t)(s) * stride]
     const long long n_items = (long long)total_instances * n_stages;
     for (long long g = t; g < n_items; g += n_threads) {
         const int inst = (int)(g / n_stages), stage = (int)(g % n_stages);
@@ -195,19 +201,19 @@ int cusadi2_launch(
 }
 
 // One serial launch: n_threads threads in blocks of block_size, scratch holding
-// sz_w * n_threads scalars.
+// sz_w * n_threads scalars, slot-major unless thread_major.
 int cusadi2_launch_serial(
         const {dtype} * const * inputs, {dtype} * const * outputs,
         int total_instances, int n_stages, int block_size,
         const int *nnz_in, const int *in_stage_mode, const int *in_stage_offset,
         const int *in_stage_count, const int *nnz_out, const int *out_stage_count,
         int n_instr, const int *s_ops, const int *s_outs, const int *s_in_a, const int *s_in_b,
-        const {dtype} *s_const_vals, {dtype} *scratch, int n_threads,
+        const {dtype} *s_const_vals, {dtype} *scratch, int n_threads, int sz_w, int thread_major,
         cudaStream_t stream) {
     cusadi2_kernel_serial<<<(n_threads + block_size - 1) / block_size, block_size, 0, stream>>>(
         inputs, outputs, total_instances, n_stages,
         nnz_in, in_stage_mode, in_stage_offset, in_stage_count, nnz_out, out_stage_count,
-        n_instr, s_ops, s_outs, s_in_a, s_in_b, s_const_vals, scratch, n_threads);
+        n_instr, s_ops, s_outs, s_in_a, s_in_b, s_const_vals, scratch, n_threads, sz_w, thread_major);
     return (int)cudaPeekAtLastError();
 }
 
