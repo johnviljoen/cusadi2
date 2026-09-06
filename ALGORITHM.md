@@ -119,7 +119,7 @@ per-stage plan. Each argument declares how it is indexed along that axis:
 `coupled` lets stage k see its neighbours (for example x_k and x_{k+1} from one
 state trajectory buffer, span 1). Outputs are always `stage`. The element index
 is `((inst * count[arg] + s) * nnz[arg] + elem)`, which for `n_stages == 1`
-reduces to plain batch-major layout. The horizon, and therefore every count, is
+(and no coupled span) reduces to plain batch-major layout. The horizon, and therefore every count, is
 baked into the plan file; a different horizon is a different file.
 
 ## 5. The plan file
@@ -132,15 +132,23 @@ node arrays and slot maps, the stage specs and counts, and the CasADi CCS
 sparsity of every input and output.
 `cusadi2.h:load_plan` reads it; `Program` uploads it and `evaluate` is exactly
 one kernel launch with no host-side work, so it can be captured into a CUDA
-graph.
+graph. Upload raises the kernel's shared-memory cap to the plan's budget only
+if the device can honour it; a plan whose `peak_live_slots` exceeds the
+per-block opt-in limit fails at launch in level mode and still runs in
+serial mode.
 
 ## 6. Numerical behaviour
 
-The kernel walks the same expression graph CasADi built, in level order instead
-of instruction order. Results differ from CasADi only by order-dependent
-rounding: shallow functions are bit-exact, deep ones (hundreds of levels, such
-as analytical rigid-body Jacobians) differ at relative unit roundoff. Absolute
-error scales with output magnitude, so compare relatively, and sample test
-inputs inside the function's domain (random non-unit quaternions fed to a
-free-flyer Jacobian produce outputs of size 1e13 and absolute errors that look
-alarming while relative error is still 1e-14).
+The kernel evaluates the expression graph CasADi built node for node with the
+same operands. The order in which independent nodes run (level order on the
+GPU, instruction order on the CPU) changes no node's inputs, so it cannot
+change rounding. Results differ from CasADi only where the CUDA math library
+differs from the host libm: transcendental ops (`sin`, `exp`, `pow`, ...) can
+land an ulp apart, and those ulps compound with depth. A function built from
+`+ - * /` alone is bit-exact at any depth (a 240-level polynomial recursion
+reproduces CasADi exactly in both kernels); a 300-level function with
+`sin`/`cos`/`exp` differs at relative 3e-16. Absolute error scales with output
+magnitude, so compare relatively, and sample test inputs inside the function's
+domain (random non-unit quaternions fed to a free-flyer Jacobian produce
+outputs of size 1e13 and absolute errors that look alarming while relative
+error is still 1e-14).
