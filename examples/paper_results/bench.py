@@ -43,7 +43,7 @@ CPU_THREADS OpenMP threads (CPU_PLOT_THREADS of them drawn; counts above the
 machine's hardware threads oversubscribe it). One-problem latency is recorded in
 cpu_<dtype>.json but not drawn. Plots follow.
 
-    python examples/paper_results/bench.py [--runs N] [--no-baselines] [--plot]
+    python examples/paper_results/bench.py [--runs N] [--first-run k] [--no-baselines] [--plot]
 
 Each run k writes results/runs/k/: latency_<dtype>.csv, latency_py_<dtype>.csv,
 compile_cusadi2_<dtype>.json, cpu_<dtype>.json, mjx_<robot>_<fpXX>.json,
@@ -710,6 +710,7 @@ def plot_compile(dtype):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--runs", type=int, default=1, help="repeat the whole benchmark N times (results/runs/k)")
+    ap.add_argument("--first-run", type=int, default=0, help="start at run index k (resume an interrupted sweep)")
     ap.add_argument("--no-baselines", action="store_true", help="skip the MJX and mujoco-warp runs")
     ap.add_argument("--plot", action="store_true", help="only re-plot existing results")
     ap.add_argument("--cpu", action="store_true", help="only run the CPU reference, then plot")
@@ -730,7 +731,7 @@ def main():
             json.dump(out, f, indent=2)
         return print(f"wrote {args.out}")
 
-    for k in range(0 if args.plot else args.runs):
+    for k in range(args.runs if args.plot else args.first_run, args.runs):
         out = os.path.join(RESULTS, "runs", str(k))
         os.makedirs(out, exist_ok=True)
         print(f"##### run {k + 1} / {args.runs} -> {out}")
