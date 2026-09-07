@@ -1,0 +1,51 @@
+[double] CMM_humanoid_full_sf                     instr=  4493 levels=None smem=5.7KB block=128 plan=0.02s
+[double] CM_humanoid_full_sf                      instr=  2310 levels=None smem=3.7KB block=32 plan=0.01s
+[double] C_humanoid_full_sf                       instr= 19097 levels=None smem=17.3KB block=256 plan=0.07s
+[double] CoM_humanoid_full_sf                     instr=   422 levels=None smem=1.3KB block=32 plan=0.00s
+[double] G_humanoid_full_sf                       instr=  1072 levels=None smem=2.0KB block=32 plan=0.00s
+[double] M_humanoid_full_sf                       instr=  3525 levels=None smem=4.2KB block=64 plan=0.01s
+[double] base_pos_humanoid_full_sf                instr=     6 levels=None smem=0.0KB block=32 plan=0.00s
+[double] base_rot_humanoid_full_sf                instr=    39 levels=None smem=0.1KB block=32 plan=0.00s
+[double] dCMM_humanoid_full_sf                    instr= 11598 levels=None smem=13.6KB block=256 plan=0.04s
+[double] dCM_humanoid_full_sf                     instr=  4354 levels=None smem=6.3KB block=64 plan=0.02s
+[double] jacobian_left_foot_humanoid_full_sf      instr=   555 levels=None smem=0.9KB block=32 plan=0.00s
+[double] jacobian_right_foot_humanoid_full_sf     instr=   555 levels=None smem=0.9KB block=32 plan=0.00s
+[double] nvcc CMM_humanoid_full_sf: 2.8s
+[double] nvcc CM_humanoid_full_sf: 1.6s
+[double] nvcc C_humanoid_full_sf: 20.4s
+[double] nvcc CoM_humanoid_full_sf: 0.9s
+[double] nvcc G_humanoid_full_sf: 1.1s
+[double] nvcc M_humanoid_full_sf: 2.5s
+[double] nvcc base_pos_humanoid_full_sf: 0.7s
+[double] nvcc base_rot_humanoid_full_sf: 0.7s
+[double] nvcc dCMM_humanoid_full_sf: 9.9s
+[double] nvcc dCM_humanoid_full_sf: 2.7s
+[double] nvcc jacobian_left_foot_humanoid_full_sf: 0.9s
+[double] nvcc jacobian_right_foot_humanoid_full_sf: 0.9s
+[double] nvcc lib: 3.3s
+[float] CMM_humanoid_full_sf                     instr=  4493 levels=None smem=5.7KB block=128 plan=0.02s
+[float] CM_humanoid_full_sf                      instr=  2310 levels=None smem=3.7KB block=32 plan=0.01s
+[float] C_humanoid_full_sf                       instr= 19097 levels=None smem=17.3KB block=256 plan=0.07s
+[float] CoM_humanoid_full_sf                     instr=   422 levels=None smem=1.3KB block=32 plan=0.00s
+[float] G_humanoid_full_sf                       instr=  1072 levels=None smem=2.0KB block=32 plan=0.00s
+[float] M_humanoid_full_sf                       instr=  3525 levels=None smem=4.2KB block=64 plan=0.01s
+[float] base_pos_humanoid_full_sf                instr=     6 levels=None smem=0.0KB block=32 plan=0.00s
+[float] base_rot_humanoid_full_sf                instr=    39 levels=None smem=0.1KB block=32 plan=0.00s
+[float] dCMM_humanoid_full_sf                    instr= 11598 levels=None smem=13.6KB block=256 plan=0.04s
+[float] dCM_humanoid_full_sf                     instr=  4354 levels=None smem=6.3KB block=64 plan=0.02s
+[float] jacobian_left_foot_humanoid_full_sf      instr=   555 levels=None smem=0.9KB block=32 plan=0.00s
+[float] jacobian_right_foot_humanoid_full_sf     instr=   555 levels=None smem=0.9KB block=32 plan=0.00s
+[float] nvcc CMM_humanoid_full_sf: 3.0s
+[float] nvcc CM_humanoid_full_sf: 1.8s
+[float] nvcc C_humanoid_full_sf: 19.7s
+[float] nvcc CoM_humanoid_full_sf: 1.1s
+[float] nvcc G_humanoid_full_sf: 1.2s
+[float] nvcc M_humanoid_full_sf: 2.6s
+[float] nvcc base_pos_humanoid_full_sf: 0.7s
+[float] nvcc base_rot_humanoid_full_sf: 0.7s
+[float] nvcc dCMM_humanoid_full_sf: 11.2s
+[float] nvcc dCM_humanoid_full_sf: 2.9s
+[float] nvcc jacobian_left_foot_humanoid_full_sf: 0.9s
+[float] nvcc jacobian_right_foot_humanoid_full_sf: 0.9s
+[float] nvcc lib: 3.2s
+BUILD DONE

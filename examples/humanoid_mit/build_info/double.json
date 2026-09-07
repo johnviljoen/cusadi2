@@ -1,0 +1,123 @@
+{
+  "CMM_humanoid_full_sf": {
+    "n_instr": 4493,
+    "sz_w": 432,
+    "n_levels": null,
+    "peak_live_slots": 734,
+    "block_size": 128,
+    "codegen_plan_s": 0.016565968995564617,
+    "codegen_unrolled_s": 0.006414746007067151,
+    "nvcc_unrolled_s": 2.845619075000286
+  },
+  "CM_humanoid_full_sf": {
+    "n_instr": 2310,
+    "sz_w": 306,
+    "n_levels": null,
+    "peak_live_slots": 468,
+    "block_size": 32,
+    "codegen_plan_s": 0.007976470995345153,
+    "codegen_unrolled_s": 0.0032200719870161265,
+    "nvcc_unrolled_s": 1.6488062269927468
+  },
+  "C_humanoid_full_sf": {
+    "n_instr": 19097,
+    "sz_w": 1524,
+    "n_levels": null,
+    "peak_live_slots": 2216,
+    "block_size": 256,
+    "codegen_plan_s": 0.07315245800418779,
+    "codegen_unrolled_s": 0.025002876995131373,
+    "nvcc_unrolled_s": 20.350448875993607
+  },
+  "CoM_humanoid_full_sf": {
+    "n_instr": 422,
+    "sz_w": 66,
+    "n_levels": null,
+    "peak_live_slots": 168,
+    "block_size": 32,
+    "codegen_plan_s": 0.0014779540069866925,
+    "codegen_unrolled_s": 0.0006540250033140182,
+    "nvcc_unrolled_s": 0.9215065400057938
+  },
+  "G_humanoid_full_sf": {
+    "n_instr": 1072,
+    "sz_w": 176,
+    "n_levels": null,
+    "peak_live_slots": 251,
+    "block_size": 32,
+    "codegen_plan_s": 0.003619272989453748,
+    "codegen_unrolled_s": 0.0014570549974450842,
+    "nvcc_unrolled_s": 1.0997709990042495
+  },
+  "M_humanoid_full_sf": {
+    "n_instr": 3525,
+    "sz_w": 368,
+    "n_levels": null,
+    "peak_live_slots": 540,
+    "block_size": 64,
+    "codegen_plan_s": 0.011613317008595914,
+    "codegen_unrolled_s": 0.004723396006738767,
+    "nvcc_unrolled_s": 2.4506594909908017
+  },
+  "base_pos_humanoid_full_sf": {
+    "n_instr": 6,
+    "sz_w": 1,
+    "n_levels": null,
+    "peak_live_slots": 3,
+    "block_size": 32,
+    "codegen_plan_s": 0.00011412700405344367,
+    "codegen_unrolled_s": 7.850899419281632e-05,
+    "nvcc_unrolled_s": 0.682652909992612
+  },
+  "base_rot_humanoid_full_sf": {
+    "n_instr": 39,
+    "sz_w": 13,
+    "n_levels": null,
+    "peak_live_slots": 19,
+    "block_size": 32,
+    "codegen_plan_s": 0.0002294470032211393,
+    "codegen_unrolled_s": 0.00011844499385915697,
+    "nvcc_unrolled_s": 0.7108967690001009
+  },
+  "dCMM_humanoid_full_sf": {
+    "n_instr": 11598,
+    "sz_w": 1147,
+    "n_levels": null,
+    "peak_live_slots": 1738,
+    "block_size": 256,
+    "codegen_plan_s": 0.04097203000856098,
+    "codegen_unrolled_s": 0.015090639994014055,
+    "nvcc_unrolled_s": 9.94159284500347
+  },
+  "dCM_humanoid_full_sf": {
+    "n_instr": 4354,
+    "sz_w": 503,
+    "n_levels": null,
+    "peak_live_slots": 812,
+    "block_size": 64,
+    "codegen_plan_s": 0.015769603007356636,
+    "codegen_unrolled_s": 0.006080089005990885,
+    "nvcc_unrolled_s": 2.718022318003932
+  },
+  "jacobian_left_foot_humanoid_full_sf": {
+    "n_instr": 555,
+    "sz_w": 63,
+    "n_levels": null,
+    "peak_live_slots": 121,
+    "block_size": 32,
+    "codegen_plan_s": 0.001757707999786362,
+    "codegen_unrolled_s": 0.000773684005253017,
+    "nvcc_unrolled_s": 0.9111120369925629
+  },
+  "jacobian_right_foot_humanoid_full_sf": {
+    "n_instr": 555,
+    "sz_w": 63,
+    "n_levels": null,
+    "peak_live_slots": 121,
+    "block_size": 32,
+    "codegen_plan_s": 0.0017574169905856252,
+    "codegen_unrolled_s": 0.0007802059990353882,
+    "nvcc_unrolled_s": 0.9083822569955373
+  },
+  "_nvcc_lib_s": 3.3134162750066025
+}
