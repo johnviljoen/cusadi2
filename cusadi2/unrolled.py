@@ -10,9 +10,11 @@ kernel interprets, so the two differ only in code shape. It exists for that
 comparison and is the benchmark's "original cusadi" baseline: it pays a
 per-function nvcc compile, the cost cusadi2 was built to avoid.
 
-Instructions are split into ``__noinline__`` device functions of ``chunk``
-statements when the stream is longer than one chunk (the original split into
-200k-instruction subfiles) to keep nvcc and ptxas tractable.
+Streams longer than ``split_above`` instructions are split into ``__noinline__``
+device functions of ``chunk`` statements; shorter ones stay in the kernel body.
+The defaults (250k, 200k) are the original's own rule, and matter: ptxas took
+688 s on a 205k-instruction stream split into a callee against 444 s inline
+(the original's generator: 257 s on the same stream).
 
 Emitted symbols (``extern "C"``, NAME = ``fn.name()``, S = the dtype):
 
@@ -68,14 +70,16 @@ def unrolled_statements(fn: ca.Function, dtype: str, n_stages: int, in_mode, in_
 
 
 def write_unrolled_source(fn: ca.Function, path: str, dtype: str = "double", n_stages: int = 1,
-                          in_mode=None, in_offset=None, in_span=None, chunk: int = 200000) -> str:
+                          in_mode=None, in_offset=None, in_span=None, chunk: int = 200000,
+                          split_above: int = 250000) -> str:
     """Write the unrolled kernel for `fn` under the given stage specs to `path`."""
     if dtype not in ("double", "float"):
         raise ValueError(f"dtype must be 'double' or 'float', got {dtype!r}")
     in_mode, in_offset, in_span, _ = _specs(fn, n_stages, in_mode, in_offset, in_span, None)
     stmts, sz_w = unrolled_statements(fn, dtype, n_stages, in_mode, in_offset, in_span)
     name = fn.name()
-    parts = [stmts[i:i + chunk] for i in range(0, len(stmts), chunk)] or [[]]
+    parts = ([stmts] if len(stmts) <= split_above else
+             [stmts[i:i + chunk] for i in range(0, len(stmts), chunk)])
     attr = "__forceinline__" if len(parts) == 1 else "__noinline__"
     sig = f"(const S* const* inputs, S* const* outputs, S* w, const int inst, const int stage)"
     lines = [

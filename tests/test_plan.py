@@ -55,7 +55,8 @@ def test_level_plan_hoists_io_but_serial_program_cannot():
 @pytest.mark.parametrize("chunk", [200000, 5])
 def test_unrolled_source_has_one_statement_per_instruction(tmp_path, chunk):
     f = wide_function()
-    path = write_unrolled_source(f, str(tmp_path / "wide.cu"), n_stages=3, chunk=chunk)
+    path = write_unrolled_source(f, str(tmp_path / "wide.cu"), n_stages=3, chunk=chunk,
+                                 split_above=chunk)
     src = open(path).read()
     body = [ln.strip() for ln in src.splitlines() if ln.startswith("    w[") or ln.startswith("    outputs[")]
     assert len(body) == f.n_instructions()
