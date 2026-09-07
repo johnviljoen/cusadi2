@@ -131,7 +131,8 @@ are too narrow to fill a block.
 A sequential interpreter of the plan would hide intra-level conflicts, because
 it executes nodes in a level one after another. `dag.py:verify_plan` executes
 every read of a level before every write and compares with CasADi. It is the
-regression guard for the conflict class.
+regression guard for the conflict class. `dag.py:verify_serial_program` runs
+the serial stream sequentially the same way and must match CasADi exactly.
 
 ## 4. The stage axis
 
@@ -155,8 +156,8 @@ baked into the plan file; a different horizon is a different file.
 
 ## 5. The plan file
 
-`plan.py` writes the plan as one binary file and documents the layout. It
-stores everything the runtime needs so the C++ side computes nothing: block
+`plan.py` writes the plan as one binary file (format version 2) and documents
+the layout. It stores everything the runtime needs so the C++ side computes nothing: block
 size (smallest power of two at or above the median level width, between 32 and
 256, unless the caller overrides it), peak live slots, float64 constants, the
 node arrays and slot maps, CasADi's instruction stream and `sz_w` for serial
