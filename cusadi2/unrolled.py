@@ -13,8 +13,11 @@ per-function nvcc compile, the cost cusadi2 was built to avoid.
 Streams longer than ``split_above`` instructions are split into ``__noinline__``
 device functions of ``chunk`` statements; shorter ones stay in the kernel body.
 The defaults (250k, 200k) are the original's own rule, and matter: ptxas took
-688 s on a 205k-instruction stream split into a callee against 444 s inline
-(the original's generator: 257 s on the same stream).
+688 s on a 205k-instruction stream split into a callee against 444 s inline.
+The per-argument nonzero counts are read from ``__constant__`` memory as the
+original does, and that matters too: with them folded into literals ptxas
+takes 2.7x longer on the same stream (704 s against 259 s), a slow path over
+tens of thousands of constant-offset stores.
 
 Emitted symbols (``extern "C"``, NAME = ``fn.name()``, S = the dtype):
 
@@ -61,9 +64,9 @@ def unrolled_statements(fn: ca.Function, dtype: str, n_stages: int, in_mode, in_
             count = stage_count(in_mode[a], in_span[a], n_stages)
             s = ("0" if in_mode[a] == "shared" else
                  "stage" if in_offset[a] == 0 else f"(stage + {in_offset[a]})")
-            stmts.append(f"w[{o}] = inputs[{a}][((long long)inst * {count} + {s}) * {nnz_in[a]} + {b}];")
+            stmts.append(f"w[{o}] = inputs[{a}][((long long)inst * {count} + {s}) * NNZ_IN[{a}] + {b}];")
         elif op == OP_OUTPUT:
-            stmts.append(f"outputs[{a}][((long long)inst * {n_stages} + stage) * {nnz_out[a]} + {b}] = w[{o}];")
+            stmts.append(f"outputs[{a}][((long long)inst * {n_stages} + stage) * NNZ_OUT[{a}] + {b}] = w[{o}];")
         else:
             stmts.append(f"w[{o}] = {exprs[op].replace('{0}', f'w[{a}]').replace('{1}', f'w[{b}]')};")
     return stmts, prog.sz_w
@@ -91,6 +94,10 @@ def write_unrolled_source(fn: ca.Function, path: str, dtype: str = "double", n_s
         "#include <math.h>",
         f"typedef {dtype} S;",
         f"enum {{ SZ_W = {sz_w}, N_STAGES = {n_stages} }};",
+        "// nonzero counts live in constant memory, as in the original: folding them into the",
+        "// addresses as literals sends ptxas down a path 2-3x slower on large streams",
+        "__constant__ int NNZ_IN[] = {%s};" % ", ".join(str(fn.nnz_in(a)) for a in range(fn.n_in())),
+        "__constant__ int NNZ_OUT[] = {%s};" % ", ".join(str(fn.nnz_out(a)) for a in range(fn.n_out())),
         "",
     ]
     for k, part in enumerate(parts):

@@ -108,13 +108,14 @@ the original, and each is an option that removes the difference:
 * **Code shape.** The original unrolled the stream into straight-line device
   code, one statement per instruction, compiled by nvcc per function.
   `unrolled.py:write_unrolled_source` emits exactly that from the same stream
-  (thread-major global work vector, literal constants, and the original's
-  split rule: one kernel body up to 250k instructions, 200k-instruction
-  chunks beyond), so the only change between the interpreter and the
-  original is the code shape. Timed against the original's own generator on
-  the benchmark functions it agrees within 10% at every batch size, and
-  compiles in the same time for all but the largest kernel (205k
-  instructions), where it is still 1.7x slower to compile. It pays the per-function
+  (thread-major global work vector, literal constants, nonzero counts read
+  from `__constant__` memory, and the original's split rule: one kernel body
+  up to 250k instructions, 200k-instruction chunks beyond), so the only
+  change between the interpreter and the original is the code shape. Timed
+  against the original's own generator on the benchmark functions it agrees
+  within 10% at every batch size and compiles in the same time. The
+  constant-memory counts are not cosmetic: folded into the addresses as
+  literals, ptxas takes 2.7x longer on a 205k-instruction stream. It pays the per-function
   nvcc compile cusadi2 exists to avoid, and nvcc's default multiply-add
   contraction across statements makes its rounding differ from the
   interpreter's by an ulp (`-fmad=false` restores bit identity).
