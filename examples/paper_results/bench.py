@@ -196,7 +196,7 @@ def run_cusadi2(dtype, out):
         ps = cusadi2.read_plan(os.path.join(plan_dir, f"{stem}.plan"))
         pu = cusadi2.read_plan(os.path.join(plan_dir, f"{stem}_unr.plan"))
         print(f"  {stem}: nout={fn.nnz_out(0)} instr={fn.n_instructions()} sz_w={ps['sz_w']} "
-              f"smem={ps['peak_live_slots'] * 8 / 1024:.1f}KB block={ps['block_size']} | "
+              f"smem={ps['peak_live_slots'] * 8 / 1024:.1f}KB | "
               f"unrolled instr={fu.n_instructions()} smem={pu['peak_live_slots'] * 8 / 1024:.1f}KB  "
               f"codegen={codegen_s[stem]:.2f}s")
     with open(os.path.join(outdir, "unrolled_table.h"), "w") as f:
