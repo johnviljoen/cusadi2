@@ -76,9 +76,21 @@ plans can need far more than CasADi's `sz_w` (horizon-unrolled H1 Hessian:
 forms levels within windows of that many stream instructions, each window's
 levels starting below the previous window's deepest, so consumers stay near
 producers and the live set stays near `sz_w`, at the cost of more, narrower
-levels. `max_live` (`write_plan(..., max_live=device_max_live(dtype))`) keeps
-the plain plan if it fits, else takes the largest power-of-two window that
-does. Measured on the RTX 4080 (99 KB per block, 100 KB per SM): a level costs
+levels:
+
+```
+  compute op   level = max(floor, 1 + max level of its operands)
+  INPUT node   level = floor - 1
+  OUTPUT node  level = deepest + 1, emitted when its window closes
+  window close every W compute instructions:  floor = deepest + 1
+  W = first of  { none, 2^k, 2^(k-1), ..., 64 },  k = floor(log2 n_compute),
+      with peak_live_slots(W) <= max_live          (`max_live` search)
+```
+
+`max_live` (`write_plan(..., max_live=device_max_live(dtype))`) therefore
+keeps the plain plan if it fits, else takes the largest power-of-two window
+that does; it is a plan-time choice, since the footprint depends on the
+runtime scalar type. Measured on the RTX 4080 (99 KB per block, 100 KB per SM): a level costs
 0.25 to 0.4 us at batch 1, where one block runs alone; at large batch the
 footprint sets residency instead, and a window that takes the H1 Hessian from
 52 KB (one block per SM) to 22 KB (two) halves its time, while one that leaves
