@@ -110,7 +110,45 @@ conflicts by delaying nodes does not work: on a humanoid dynamics Jacobian the
 critical path explodes from a few hundred levels to over ten thousand, because
 the parallelism was hidden by slot reuse. Renaming is required.
 
-### 3.3 Serial mode
+### 3.3 Block size
+
+One block evaluates one (instance, stage); its thread count `b` is the only
+launch parameter, and the right value depends on the plan's shape. An instance
+costs `T(b) = sum_l ceil(width_l / b) + n_levels` interpreter passes, counting
+each level's barrier as one pass, and at saturation an SM works on `R(b)`
+instances at once, the number of blocks of that size resident under its
+shared-memory (the plan's footprint), register, block-count and thread limits.
+The runtime picks, at upload, the `b` in {32, ..., 1024} minimising `T(b) /
+R(b)`, the modelled SM time per instance, with `R(b)` from the CUDA occupancy
+calculator (`cusadi2.h:pick_block_size`); ties go to the smaller block. The
+plan file carries no choice (0) unless the caller overrides it, so the same
+plan is sized for whichever device loads it.
+
+The rule reads as three regimes. A wide, shallow plan whose footprint allows
+many resident blocks takes the largest block that keeps the SM full (an unrolled
+Jacobian: 512 threads, 2 blocks). A plan whose live set alone limits residency
+to one or two blocks also takes wide blocks, because idle lanes cost nothing
+when the alternative is an idle SM (an unrolled Hessian or the 1e5 KKT solve:
+1024 threads, 1 block). A small plan is bounded by the block-count limit
+instead, and a block wider than its levels only adds idle warps to every
+barrier, so it stays at 32 or 64 threads. The previous heuristic (the smallest
+power of two at or above the median level width) got the first and third
+regimes right and the second wrong: a deep, narrow plan with a large live set,
+which is what a dense elimination looks like, got 32 to 128 threads and hence 3
+to 4 warps per SM.
+
+Validated on the RTX 4080 by measuring every `b` for all 15 benchmark plans
+(the six Pinocchio functions per stage and horizon-unrolled, the five KKT
+solves of the CusADi paper): the rule picks the measured-fastest block at
+saturation for 14 and is within 4% for the other; halving the barrier weight
+changes one pick (10% slower), doubling it changes two (3% and 1%). Against the median heuristic, at
+16384 to 32768 instances: 2.5x on the 1e4 KKT solve, 1.3x on 1e5, 1.5x on the
+H1 Hessian, 1.2x on the unrolled H1 Jacobian, and no plan slower by more than
+noise. At batch 1 six plans gain 1.2 to 1.5x and two lose 3 to 4 us (A1
+kinematics unrolled, A1 Jacobian per stage), where the rule trades passes for
+residency that batch 1 cannot use.
+
+### 3.4 Serial mode
 
 The plan file also carries CasADi's own instruction stream verbatim: op ids in
 instruction order on CasADi's work slots (`sz_w` of them), with the constant,
@@ -158,7 +196,7 @@ recycling slots sequentially over the level order barely helps, so a faithful
 scratch footprint needs CasADi's order itself. Serial mode wins when levels
 are too narrow to fill a block.
 
-### 3.4 Verifying a plan
+### 3.5 Verifying a plan
 
 A sequential interpreter of the plan would hide intra-level conflicts, because
 it executes nodes in a level one after another. `dag.py:verify_plan` executes
@@ -189,9 +227,9 @@ baked into the plan file; a different horizon is a different file.
 ## 5. The plan file
 
 `plan.py` writes the plan as one binary file (format version 3) and documents
-the layout. It stores everything the runtime needs so the C++ side computes nothing: block
-size (smallest power of two at or above the median level width, between 32 and
-256, unless the caller overrides it), peak live slots, float64 constants, the
+the layout. It stores everything the runtime needs so the C++ side computes nothing but
+the block size (§3.3; the file carries 0 unless the caller overrides it): peak
+live slots, float64 constants, the
 node arrays (INPUT and OUTPUT nodes included), CasADi's instruction stream and
 `sz_w` for serial mode, the stage specs and counts, and the CasADi CCS
 sparsity of every input and output.

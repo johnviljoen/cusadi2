@@ -29,6 +29,7 @@ Emitted host entry points (declared in cusadi2.h):
     cusadi2_launch(...)              one level-parallel launch on a stream
     cusadi2_launch_serial(...)       one serial launch on a stream
     cusadi2_set_shared_memory(bytes) raise-only dynamic shared-memory cap
+    cusadi2_max_active_blocks(b, bytes) occupancy calculator: resident blocks per SM
 """
 import os
 
@@ -211,6 +212,16 @@ int cusadi2_set_shared_memory(int shared_bytes) {
     return (int)cudaFuncSetAttribute(cusadi2_kernel,
                                      cudaFuncAttributeMaxDynamicSharedMemorySize,
                                      shared_bytes);
+}
+
+// Blocks of block_size threads with shared_bytes of dynamic shared memory that
+// fit on one SM at once (registers, shared memory, block and thread limits of
+// this device and this build); 0 if none.
+int cusadi2_max_active_blocks(int block_size, int shared_bytes) {
+    int n = 0;
+    if (cudaOccupancyMaxActiveBlocksPerMultiprocessor(&n, cusadi2_kernel, block_size, shared_bytes))
+        return 0;
+    return n;
 }
 """
 

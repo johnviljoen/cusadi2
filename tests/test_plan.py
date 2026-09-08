@@ -6,7 +6,7 @@ import pytest
 
 from cusadi2 import (extract_level_plan, extract_serial_program, read_plan, verify_plan,
                      verify_serial_program, write_plan, write_unrolled_source)
-from cusadi2.dag import IO_OPS, _demo_function, pick_block_size, validate_specs
+from cusadi2.dag import IO_OPS, _demo_function, validate_specs
 
 
 def dyn_function():
@@ -67,7 +67,6 @@ def test_unrolled_source_has_one_statement_per_instruction(tmp_path, chunk):
 def test_slot_recycling_bounds_shared_memory():
     plan = extract_level_plan(wide_function())
     assert plan.peak_live_slots < plan.n_nodes
-    assert pick_block_size(plan) in (32, 64, 128, 256)
 
 
 def test_max_live_windows_levels_to_fit():
@@ -88,7 +87,7 @@ def test_plan_file_roundtrip(tmp_path):
                       in_mode=["coupled", "shared"], in_offset=[0, 0], in_span=[1, 0])
     d = read_plan(path)
     assert d["name"] == "dyn" and d["n_stages"] == 4
-    assert d["block_size"] == pick_block_size(plan)
+    assert d["block_size"] == 0                  # chosen by the runtime at upload
     assert d["peak_live_slots"] == plan.peak_live_slots
     assert [a["count"] for a in d["inputs"]] == [5, 1]
     assert [a["mode"] for a in d["inputs"]] == ["coupled", "shared"]

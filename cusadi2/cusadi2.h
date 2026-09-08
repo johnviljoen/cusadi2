@@ -62,6 +62,7 @@ int cusadi2_launch_serial(
     const CUSADI2_SCALAR* s_const_vals, CUSADI2_SCALAR* scratch, int n_threads,
     int sz_w, int thread_major, cudaStream_t stream);
 int cusadi2_set_shared_memory(int shared_bytes);
+int cusadi2_max_active_blocks(int block_size, int shared_bytes);
 
 namespace cusadi2 {
 
@@ -98,7 +99,7 @@ struct Arg {
 // program (CasADi's instruction stream verbatim on its sz_w work slots, IO inline).
 struct Plan {
     std::string name;
-    int n_stages = 1, block_size = 32, peak_live_slots = 0, sz_w = 0;
+    int n_stages = 1, block_size = 0, peak_live_slots = 0, sz_w = 0;   // block_size 0: pick_block_size at upload
     std::vector<Arg> in, out;
     std::vector<int> const_slots; std::vector<double> const_vals;
     std::vector<int> level_offsets, level_widths;
@@ -110,6 +111,29 @@ struct Plan {
     int shared_bytes() const { return peak_live_slots * (int)sizeof(Scalar); }   // level mode, per block
     size_t serial_bytes() const { return (size_t)sz_w * sizeof(Scalar); }         // serial mode, per thread
 };
+
+// Threads per (instance, stage) block for `p`: the b in {32, ..., 1024} minimising
+// the modelled per-SM time per instance T(b) / R(b), where
+//   T(b) = sum over levels of ceil(width / b) + n_levels   interpreter passes, plus one
+//                                                          barrier per level costed as a pass
+//   R(b) = blocks of that size resident per SM at p's shared-memory footprint, from
+//          the CUDA occupancy calculator (registers, shared memory, block and thread
+//          limits of the current device and kernel build).
+// Ties go to the smaller block (fewer idle warps at each barrier). Call after the
+// kernel's shared-memory cap covers p (cusadi2_set_shared_memory).
+inline int pick_block_size(const Plan& p) {
+    int best = 0; double best_cost = 0;
+    for (int b = 32; b <= 1024; b *= 2) {
+        int resident = cusadi2_max_active_blocks(b, p.shared_bytes());
+        if (resident <= 0) continue;
+        double passes = (double)p.level_widths.size();
+        for (int w : p.level_widths) passes += (w + b - 1) / b;
+        double cost = passes / resident;
+        if (!best || cost < best_cost) { best = b; best_cost = cost; }
+    }
+    if (!best) throw std::runtime_error("cusadi2: no block size fits plan " + p.name);
+    return best;
+}
 
 namespace detail {
 struct Reader {
@@ -227,8 +251,10 @@ public:
         // a plan too large for level mode can still run in serial mode.
         int max_smem = 0;
         cudaDeviceGetAttribute(&max_smem, cudaDevAttrMaxSharedMemoryPerBlockOptin, detail::device());
-        if (h_.shared_bytes <= max_smem)
+        if (h_.shared_bytes <= max_smem) {
             CUSADI2_CHECK((cudaError_t)cusadi2_set_shared_memory(h_.shared_bytes));
+            if (!h_.block_size) h_.block_size = pick_block_size(p);
+        }
     }
 
     // Serial mode with sz_w scalars of scratch per thread: threads =

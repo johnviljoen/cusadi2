@@ -6,7 +6,9 @@ C++ runtime (``cusadi2.h``).
                in_mode=["coupled", "shared"], in_offset=[0, 0], in_span=[1, 0])
 
 The file is one plan for one function at one horizon. Everything the runtime
-needs is stored, so the C++ side computes nothing: block size, per-arg stage
+needs is stored, so the C++ side computes nothing but the block size (0 here
+unless the caller overrides it; ``cusadi2.h:pick_block_size`` chooses it at
+upload from the level widths and the device's occupancy): per-arg stage
 counts, the flat level-parallel program, CasADi's own instruction stream for
 the serial kernel, and the CasADi CCS sparsity of every argument (from which
 the loader can derive COO). Constants are float64 always; the runtime casts to
@@ -50,7 +52,7 @@ import casadi as ca
 import numpy as np
 
 from cusadi2.dag import (STAGE_MODES, LevelPlan, SerialProgram, extract_level_plan,
-                         extract_serial_program, pick_block_size, stage_count, validate_specs)
+                         extract_serial_program, stage_count, validate_specs)
 
 PLAN_MAGIC, REF_MAGIC, VERSION = b"CS2P", b"CS2R", 3
 
@@ -108,8 +110,7 @@ def write_plan(fn: ca.Function, path: str, n_stages: int = 1, in_mode=None,
         f.write(PLAN_MAGIC)
         w.i(VERSION, len(name))
         f.write(name)
-        w.i(fn.n_in(), fn.n_out(), n_stages, block_size or pick_block_size(plan),
-            plan.peak_live_slots)
+        w.i(fn.n_in(), fn.n_out(), n_stages, block_size or 0, plan.peak_live_slots)
         for a in range(fn.n_in()):
             sp = fn.sparsity_in(a)
             w.i(sp.size1(), sp.size2(), sp.nnz(), STAGE_MODES.index(in_mode[a]),

@@ -310,17 +310,6 @@ def _level_plan(f: casadi.Function, instrs, window: int) -> LevelPlan:
     )
 
 
-def pick_block_size(plan: LevelPlan) -> int:
-    """Smallest power of two >= the plan's median level width, capped at 256.
-    One block per (instance, stage); this covers the typical level in one pass."""
-    widths = sorted(plan.level_widths)
-    med = widths[len(widths) // 2] if widths else 0
-    bs = 32
-    while bs < med and bs < 256:
-        bs *= 2
-    return bs
-
-
 def verify_plan(f: casadi.Function, plan: LevelPlan, n_samples: int = 3,
                 lo: float = -1.0, up: float = 1.0, seed: int = 0) -> float:
     """Execute `plan` on the host as the kernel does (every read in a level before
@@ -412,8 +401,7 @@ def _demo_function() -> casadi.Function:
 def _print_plan(plan: LevelPlan) -> None:
     print(f"function: {plan.function_name}")
     print(f"  inputs={plan.n_inputs} nnz_in={plan.nnz_in}  outputs={plan.n_outputs} nnz_out={plan.nnz_out}")
-    print(f"  levels={plan.n_levels} ops={plan.n_nodes} peak_live={plan.peak_live_slots} "
-          f"block_size={pick_block_size(plan)}")
+    print(f"  levels={plan.n_levels} ops={plan.n_nodes} peak_live={plan.peak_live_slots}")
     print("  constants:", list(zip(plan.const_slots, plan.const_vals)))
     for d, (off, wid) in enumerate(zip(plan.level_offsets, plan.level_widths)):
         print(f"  level {d} (width {wid}):")
