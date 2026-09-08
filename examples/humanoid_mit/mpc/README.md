@@ -9,6 +9,9 @@ against CPU solves.
 
 ## Problem
 
+The full formulation, QP, Ruiz scaling, ADMM iteration and the staged
+decomposition are written out in `FORMULATION.md`.
+
 10-stage MPC over the MIT humanoid (24 dof + 12 contact forces): 60 primal
 variables and 74 constraints per stage, KKT of 1340 rows with 11,162 lower
 nonzeros. OSQP-style ADMM (rho 0.1, sigma 1e-6, alpha 1.6, 2 Ruiz passes,
