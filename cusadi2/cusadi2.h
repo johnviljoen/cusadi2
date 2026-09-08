@@ -47,12 +47,10 @@ int cusadi2_launch(
     const CUSADI2_SCALAR* const* inputs, CUSADI2_SCALAR* const* outputs,
     int total_instances, int n_stages, int block_size, int shared_bytes,
     int n_consts, const int* const_slots, const CUSADI2_SCALAR* const_vals,
-    int n_inputs, const int* input_slots, const int* input_args, const int* input_elems,
     const int* nnz_in, const int* in_stage_mode, const int* in_stage_offset,
     const int* in_stage_count,
     int n_levels, const int* level_offsets, const int* level_widths,
     const int* node_ops, const int* node_outs, const int* node_in_a, const int* node_in_b,
-    int n_outputs, const int* out_slots, const int* out_args, const int* out_elems,
     const int* nnz_out, const int* out_stage_mode, const int* out_stage_count,
     cudaStream_t stream);
 int cusadi2_launch_serial(
@@ -96,17 +94,15 @@ struct Arg {
 };
 
 // A plan file, fully in host memory: the level program (SSA-renamed node
-// arrays, slot maps, peak_live_slots) and the serial program (CasADi's
-// instruction stream verbatim on its sz_w work slots, IO inline).
+// arrays with INPUT / OUTPUT nodes, constants, peak_live_slots) and the serial
+// program (CasADi's instruction stream verbatim on its sz_w work slots, IO inline).
 struct Plan {
     std::string name;
     int n_stages = 1, block_size = 32, peak_live_slots = 0, sz_w = 0;
     std::vector<Arg> in, out;
     std::vector<int> const_slots; std::vector<double> const_vals;
-    std::vector<int> input_slots, input_args, input_elems;
     std::vector<int> level_offsets, level_widths;
     std::vector<int> node_ops, node_outs, node_in_a, node_in_b;
-    std::vector<int> out_slots, out_args, out_elems;
     std::vector<int> serial_ops, serial_outs, serial_in_a, serial_in_b;
     std::vector<double> serial_const_vals;
     int n_in() const { return (int)in.size(); }
@@ -154,7 +150,7 @@ inline Plan load_plan(const std::string& path) {
     if (std::string(magic, 4) != "CS2P")
         throw std::runtime_error("cusadi2: bad magic in " + path);
     int version = r.i();
-    if (version != 2)
+    if (version != 3)
         throw std::runtime_error("cusadi2: unsupported plan version in " + path);
     Plan p;
     int name_len = r.i();
@@ -174,10 +170,8 @@ inline Plan load_plan(const std::string& path) {
         r.sparsity(a.sp, rows, cols, nnz);
     }
     int n = r.i(); r.ia(p.const_slots, n); p.const_vals = r.arr<double>(n);
-    n = r.i(); r.ia(p.input_slots, n); r.ia(p.input_args, n); r.ia(p.input_elems, n);
     n = r.i(); r.ia(p.level_offsets, n); r.ia(p.level_widths, n);
     n = r.i(); r.ia(p.node_ops, n); r.ia(p.node_outs, n); r.ia(p.node_in_a, n); r.ia(p.node_in_b, n);
-    n = r.i(); r.ia(p.out_slots, n); r.ia(p.out_args, n); r.ia(p.out_elems, n);
     p.sz_w = r.i();
     n = r.i(); r.ia(p.serial_ops, n); r.ia(p.serial_outs, n); r.ia(p.serial_in_a, n); r.ia(p.serial_in_b, n);
     n = r.i(); p.serial_const_vals = r.arr<double>(n);
@@ -208,10 +202,8 @@ public:
     void upload(const Plan& p) {
         using detail::dev;
         release();
-        h_ = Hdr{p.n_stages, p.block_size, p.shared_bytes(), p.sz_w,
-                 (int)p.const_slots.size(), (int)p.input_slots.size(),
-                 (int)p.level_offsets.size(), (int)p.out_slots.size(), p.n_in(), p.n_out(),
-                 (int)p.serial_ops.size()};
+        h_ = Hdr{p.n_stages, p.block_size, p.shared_bytes(), p.sz_w, (int)p.const_slots.size(),
+                 (int)p.level_offsets.size(), p.n_in(), p.n_out(), (int)p.serial_ops.size()};
         std::vector<int> nnz_in, nnz_out, in_mode, in_offset, in_count, out_mode, out_count;
         for (const Arg& a : p.in) {
             nnz_in.push_back(a.nnz()); in_mode.push_back(a.mode);
@@ -226,12 +218,9 @@ public:
         d_.in_mode = dev(in_mode); d_.in_offset = dev(in_offset); d_.in_count = dev(in_count);
         d_.out_mode = dev(out_mode); d_.out_count = dev(out_count);
         d_.const_slots = dev(p.const_slots); d_.const_vals = dev(consts);
-        d_.input_slots = dev(p.input_slots); d_.input_args = dev(p.input_args);
-        d_.input_elems = dev(p.input_elems);
         d_.level_offsets = dev(p.level_offsets); d_.level_widths = dev(p.level_widths);
         d_.node_ops = dev(p.node_ops); d_.node_outs = dev(p.node_outs);
         d_.node_in_a = dev(p.node_in_a); d_.node_in_b = dev(p.node_in_b);
-        d_.out_slots = dev(p.out_slots); d_.out_args = dev(p.out_args); d_.out_elems = dev(p.out_elems);
         d_.s_ops = dev(p.serial_ops); d_.s_outs = dev(p.serial_outs);
         d_.s_in_a = dev(p.serial_in_a); d_.s_in_b = dev(p.serial_in_b); d_.s_const_vals = dev(s_consts);
         // Raise the level kernel's shared-memory cap if the device can honour it;
@@ -273,11 +262,9 @@ public:
         }
         return cusadi2_launch(d_in, d_out, batch, h_.n_stages, h_.block_size, h_.shared_bytes,
             h_.n_consts, d_.const_slots, d_.const_vals,
-            h_.n_input_maps, d_.input_slots, d_.input_args, d_.input_elems,
             d_.nnz_in, d_.in_mode, d_.in_offset, d_.in_count,
             h_.n_levels, d_.level_offsets, d_.level_widths,
             d_.node_ops, d_.node_outs, d_.node_in_a, d_.node_in_b,
-            h_.n_output_maps, d_.out_slots, d_.out_args, d_.out_elems,
             d_.nnz_out, d_.out_mode, d_.out_count, stream);
     }
 
@@ -287,9 +274,8 @@ public:
 
     void release() {
         const void* ptrs[] = {d_.nnz_in, d_.nnz_out, d_.in_mode, d_.in_offset, d_.in_count,
-            d_.out_mode, d_.out_count, d_.const_slots, d_.const_vals, d_.input_slots,
-            d_.input_args, d_.input_elems, d_.level_offsets, d_.level_widths, d_.node_ops,
-            d_.node_outs, d_.node_in_a, d_.node_in_b, d_.out_slots, d_.out_args, d_.out_elems,
+            d_.out_mode, d_.out_count, d_.const_slots, d_.const_vals, d_.level_offsets,
+            d_.level_widths, d_.node_ops, d_.node_outs, d_.node_in_a, d_.node_in_b,
             d_.s_ops, d_.s_outs, d_.s_in_a, d_.s_in_b, d_.s_const_vals};
         for (const void* q : ptrs) if (q) cudaFree(const_cast<void*>(q));
         cudaFree(d_.scratch);
@@ -299,16 +285,14 @@ public:
 private:
     struct Hdr {
         int n_stages = 1, block_size = 32, shared_bytes = 0, sz_w = 0, n_consts = 0,
-            n_input_maps = 0, n_levels = 0, n_output_maps = 0, n_in = 0, n_out = 0, n_instr = 0;
+            n_levels = 0, n_in = 0, n_out = 0, n_instr = 0;
         int serial_threads = 0, serial_block = 256, thread_major = 0;
     } h_;
     struct Dev {
         const int *nnz_in = nullptr, *nnz_out = nullptr, *in_mode = nullptr,
             *in_offset = nullptr, *in_count = nullptr, *out_mode = nullptr, *out_count = nullptr,
-            *const_slots = nullptr, *input_slots = nullptr, *input_args = nullptr,
-            *input_elems = nullptr, *level_offsets = nullptr, *level_widths = nullptr,
+            *const_slots = nullptr, *level_offsets = nullptr, *level_widths = nullptr,
             *node_ops = nullptr, *node_outs = nullptr, *node_in_a = nullptr, *node_in_b = nullptr,
-            *out_slots = nullptr, *out_args = nullptr, *out_elems = nullptr,
             *s_ops = nullptr, *s_outs = nullptr, *s_in_a = nullptr, *s_in_b = nullptr;
         const Scalar *const_vals = nullptr, *s_const_vals = nullptr;
         Scalar* scratch = nullptr;

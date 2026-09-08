@@ -27,11 +27,12 @@ and into data.
          one block per (instance, stage); n_stages == 1 is plain batch evaluation
 
   BLOCK  shared memory  w[peak_live_slots]
-         load constants and this block's inputs into w
+         load constants into w
          for level = 0 .. n_levels-1:
              parallel for node in level:   w[out] = exec_op(op, w[a], w[b])
+                                           or w[out] = input[a][b]   (OP_INPUT)
+                                           or output[a][b] = w[out]  (OP_OUTPUT)
              __syncthreads()
-         write this block's outputs from w
 ```
 
 Level parallelism is the within-block scheduler; the stage axis only changes
@@ -70,13 +71,39 @@ a hazard.
 
 Pass 1 assigns each compute op the level `max(level of operands) + 1`
 (longest path), which preserves the maximum available parallelism, and gives
-every value a fresh SSA id. Constants and inputs sit at depth 0, so the
-scheduler numbers compute levels from 1; the plan file and the kernel index the
-level arrays from 0, which is the numbering the figure above uses. Pass 2 maps
-SSA ids to physical slots with a free-list: a slot is released one level after
-its last read and reused. Within a level no slot is both read and written, so
-one barrier per level is enough, and the high-water mark of allocated slots is
-`peak_live_slots`, the block's shared-memory budget.
+every value a fresh SSA id. Constants sit at depth 0 and are preloaded; INPUT
+and OUTPUT are nodes (encoded as in the serial program: slot, argument,
+element) that form level 0 and the last level of an unwindowed plan, sorted by
+element so a warp's global loads and stores are coalesced. The plan file and
+the kernel index the level arrays from 0, which is the numbering the figure
+above uses. Pass 2 maps SSA ids to physical slots with a free-list: a slot is
+released one level after its last read and reused. Within a level no slot is
+both read and written, so one barrier per level is enough, and the high-water
+mark of allocated slots is `peak_live_slots`, the block's shared-memory budget.
+
+Longest-path levels maximise width, and width is liveness: every value a level
+produces is live at once. A wide function can therefore need far more than
+CasADi's own `sz_w` (the horizon-unrolled H1 Hessian: 417 KB against 2 KB),
+which is why the largest plans did not fit a block's shared memory. The
+planner's `window` option forms levels within windows of that many compute
+instructions of CasADi's stream, each window's levels starting below the
+previous window's deepest, so consumers stay close to their producers and the
+live set stays near `sz_w` at the cost of more, narrower levels.
+`max_live` (`write_plan(..., max_live=device_max_live(dtype))`) searches the
+largest power-of-two window whose peak fits the budget, starting from the plain
+longest-path plan, so any plan that already fits is unchanged and one that does
+not gets the fewest extra levels. The kernel is indifferent to how the levels
+were formed; what changes is the level count and the shared-memory footprint.
+Measured on the RTX 4080 (99 KB per block, 100 KB per SM): a level costs about
+0.25 to 0.4 us at batch 1, where one block runs alone and every level's index
+loads and barrier are exposed, so forcing the H1 Hessian from 23 to 56 levels
+adds 19% there. At large batch the footprint dominates instead: that same
+window takes the plan from 52 KB (one block per SM) to 22 KB (two), and halves
+the time; a window that leaves the residency unchanged (A1 Hessian, 31 KB to
+29 KB) costs 15% throughout. The horizon-unrolled Hessians, previously
+unrunnable in level mode, fit at 77 KB and 57 KB and run 10x faster than the
+original kernel at batch 1 and 1.3x at 16384. So `max_live` is a budget, not
+only a limit: a cap below the device maximum can buy occupancy.
 
 Assigning levels naively on the original work slots and then trying to repair
 conflicts by delaying nodes does not work: on a humanoid dynamics Jacobian the
@@ -87,8 +114,8 @@ the parallelism was hidden by slot reuse. Renaming is required.
 
 The plan file also carries CasADi's own instruction stream verbatim: op ids in
 instruction order on CasADi's work slots (`sz_w` of them), with the constant,
-input and output moves inline where CasADi placed them. They cannot be hoisted
-out of the stream the way the level kernel hoists them, because CasADi reuses
+input and output moves inline where CasADi placed them. They cannot be renamed
+onto fresh slots the way the level plan renames them, because CasADi reuses
 a constant's or input's slot after its last read and an output's source slot
 after the OUTPUT instruction; even the ten-instruction demo function has both
 hazards. `cusadi2_kernel_serial` gives each (instance, stage) one thread that
@@ -161,13 +188,13 @@ baked into the plan file; a different horizon is a different file.
 
 ## 5. The plan file
 
-`plan.py` writes the plan as one binary file (format version 2) and documents
+`plan.py` writes the plan as one binary file (format version 3) and documents
 the layout. It stores everything the runtime needs so the C++ side computes nothing: block
 size (smallest power of two at or above the median level width, between 32 and
 256, unless the caller overrides it), peak live slots, float64 constants, the
-node arrays and slot maps, CasADi's instruction stream and `sz_w` for serial
-mode, the stage specs and counts, and the CasADi CCS sparsity of every input
-and output.
+node arrays (INPUT and OUTPUT nodes included), CasADi's instruction stream and
+`sz_w` for serial mode, the stage specs and counts, and the CasADi CCS
+sparsity of every input and output.
 `cusadi2.h:load_plan` reads it; `Program` uploads it and `evaluate` is exactly
 one kernel launch with no host-side work, so it can be captured into a CUDA
 graph. Upload raises the kernel's shared-memory cap to the plan's budget only

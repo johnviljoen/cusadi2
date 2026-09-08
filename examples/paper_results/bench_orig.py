@@ -19,9 +19,9 @@ from the upstream repo at the pinned commit) are evaluated for batch sizes
     parallel_cpu_transfer  moves one double per argument through cudaMalloc/
                            cudaMemcpy inside the timed region, as upstream
 
-plus cusadi2 (features on: the level-parallel kernel; nan where the function's
-live set exceeds the GPU's shared memory, which fn_1e5 does). The only
-deliberate departure: the two GPU kernels get one untimed warm-up launch per
+plus cusadi2 (features on: the level-parallel kernel, its plan windowed to the
+GPU's shared memory where the longest-path plan does not fit, as fn_1e5's does
+not). The only deliberate departure: the two GPU kernels get one untimed warm-up launch per
 case so a first-launch module load cannot land in a 20-sample mean.
 
     python examples/paper_results/bench_orig.py [--runs N] [--plot]
@@ -96,7 +96,8 @@ def build_gpu(fns):
     arch, comp, objs = f"-arch={gpu_arch()}", {}, []
     with open(os.path.join(d, "unrolled_table.h"), "w") as tbl:
         for f in fns:
-            cusadi2.write_plan(f, os.path.join(d, f"{f.name()}.plan"))
+            cusadi2.write_plan(f, os.path.join(d, f"{f.name()}.plan"),
+                               max_live=cusadi2.device_max_live("double", int(DEVICE)))
             t0 = time.perf_counter()
             src = cusadi2.write_unrolled_source(f, os.path.join(d, f"{f.name()}.cu"), dtype="double")
             subprocess.run([NVCC, "-std=c++17", "-O3", arch, "-Xcompiler", "-fPIC", "-c", src, "-o", src[:-3] + ".o"],
@@ -236,14 +237,15 @@ def plot(extra=False):
     import numpy as np
     runs = []
     for k in sorted(os.listdir(os.path.join(RESULTS, "runs")), key=int):
-        with open(os.path.join(RESULTS, "runs", k, "orig_bench.json")) as fh:
-            runs.append(json.load(fh))
+        if os.path.exists(os.path.join(RESULTS, "runs", k, "orig_bench.json")):
+            with open(os.path.join(RESULTS, "runs", k, "orig_bench.json")) as fh:
+                runs.append(json.load(fh))
     fig, axes = plt.subplots(1, 2, figsize=(20, 6))
     series = [("cusadi", "g", 1.0, "  CusADi (ours)"), ("pytorch", "#EB5036", 0.75, "  Pytorch"),
               ("parallel_cpu", "#332288", 0.5, "  CPU (parallel)")]
     if extra:
         series.append(("cusadi2", "#0072BD", 0.3, "  cusadi2 (level-parallel)"))
-    markers = ["o", "+", "*", "s", "D"]
+    markers = ["o", "+", (6, 2, 0), "s", "D"]
     bw, x = 0.17, np.arange(1, len(N_ENVS_SWEEP) + 1)
     for ax, base, suffix in ((axes[0], "serial_cpu", ""), (axes[1], "serial_cpu_transfer", "_transfer")):
         for i, fn in enumerate(FNS):
@@ -255,10 +257,10 @@ def plot(extra=False):
                 ax.bar(pos, s, w * bw, color=color, edgecolor=(0, 0, 0, 0.2), zorder=2)
                 top = np.fmax(top, s)
             ax.plot(pos, top + 0.25, markers[i], mec="k", mfc="none", ms=5, ls="none", zorder=3)
-        ax.set_xlim(9.43, len(x) + 0.5)
-        ax.set_ylim(-4, 5)
         ax.set_yticks(range(-5, 6), [f"$10^{{{k}}}$" for k in range(-5, 6)])
         ax.set_xticks(x, [str(n) for n in N_ENVS_SWEEP])
+        ax.set_xlim(9.43, len(x) + 0.5)
+        ax.set_ylim(-4, 5)
         ax.grid(axis="y", zorder=0)
         ax.set_xlabel("Batch size")
         ax.set_ylabel("Speedup (x)")

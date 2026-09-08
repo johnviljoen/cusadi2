@@ -65,10 +65,6 @@ __EXEC_OP__
         const int n_consts,                                                    \
         const int * __restrict__ const_slots,                                  \
         const {dtype} * __restrict__ const_vals,                               \
-        const int n_inputs,                                                    \
-        const int * __restrict__ input_slots,                                  \
-        const int * __restrict__ input_args,                                   \
-        const int * __restrict__ input_elems,                                  \
         const int * __restrict__ nnz_in,                                       \
         const int * __restrict__ in_stage_mode,                                \
         const int * __restrict__ in_stage_offset,                              \
@@ -80,10 +76,6 @@ __EXEC_OP__
         const int * __restrict__ node_outs,                                    \
         const int * __restrict__ node_in_a,                                    \
         const int * __restrict__ node_in_b,                                    \
-        const int n_outputs,                                                   \
-        const int * __restrict__ out_slots,                                    \
-        const int * __restrict__ out_args,                                     \
-        const int * __restrict__ out_elems,                                    \
         const int * __restrict__ nnz_out,                                      \
         const int * __restrict__ out_stage_mode,                               \
         const int * __restrict__ out_stage_count
@@ -98,32 +90,27 @@ __global__ void cusadi2_kernel(CUSADI2_KERNEL_PARAMS) {
 
     for (int i = tid; i < n_consts; i += block_sz)
         w[const_slots[i]] = const_vals[i];
-
-    for (int i = tid; i < n_inputs; i += block_sz) {
-        int arg  = input_args[i];
-        int s = (in_stage_mode[arg] == 1) ? 0 : (stage + in_stage_offset[arg]);
-        long long base = ((long long)inst * in_stage_count[arg] + s) * nnz_in[arg];
-        w[input_slots[i]] = inputs[arg][base + input_elems[i]];
-    }
     __syncthreads();
 
     // SSA renaming guarantees no slot is both read and written within a level,
-    // so one __syncthreads() per level suffices.
+    // so one __syncthreads() per level suffices. INPUT / OUTPUT nodes move this
+    // block's item between its argument buffers and w (a: arg, b: element).
     for (int lev = 0; lev < n_levels; lev++) {
         int offset = level_offsets[lev];
         int width = level_widths[lev];
         for (int idx = tid; idx < width; idx += block_sz) {
-            int g = offset + idx;
-            w[node_outs[g]] = exec_op(node_ops[g], w[node_in_a[g]], w[node_in_b[g]]);
+            const int g = offset + idx, op = node_ops[g], o = node_outs[g], a = node_in_a[g], b = node_in_b[g];
+            if (op < OP_CONST) {
+                w[o] = exec_op(op, w[a], w[b]);
+            } else if (op == OP_INPUT) {
+                int s = (in_stage_mode[a] == 1) ? 0 : (stage + in_stage_offset[a]);
+                w[o] = inputs[a][((long long)inst * in_stage_count[a] + s) * nnz_in[a] + b];
+            } else {
+                int s = (out_stage_mode[a] == 1) ? 0 : stage;
+                outputs[a][((long long)inst * out_stage_count[a] + s) * nnz_out[a] + b] = w[o];
+            }
         }
         __syncthreads();
-    }
-
-    for (int i = tid; i < n_outputs; i += block_sz) {
-        int arg  = out_args[i];
-        int s = (out_stage_mode[arg] == 1) ? 0 : stage;
-        long long base = ((long long)inst * out_stage_count[arg] + s) * nnz_out[arg];
-        outputs[arg][base + out_elems[i]] = w[out_slots[i]];
     }
 }
 
@@ -180,22 +167,18 @@ int cusadi2_launch(
         const {dtype} * const * inputs, {dtype} * const * outputs,
         int total_instances, int n_stages, int block_size, int shared_bytes,
         int n_consts, const int *const_slots, const {dtype} *const_vals,
-        int n_inputs, const int *input_slots, const int *input_args, const int *input_elems,
         const int *nnz_in, const int *in_stage_mode, const int *in_stage_offset,
         const int *in_stage_count,
         int n_levels, const int *level_offsets, const int *level_widths,
         const int *node_ops, const int *node_outs, const int *node_in_a, const int *node_in_b,
-        int n_outputs, const int *out_slots, const int *out_args, const int *out_elems,
         const int *nnz_out, const int *out_stage_mode, const int *out_stage_count,
         cudaStream_t stream) {
     cusadi2_kernel<<<dim3(total_instances, n_stages), block_size, shared_bytes, stream>>>(
         inputs, outputs, total_instances, n_stages,
-        n_consts, const_slots, const_vals,
-        n_inputs, input_slots, input_args, input_elems, nnz_in,
+        n_consts, const_slots, const_vals, nnz_in,
         in_stage_mode, in_stage_offset, in_stage_count,
         n_levels, level_offsets, level_widths,
-        node_ops, node_outs, node_in_a, node_in_b,
-        n_outputs, out_slots, out_args, out_elems, nnz_out,
+        node_ops, node_outs, node_in_a, node_in_b, nnz_out,
         out_stage_mode, out_stage_count);
     return (int)cudaPeekAtLastError();
 }

@@ -14,7 +14,7 @@ its compiled scalar type on upload.
 
 Layout (little-endian; i32 = int32, f64 = float64; arrays are contiguous):
 
-    magic "CS2P", i32 version = 2
+    magic "CS2P", i32 version = 3
     i32 name_len, bytes name
     i32 n_in, n_out, n_stages, block_size, peak_live_slots
     per input  a: i32 rows, cols, nnz, mode, offset, span, count
@@ -22,15 +22,14 @@ Layout (little-endian; i32 = int32, f64 = float64; arrays are contiguous):
     per output a: i32 rows, cols, nnz, mode, count
                   i32 colptr[cols+1], i32 rowidx[nnz]
     i32 n_consts;      i32 const_slots[], f64 const_vals[]
-    i32 n_input_maps;  i32 input_slots[], input_args[], input_elems[]
     i32 n_levels;      i32 level_offsets[], level_widths[]
     i32 n_nodes;       i32 node_ops[], node_outs[], node_in_a[], node_in_b[]
-    i32 n_output_maps; i32 out_slots[], out_args[], out_elems[]
     i32 sz_w
     i32 n_instr;       i32 serial_ops[], serial_outs[], serial_in_a[], serial_in_b[]
     i32 n_serial_consts; f64 serial_const_vals[]
 
-The level program (node arrays) is SSA-renamed and hazard-free per level; the
+The level program (node arrays) is SSA-renamed and hazard-free per level, with
+INPUT / OUTPUT as nodes (slot, argument, element) and constants preloaded; the
 serial program is CasADi's stream verbatim on CasADi's `sz_w` work slots with
 CONST / INPUT / OUTPUT inline (see ``dag.SerialProgram``). Each kernel reads
 only its own program.
@@ -53,7 +52,7 @@ import numpy as np
 from cusadi2.dag import (STAGE_MODES, LevelPlan, SerialProgram, extract_level_plan,
                          extract_serial_program, pick_block_size, stage_count, validate_specs)
 
-PLAN_MAGIC, REF_MAGIC, VERSION = b"CS2P", b"CS2R", 2
+PLAN_MAGIC, REF_MAGIC, VERSION = b"CS2P", b"CS2R", 3
 
 
 def _specs(fn, n_stages, in_mode, in_offset, in_span, out_mode):
@@ -79,15 +78,28 @@ class _W:
         self.f.write(np.ascontiguousarray(arr, dtype="<f8").tobytes())
 
 
+def device_max_live(dtype: str = "double", device: int = 0) -> int:
+    """Largest `peak_live_slots` of `dtype` the device's per-block opt-in shared
+    memory holds (CUDA runtime queried through ctypes)."""
+    import ctypes
+    import ctypes.util
+    cudart = ctypes.CDLL(ctypes.util.find_library("cudart") or "libcudart.so")
+    v = ctypes.c_int()
+    if cudart.cudaDeviceGetAttribute(ctypes.byref(v), 97, device):   # cudaDevAttrMaxSharedMemoryPerBlockOptin
+        raise RuntimeError(f"cudaDeviceGetAttribute failed for device {device}")
+    return v.value // {"double": 8, "float": 4}[dtype]
+
+
 def write_plan(fn: ca.Function, path: str, n_stages: int = 1, in_mode=None,
                in_offset=None, in_span=None, out_mode=None, block_size=None,
-               plan: LevelPlan = None, serial: SerialProgram = None) -> str:
+               max_live=None, plan: LevelPlan = None, serial: SerialProgram = None) -> str:
     """Extract `fn`'s level-parallel plan and serial program and write them, with
-    the stage specs and horizon baked in, to `path`. Pass `plan` / `serial` to
-    reuse already extracted ones."""
+    the stage specs and horizon baked in, to `path`. `max_live` (slots; see
+    `device_max_live`) makes the planner window the levels until the plan fits.
+    Pass `plan` / `serial` to reuse already extracted ones."""
     in_mode, in_offset, in_span, out_mode = _specs(fn, n_stages, in_mode, in_offset,
                                                    in_span, out_mode)
-    plan = plan or extract_level_plan(fn)
+    plan = plan or extract_level_plan(fn, max_live=max_live)
     serial = serial or extract_serial_program(fn)
     name = fn.name().encode()
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
@@ -109,10 +121,8 @@ def write_plan(fn: ca.Function, path: str, n_stages: int = 1, in_mode=None,
                 stage_count(out_mode[a], 0, n_stages))
             w.ia(sp.colind()); w.ia(sp.row())
         w.i(len(plan.const_slots)); w.ia(plan.const_slots); w.fa(plan.const_vals)
-        w.i(len(plan.input_slots)); w.ia(plan.input_slots); w.ia(plan.input_args); w.ia(plan.input_elems)
         w.i(plan.n_levels); w.ia(plan.level_offsets); w.ia(plan.level_widths)
         w.i(plan.n_nodes); w.ia(plan.node_ops); w.ia(plan.node_outs); w.ia(plan.node_in_a); w.ia(plan.node_in_b)
-        w.i(len(plan.out_slots)); w.ia(plan.out_slots); w.ia(plan.out_args); w.ia(plan.out_elems)
         w.i(serial.sz_w)
         w.i(serial.n_instr); w.ia(serial.ops); w.ia(serial.outs); w.ia(serial.in_a); w.ia(serial.in_b)
         w.i(len(serial.const_vals)); w.fa(serial.const_vals)
@@ -164,10 +174,8 @@ def read_plan(path: str) -> dict:
         d["outputs"].append(dict(rows=rows, cols=cols, nnz=nnz, mode=STAGE_MODES[mode],
                                  count=count, colptr=ia(cols + 1), rowidx=ia(nnz)))
     n = i(); d["const_slots"] = ia(n); d["const_vals"] = fa(n)
-    n = i(); d["input_slots"] = ia(n); d["input_args"] = ia(n); d["input_elems"] = ia(n)
     n = i(); d["level_offsets"] = ia(n); d["level_widths"] = ia(n)
     n = i(); d["node_ops"] = ia(n); d["node_outs"] = ia(n); d["node_in_a"] = ia(n); d["node_in_b"] = ia(n)
-    n = i(); d["out_slots"] = ia(n); d["out_args"] = ia(n); d["out_elems"] = ia(n)
     d["sz_w"] = i()
     n = i(); d["serial_ops"] = ia(n); d["serial_outs"] = ia(n); d["serial_in_a"] = ia(n); d["serial_in_b"] = ia(n)
     n = i(); d["serial_const_vals"] = fa(n)

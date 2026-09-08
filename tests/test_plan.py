@@ -40,15 +40,15 @@ def test_serial_program_is_casadi_stream_and_bit_exact(make):
     assert verify_serial_program(f, prog) == 0.0
 
 
-def test_level_plan_hoists_io_but_serial_program_cannot():
+def test_level_plan_renames_io_but_serial_program_cannot():
     # CasADi reuses IO slots, so the stream keeps its IO moves inline; the level
-    # plan renames them away. Both must be full-coverage descriptions of `f`.
+    # plan preloads constants and schedules INPUT / OUTPUT as nodes on fresh
+    # slots. Both must be full-coverage descriptions of `f`.
     f = wide_function()
     plan, prog = extract_level_plan(f), extract_serial_program(f)
-    assert not any(op in IO_OPS for op in plan.node_ops)
-    n_io = sum(op in IO_OPS for op in prog.ops)
-    assert n_io == len(plan.const_slots) + len(plan.input_slots) + len(plan.out_slots)
-    assert prog.n_instr - n_io == plan.n_nodes
+    assert ca.OP_CONST not in plan.node_ops
+    assert sum(op in IO_OPS for op in prog.ops) == len(plan.const_slots) + sum(op in IO_OPS for op in plan.node_ops)
+    assert prog.n_instr - len(plan.const_slots) == plan.n_nodes
     assert prog.sz_w < plan.peak_live_slots
 
 
@@ -70,6 +70,17 @@ def test_slot_recycling_bounds_shared_memory():
     assert pick_block_size(plan) in (32, 64, 128, 256)
 
 
+def test_max_live_windows_levels_to_fit():
+    f = wide_function()
+    asap = extract_level_plan(f)
+    plan = extract_level_plan(f, max_live=asap.peak_live_slots // 2)
+    assert plan.peak_live_slots <= asap.peak_live_slots // 2
+    assert plan.n_levels > asap.n_levels and plan.n_nodes == asap.n_nodes
+    assert verify_plan(f, plan) < 1e-12
+    with pytest.raises(ValueError):
+        extract_level_plan(f, max_live=1)
+
+
 def test_plan_file_roundtrip(tmp_path):
     f = dyn_function()
     plan, prog = extract_level_plan(f), extract_serial_program(f)
@@ -83,9 +94,8 @@ def test_plan_file_roundtrip(tmp_path):
     assert [a["mode"] for a in d["inputs"]] == ["coupled", "shared"]
     assert [a["count"] for a in d["outputs"]] == [4, 4]
     assert d["inputs"][0]["rowidx"] == [0, 1, 2] and d["inputs"][0]["colptr"] == [0, 3]
-    for k in ("const_slots", "const_vals", "input_slots", "input_args", "input_elems",
-              "level_offsets", "level_widths", "node_ops", "node_outs", "node_in_a",
-              "node_in_b", "out_slots", "out_args", "out_elems"):
+    for k in ("const_slots", "const_vals", "level_offsets", "level_widths", "node_ops",
+              "node_outs", "node_in_a", "node_in_b"):
         assert d[k] == getattr(plan, k), k
     assert d["sz_w"] == prog.sz_w
     for k in ("ops", "outs", "in_a", "in_b", "const_vals"):

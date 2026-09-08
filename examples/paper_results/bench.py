@@ -19,9 +19,9 @@ staged/batch run the original cusadi execution model exactly: a per-function
 kernel emitted by cusadi2.unrolled from the same instruction stream (straight-
 line code, one thread per item, thread-major global work vector) and compiled
 by nvcc per function, that compile time recorded. All four do B*N evaluations.
-N=8 is the largest horizon whose
-unrolled FK/Jacobian plans fit the per-block shared-memory limit; the unrolled
-Hessians do not, so their lp config is nan (a gap in the curve).
+Plans are written with max_live set to the device's shared-memory
+limit, so the horizon-unrolled Hessians (which do not fit as longest-path
+plans) are windowed until they fit.
 
 Both backends evaluate the identical link set: the MuJoCo body frames excluding
 'world' (every such name is also a Pinocchio BODY frame). FK returns each link's
@@ -179,12 +179,13 @@ def run_cusadi2(dtype, out):
     print(f"=== {dtype}: plans + original-cusadi kernels (N={N_STAGES}) ===")
     codegen_s, codegen_unrolled_s = {}, {}
     unrolled = []                                  # (name, .cu) in table order
+    max_live = cusadi2.device_max_live(dtype, int(DEVICE))
     for stem, _ in FUNCS:
         t0 = time.perf_counter()
         fn = build_function(stem)
-        cusadi2.write_plan(fn, os.path.join(plan_dir, f"{stem}.plan"), n_stages=N_STAGES)
+        cusadi2.write_plan(fn, os.path.join(plan_dir, f"{stem}.plan"), n_stages=N_STAGES, max_live=max_live)
         fu = unroll(fn, N_STAGES)
-        cusadi2.write_plan(fu, os.path.join(plan_dir, f"{stem}_unr.plan"))
+        cusadi2.write_plan(fu, os.path.join(plan_dir, f"{stem}_unr.plan"), max_live=max_live)
         codegen_s[stem] = time.perf_counter() - t0
         for f_, nst in ((fn, N_STAGES), (fu, 1)):     # original cusadi codegen: per function
             t0 = time.perf_counter()

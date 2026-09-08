@@ -13,14 +13,17 @@ What ``LevelPlan`` holds, and how the kernel consumes it:
     ``node_outs[i]`` from slots ``node_in_a[i]`` / ``node_in_b[i]`` (unary ops
     ignore ``in_b``). Level *d* spans nodes
     ``[level_offsets[d], level_offsets[d] + level_widths[d])``.
-  * **constants / input maps / output maps**: what to preload into the
-    shared-memory work array before compute, and what to write back after.
+    INPUT and OUTPUT are nodes too, encoded as in the serial program (slot,
+    argument, element): inputs load at the level under their window's floor,
+    outputs store at the level after their window's deepest.
+  * **constants**: preloaded into the shared-memory work array (a preamble).
   * **peak_live_slots**: the recycled-slot peak; the kernel's shared-memory
     budget is ``peak_live_slots * sizeof(scalar)``.
 
 Two passes (``extract_level_plan``):
   1. Longest-path level assignment on CasADi's own work slots, which preserves
-     the maximum available parallelism.
+     the maximum available parallelism; optionally windowed (`window` /
+     `max_live`) to trade levels for a smaller live set.
   2. SSA renaming with slot recycling: every node writes a fresh slot; freed
      slots are reused at level boundaries. This removes all write-write and
      read-write conflicts *within* a level, so the only barrier needed is the
@@ -34,7 +37,7 @@ the conflict class of bug that a sequential interpreter would hide.
 file: CasADi's instruction stream verbatim, in instruction order on CasADi's
 own work slots (``sz_w`` of them), with the CONST / INPUT / OUTPUT moves inline
 where CasADi placed them. The serial kernel walks it one thread per item. The
-IO moves cannot be hoisted out of the stream: CasADi reuses a constant's or
+IO moves cannot be renamed away in that stream: CasADi reuses a constant's or
 input's slot after its last read and an output's source slot after the OUTPUT
 instruction. ``verify_serial_program`` runs it sequentially on the host; it is
 bit-exact against CasADi.
@@ -46,7 +49,7 @@ import casadi
 import numpy as np
 from casadi import OP_CONST, OP_INPUT, OP_OUTPUT, OP_SQ
 
-IO_OPS = (OP_CONST, OP_INPUT, OP_OUTPUT)   # inline in SerialProgram; never in LevelPlan nodes
+IO_OPS = (OP_CONST, OP_INPUT, OP_OUTPUT)   # inline in SerialProgram; LevelPlan: CONST preamble, INPUT/OUTPUT nodes
 
 
 @dataclasses.dataclass
@@ -62,19 +65,13 @@ class LevelPlan:
 
     const_slots: List[int]      # constants loaded into slots before compute
     const_vals: List[float]
-    input_slots: List[int]      # external input element -> slot, before compute
-    input_args: List[int]
-    input_elems: List[int]
-    out_slots: List[int]        # slot -> external output element, after compute
-    out_args: List[int]
-    out_elems: List[int]
 
     level_offsets: List[int]    # level d spans nodes [offsets[d], offsets[d] + widths[d])
     level_widths: List[int]
     node_ops: List[int]         # CasADi op id per node
-    node_outs: List[int]        # slot each node writes
-    node_in_a: List[int]        # first input slot (0 if none)
-    node_in_b: List[int]        # second input slot (0 if unary)
+    node_outs: List[int]        # slot each node writes (OP_OUTPUT: the slot it stores)
+    node_in_a: List[int]        # first input slot (0 if none); OP_INPUT/OP_OUTPUT: argument
+    node_in_b: List[int]        # second input slot (0 if unary); OP_INPUT/OP_OUTPUT: element
 
     @property
     def n_levels(self) -> int:
@@ -155,87 +152,103 @@ def verify_serial_program(f: casadi.Function, prog: SerialProgram, n_samples: in
     return err
 
 
-def _extract_pass1(f: casadi.Function):
-    """Parse CasADi instructions, assign topological levels, map work slots to
-    SSA ids. Returns (raw_constants, raw_inputs, raw_outputs, raw_compute, total_ssa)."""
-    n_instr = f.n_instructions()
+def _instructions(f: casadi.Function) -> List[Tuple[int, Tuple[int, ...], Tuple[int, ...], float]]:
+    """CasADi's instruction stream as (op, inputs, outputs, constant) tuples."""
+    return [(f.instruction_id(k), tuple(f.instruction_input(k)), tuple(f.instruction_output(k)),
+             f.instruction_constant(k)) for k in range(f.n_instructions())]
+
+
+def _extract_pass1(instrs, window: int = None):
+    """Assign topological levels and map work slots to SSA ids. Returns
+    (constants [(ssa, value)], nodes [(op, ssa, dep ssas, level, arg, elem)], n_ssa).
+    Constants sit at depth 0 (a preamble); an INPUT loads at the level under the
+    current floor and an OUTPUT stores at the level after its window's deepest,
+    so without windows inputs form level 0 and outputs the last level (coalesced
+    runs). With `window`, every that many compute instructions the pending
+    outputs are stored and the floor moves below the deepest level so far, so
+    consumers stay close to their producers (CasADi's order) and the live set
+    stays near CasADi's `sz_w`, at the cost of levels."""
     slot_depth: Dict[int, int] = {}
     slot_to_ssa: Dict[int, int] = {}
-    ssa = 0
+    consts, nodes, pending = [], [], []
+    ssa, floor, deepest, n_win = 0, 1, 0, 0
 
-    raw_constants: List[Tuple[int, float]] = []              # (sid, value)
-    raw_inputs: List[Tuple[int, int, int]] = []              # (sid, arg, elem)
-    raw_outputs: List[Tuple[int, int, int]] = []             # (src_sid, arg, elem)
-    raw_compute: List[Tuple[int, int, Tuple[int, ...], int]] = []  # (op, sid, dep_sids, level)
+    def close_window():
+        nonlocal floor, n_win
+        nodes.extend((op, -1, deps, deepest + 1, a, b) for op, deps, a, b in pending)
+        pending.clear()
+        floor, n_win = deepest + 1, 0
 
-    for k in range(n_instr):
-        op = f.instruction_id(k)
-        inp = tuple(f.instruction_input(k))
-        out = tuple(f.instruction_output(k))
-
+    for op, inp, out, const in instrs:
         if op == OP_CONST:
-            slot_to_ssa[out[0]] = ssa
-            slot_depth[out[0]] = 0
-            raw_constants.append((ssa, f.instruction_constant(k)))
+            slot_to_ssa[out[0]], slot_depth[out[0]] = ssa, 0
+            consts.append((ssa, const))
             ssa += 1
         elif op == OP_INPUT:
-            slot_to_ssa[out[0]] = ssa
-            slot_depth[out[0]] = 0
-            raw_inputs.append((ssa, inp[0], inp[1]))
+            slot_to_ssa[out[0]], slot_depth[out[0]] = ssa, floor - 1
+            nodes.append((op, ssa, (), floor - 1, inp[0], inp[1]))
             ssa += 1
         elif op == OP_OUTPUT:
-            raw_outputs.append((slot_to_ssa.get(inp[0], -1), out[0], out[1]))
+            if inp[0] in slot_to_ssa:
+                pending.append((op, (slot_to_ssa[inp[0]],), out[0], out[1]))
         else:
             dep_slots = inp[:1] if op == OP_SQ else inp[:2]
-            dep_ssas = tuple(slot_to_ssa.get(s, -1) for s in dep_slots)
-            d = max((slot_depth.get(s, 0) for s in dep_slots), default=0) + 1
+            d = max(floor, max((slot_depth.get(s, 0) for s in dep_slots), default=0) + 1)
+            nodes.append((op, ssa, tuple(slot_to_ssa.get(s, -1) for s in dep_slots), d, 0, 0))
             if out:
-                slot_to_ssa[out[0]] = ssa
-                slot_depth[out[0]] = d
-            raw_compute.append((op, ssa, dep_ssas, d))
+                slot_to_ssa[out[0]], slot_depth[out[0]] = ssa, d
             ssa += 1
+            deepest, n_win = max(deepest, d), n_win + 1
+            if n_win == window:
+                close_window()
+    close_window()
+    return consts, nodes, ssa
 
-    return raw_constants, raw_inputs, raw_outputs, raw_compute, ssa
 
-
-def _compute_liveness(raw_constants, raw_inputs, raw_compute, raw_outputs, total_ssa):
-    """Group compute nodes by level and compute the slot free schedule.
-
-    Returns (free_at_level, levels, max_level): ``free_at_level[d]`` lists the
-    SSA values whose slots become reusable at level d (last read at d-1);
-    ``levels[d]`` holds the compute nodes at level d."""
+def _compute_liveness(nodes, total_ssa):
+    """Group nodes by level and compute the slot free schedule: ``free_at_level[d]``
+    lists the SSA values whose slots become reusable at level d (last read at d-1)."""
     produced = [0] * total_ssa
     last_read = [0] * total_ssa
-    for op, sid, dep_ssas, d in raw_compute:
-        produced[sid] = d
+    for _, sid, dep_ssas, d, _, _ in nodes:
+        if sid >= 0:
+            produced[sid] = d
         for ds in dep_ssas:
             if ds >= 0 and d > last_read[ds]:
                 last_read[ds] = d
-    if raw_compute:
-        out_level = max(d for _, _, _, d in raw_compute) + 1
-        for src, _, _ in raw_outputs:
-            if src >= 0 and out_level > last_read[src]:
-                last_read[src] = out_level
-    for s in range(total_ssa):
-        if last_read[s] < produced[s]:
-            last_read[s] = produced[s]
-
-    levels: Dict[int, List[Tuple[int, int, Tuple[int, ...]]]] = {}
-    for op, sid, dep_ssas, d in raw_compute:
-        levels.setdefault(d, []).append((op, sid, dep_ssas))
-    max_level = max(levels) if levels else 0
-
+    levels: Dict[int, list] = {}
+    for n in nodes:
+        levels.setdefault(n[3], []).append(n)
+    for ns in levels.values():   # compute first, then IO by (arg, element): coalesced, no divergence
+        ns.sort(key=lambda n: (n[0] in IO_OPS, n[4], n[5]) if n[0] in IO_OPS else (False, 0, 0))
     free_at_level: Dict[int, List[int]] = {}
     for s in range(total_ssa):
-        free_at_level.setdefault(last_read[s] + 1, []).append(s)
-    return free_at_level, levels, max_level
+        free_at_level.setdefault(max(last_read[s], produced[s]) + 1, []).append(s)
+    return free_at_level, levels
 
 
-def extract_level_plan(f: casadi.Function) -> LevelPlan:
-    """Extract an SSA-renamed, level-decomposed plan from a CasADi Function."""
-    raw_constants, raw_inputs, raw_outputs, raw_compute, total_ssa = _extract_pass1(f)
-    free_at_level, levels, max_level = _compute_liveness(
-        raw_constants, raw_inputs, raw_compute, raw_outputs, total_ssa)
+def extract_level_plan(f: casadi.Function, window: int = None, max_live: int = None) -> LevelPlan:
+    """Extract an SSA-renamed, level-decomposed plan from a CasADi Function.
+
+    `window` forms levels within windows of that many compute instructions (see
+    `_extract_pass1`). `max_live` instead searches: the plain longest-path plan
+    first, then halving power-of-two windows down to 64, returning the first
+    whose `peak_live_slots` fits, i.e. the fewest extra levels for that budget
+    (typically the device's per-block shared memory, `plan.device_max_live`)."""
+    instrs = _instructions(f)
+    if max_live is None:
+        return _level_plan(f, instrs, window)
+    n = sum(op not in IO_OPS for op, _, _, _ in instrs)
+    for w in [None] + [1 << k for k in range(n.bit_length() - 1, 5, -1)]:
+        plan = _level_plan(f, instrs, w)
+        if plan.peak_live_slots <= max_live:
+            return plan
+    raise ValueError(f"{f.name()}: no window brings peak_live_slots ({plan.peak_live_slots}) under {max_live}")
+
+
+def _level_plan(f: casadi.Function, instrs, window: int) -> LevelPlan:
+    consts, nodes, total_ssa = _extract_pass1(instrs, window)
+    free_at_level, levels = _compute_liveness(nodes, total_ssa)
 
     # Allocate physical slots from a free-list, level by level. A slot is freed
     # one level after its last read, so the high-water mark of allocated slots
@@ -251,32 +264,34 @@ def extract_level_plan(f: casadi.Function) -> LevelPlan:
         next_phys += 1
         return next_phys - 1
 
-    for sid, _ in raw_constants:
+    for sid, _ in consts:
         ssa_to_phys[sid] = alloc()
-    for sid, _, _ in raw_inputs:
-        ssa_to_phys[sid] = alloc()
-    peak_live = next_phys - len(free_slots)
-
-    for d in range(1, max_level + 1):
+    peak_live = next_phys
+    for d in range(max(levels, default=-1) + 1):
         for s in free_at_level.get(d, []):
             free_slots.append(ssa_to_phys[s])
-        for _, sid, _ in levels.get(d, []):
-            ssa_to_phys[sid] = alloc()
+        for _, sid, _, _, _, _ in levels.get(d, []):
+            if sid >= 0:
+                ssa_to_phys[sid] = alloc()
         peak_live = max(peak_live, next_phys - len(free_slots))
 
     level_offsets, level_widths = [], []
     node_ops, node_outs, node_in_a, node_in_b = [], [], [], []
     for d in sorted(levels):
         level_offsets.append(len(node_ops))
-        for op, sid, dep_ssas in levels[d]:
+        for op, sid, dep_ssas, _, arg, elem in levels[d]:
             phys = [ssa_to_phys[ds] for ds in dep_ssas if ds >= 0]
             node_ops.append(op)
-            node_outs.append(ssa_to_phys[sid])
-            node_in_a.append(phys[0] if phys else 0)
-            node_in_b.append(phys[1] if len(phys) > 1 else 0)
+            if op in IO_OPS:                       # INPUT: slot <- arg[elem]; OUTPUT: arg[elem] <- slot
+                node_outs.append(ssa_to_phys[sid] if sid >= 0 else phys[0])
+                node_in_a.append(arg)
+                node_in_b.append(elem)
+            else:
+                node_outs.append(ssa_to_phys[sid])
+                node_in_a.append(phys[0] if phys else 0)
+                node_in_b.append(phys[1] if len(phys) > 1 else 0)
         level_widths.append(len(node_ops) - level_offsets[-1])
 
-    outs = [(ssa_to_phys[src], a, e) for src, a, e in raw_outputs if src >= 0]
     return LevelPlan(
         function_name=f.name(),
         peak_live_slots=peak_live,
@@ -284,14 +299,8 @@ def extract_level_plan(f: casadi.Function) -> LevelPlan:
         n_outputs=f.n_out(),
         nnz_in=[f.nnz_in(i) for i in range(f.n_in())],
         nnz_out=[f.nnz_out(i) for i in range(f.n_out())],
-        const_slots=[ssa_to_phys[sid] for sid, _ in raw_constants],
-        const_vals=[float(v) for _, v in raw_constants],
-        input_slots=[ssa_to_phys[sid] for sid, _, _ in raw_inputs],
-        input_args=[a for _, a, _ in raw_inputs],
-        input_elems=[e for _, _, e in raw_inputs],
-        out_slots=[s for s, _, _ in outs],
-        out_args=[a for _, a, _ in outs],
-        out_elems=[e for _, _, e in outs],
+        const_slots=[ssa_to_phys[sid] for sid, _ in consts],
+        const_vals=[float(v) for _, v in consts],
         level_offsets=level_offsets,
         level_widths=level_widths,
         node_ops=node_ops,
@@ -325,18 +334,21 @@ def verify_plan(f: casadi.Function, plan: LevelPlan, n_samples: int = 3,
     err = 0.0
     for _ in range(n_samples):
         args = [rng.uniform(lo, up, n) for n in plan.nnz_in]
+        got = [np.zeros(n) for n in plan.nnz_out]
         for s, v in zip(plan.const_slots, plan.const_vals):
             w[s] = v
-        for s, a, e in zip(plan.input_slots, plan.input_args, plan.input_elems):
-            w[s] = float(args[a][e])
         for off, wid in zip(plan.level_offsets, plan.level_widths):
-            rng_ = range(off, off + wid)
-            reads = [(w[plan.node_in_a[i]], w[plan.node_in_b[i]]) for i in rng_]
-            for i, (ra, rb) in zip(rng_, reads):
-                w[plan.node_outs[i]] = OP_PY[plan.node_ops[i]](ra, rb)
-        got = [np.zeros(n) for n in plan.nnz_out]
-        for s, a, e in zip(plan.out_slots, plan.out_args, plan.out_elems):
-            got[a][e] = w[s]
+            nodes = [(plan.node_ops[i], plan.node_outs[i], plan.node_in_a[i], plan.node_in_b[i])
+                     for i in range(off, off + wid)]
+            reads = [w[o] if op == OP_OUTPUT else None if op == OP_INPUT else (w[a], w[b])
+                     for op, o, a, b in nodes]
+            for (op, o, a, b), r in zip(nodes, reads):
+                if op == OP_INPUT:
+                    w[o] = float(args[a][b])
+                elif op == OP_OUTPUT:
+                    got[a][b] = r
+                else:
+                    w[o] = OP_PY[op](r[0], r[1])
         ref = f(*[casadi.DM(x) for x in args])
         ref = ref if isinstance(ref, (list, tuple)) else [ref]
         for g, r in zip(got, ref):
@@ -403,13 +415,13 @@ def _print_plan(plan: LevelPlan) -> None:
     print(f"  levels={plan.n_levels} ops={plan.n_nodes} peak_live={plan.peak_live_slots} "
           f"block_size={pick_block_size(plan)}")
     print("  constants:", list(zip(plan.const_slots, plan.const_vals)))
-    print("  inputs:   ", list(zip(plan.input_slots, plan.input_args, plan.input_elems)))
-    print("  outputs:  ", list(zip(plan.out_slots, plan.out_args, plan.out_elems)))
-    for d, (off, wid) in enumerate(zip(plan.level_offsets, plan.level_widths), start=1):
+    for d, (off, wid) in enumerate(zip(plan.level_offsets, plan.level_widths)):
         print(f"  level {d} (width {wid}):")
         for i in range(off, off + wid):
-            print(f"    op={plan.node_ops[i]:<3d} w[{plan.node_outs[i]}] "
-                  f"<- [{plan.node_in_a[i]}, {plan.node_in_b[i]}]")
+            op, o, a, b = plan.node_ops[i], plan.node_outs[i], plan.node_in_a[i], plan.node_in_b[i]
+            print(f"    op={op:<3d} " + (f"w[{o}] <- in[{a}][{b}]" if op == OP_INPUT else
+                                         f"out[{a}][{b}] <- w[{o}]" if op == OP_OUTPUT else
+                                         f"w[{o}] <- [{a}, {b}]"))
 
 
 if __name__ == "__main__":
