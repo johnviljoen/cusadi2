@@ -2,8 +2,9 @@
 """The CusADi paper's instruction-count benchmark (se-hwan/cusadi run_benchmarks.py
 + plotting/plot_benchmarking.m, media/fig_benchmark.png) reproduced on cusadi2.
 
-The five released functions fn_1e1 .. fn_1e5 (10 .. 100k instructions, fetched
-from the upstream repo at the pinned commit) are evaluated for batch sizes
+The five released functions fn_1e1 .. fn_1e5 (10 .. 100k instructions; the
+upstream repo's .casadi files at the pinned commit, committed verbatim under
+orig_functions/) are evaluated for batch sizes
 1 .. 32768, N_EVALS times each, by upstream's six methods under their names:
 
     cusadi                 cusadi2 with its features off: the per-function kernel
@@ -39,13 +40,13 @@ import os
 import subprocess
 import sys
 import time
-import urllib.request
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 BUILD = os.path.join(HERE, "build", "orig")
 RESULTS = os.path.join(HERE, "results", "orig")
-UPSTREAM = ("https://raw.githubusercontent.com/se-hwan/cusadi/"
-            "bffea25849a901277a8f8dc4db16748e629f9053/src/benchmark_functions")
+# orig_functions/fn_1e{1..5}.casadi are src/benchmark_functions/*.casadi of
+# https://github.com/se-hwan/cusadi at bffea25849a901277a8f8dc4db16748e629f9053
+FUNCTIONS_DIR = os.path.join(HERE, "orig_functions")
 FNS = [f"fn_1e{k}" for k in range(1, 6)]
 N_ENVS_SWEEP = [2 ** k for k in range(16)]
 N_EVALS = 20
@@ -68,16 +69,7 @@ TORCH_OPS = {0: "work[%d] = work[%d]", 1: "work[%d] = work[%d] + work[%d]", 2: "
 
 def functions():
     import casadi as ca
-    d = os.path.join(BUILD, "functions")
-    os.makedirs(d, exist_ok=True)
-    fns = []
-    for name in FNS:
-        path = os.path.join(d, f"{name}.casadi")
-        if not os.path.exists(path):
-            print(f"fetching {UPSTREAM}/{name}.casadi")
-            urllib.request.urlretrieve(f"{UPSTREAM}/{name}.casadi", path)
-        fns.append(ca.Function.load(path))
-    return fns
+    return [ca.Function.load(os.path.join(FUNCTIONS_DIR, f"{name}.casadi")) for name in FNS]
 
 
 def gpu_arch():

@@ -1,0 +1,37 @@
+{
+  "robot": "low_cost_robot_arm",
+  "dtype": "double",
+  "cpu": "AMD Ryzen 7 5800X3D 8-Core Processor",
+  "threads": 16,
+  "cc": "x86_64-conda-linux-gnu-cc -O3 -march=native -fopenmp",
+  "compile_s": {
+    "fk": 0.27760114101693034,
+    "fkjac": 0.3193527410621755,
+    "fkhess": 0.42395500297425315
+  },
+  "gcc_s": {
+    "fk": 0.26407523901434615,
+    "fkjac": 0.3142795900348574,
+    "fkhess": 0.414324831974227
+  },
+  "failed": {},
+  "sizes": {
+    "fk": {
+      "nnz_in": 6,
+      "nnz_out": 84,
+      "n_instr": 261
+    },
+    "fkjac": {
+      "nnz_in": 6,
+      "nnz_out": 252,
+      "n_instr": 564
+    },
+    "fkhess": {
+      "nnz_in": 6,
+      "nnz_out": 243,
+      "n_instr": 1605
+    }
+  },
+  "cached": false,
+  "gcc_jobs": 6
+}

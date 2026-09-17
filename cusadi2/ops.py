@@ -7,6 +7,13 @@ cannot drift: FLOAT uses the f-suffixed intrinsics and float literals so a float
 kernel never silently promotes to double. IO ops (CONST/INPUT/OUTPUT) are not
 op(a, b) expressions; the interpreter loop does those moves.
 
+Coverage is every scalar op an SX instruction stream can carry: CasADi's ids
+0..43 and the five later scalar additions (ERFINV, LOG1P, EXPM1, HYPOT,
+REMAINDER; ids above OP_OUTPUT). The rest of calculus.hpp is MX-level
+(matrix ops, calls, PRINTME) and never reaches a stream; ``dag._instructions``
+rejects anything outside SUPPORTED_OPS at extraction, since the kernel cannot
+check op ids at runtime.
+
 Exhaustive list: https://github.com/casadi/casadi/blob/main/casadi/core/calculus.hpp
 """
 import math
@@ -58,6 +65,11 @@ OP_EXPR_DOUBLE = {
     ca.OP_ACOSH:        "acosh({0})",
     ca.OP_ATANH:        "atanh({0})",
     ca.OP_ATAN2:        "atan2({0}, {1})",
+    ca.OP_ERFINV:       "erfinv({0})",
+    ca.OP_LOG1P:        "log1p({0})",
+    ca.OP_EXPM1:        "expm1({0})",
+    ca.OP_HYPOT:        "hypot({0}, {1})",
+    ca.OP_REMAINDER:    "remainder({0}, {1})",
 }
 
 OP_EXPR_FLOAT = {
@@ -105,7 +117,38 @@ OP_EXPR_FLOAT = {
     ca.OP_ACOSH:        "acoshf({0})",
     ca.OP_ATANH:        "atanhf({0})",
     ca.OP_ATAN2:        "atan2f({0}, {1})",
+    ca.OP_ERFINV:       "erfinvf({0})",
+    ca.OP_LOG1P:        "log1pf({0})",
+    ca.OP_EXPM1:        "expm1f({0})",
+    ca.OP_HYPOT:        "hypotf({0}, {1})",
+    ca.OP_REMAINDER:    "remainderf({0}, {1})",
 }
+
+SUPPORTED_OPS = frozenset(OP_EXPR_DOUBLE)
+assert SUPPORTED_OPS == frozenset(OP_EXPR_FLOAT)
+
+
+def _erfinv(y: float) -> float:
+    """Inverse error function: Giles' initial guess refined by Newton on math.erf."""
+    if y <= -1.0 or y >= 1.0:
+        return math.copysign(math.inf, y) if abs(y) == 1.0 else math.nan
+    w = -math.log((1.0 - y) * (1.0 + y))
+    if w < 5.0:
+        w -= 2.5
+        x = 2.81022636e-08
+        for c in (3.43273939e-07, -3.5233877e-06, -4.39150654e-06, 0.00021858087, -0.00125372503,
+                  -0.00417768164, 0.246640727, 1.50140941):
+            x = c + x * w
+    else:
+        w = math.sqrt(w) - 3.0
+        x = -0.000200214257
+        for c in (0.000100950558, 0.00134934322, -0.00367342844, 0.00573950773, -0.0076224613,
+                  0.00943887047, 1.00167406, 2.83297682):
+            x = c + x * w
+    x *= y
+    for _ in range(3):
+        x -= (math.erf(x) - y) / (2.0 / math.sqrt(math.pi) * math.exp(-x * x))
+    return x
 
 # Python form, for dag.verify_plan (simulated parallel execution on the host).
 OP_PY = {
@@ -153,4 +196,10 @@ OP_PY = {
     ca.OP_ACOSH:        lambda a, b: math.acosh(a),
     ca.OP_ATANH:        lambda a, b: math.atanh(a),
     ca.OP_ATAN2:        lambda a, b: math.atan2(a, b),
+    ca.OP_ERFINV:       lambda a, b: _erfinv(a),
+    ca.OP_LOG1P:        lambda a, b: math.log1p(a),
+    ca.OP_EXPM1:        lambda a, b: math.expm1(a),
+    ca.OP_HYPOT:        lambda a, b: math.hypot(a, b),
+    ca.OP_REMAINDER:    lambda a, b: math.remainder(a, b),
 }
+assert frozenset(OP_PY) == SUPPORTED_OPS

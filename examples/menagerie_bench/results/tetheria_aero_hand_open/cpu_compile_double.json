@@ -1,0 +1,37 @@
+{
+  "robot": "tetheria_aero_hand_open",
+  "dtype": "double",
+  "cpu": "AMD Ryzen 7 5800X3D 8-Core Processor",
+  "threads": 16,
+  "cc": "x86_64-conda-linux-gnu-cc -O3 -march=native -fopenmp",
+  "compile_s": {
+    "fk": 0.3879698119708337,
+    "fkjac": 1.6836608260055073,
+    "fkhess": 0.584028152981773
+  },
+  "gcc_s": {
+    "fk": 0.3644547959556803,
+    "fkjac": 1.666294296970591,
+    "fkhess": 0.5646032280055806
+  },
+  "failed": {},
+  "sizes": {
+    "fk": {
+      "nnz_in": 16,
+      "nnz_out": 264,
+      "n_instr": 1387
+    },
+    "fkjac": {
+      "nnz_in": 16,
+      "nnz_out": 2112,
+      "n_instr": 3448
+    },
+    "fkhess": {
+      "nnz_in": 16,
+      "nnz_out": 234,
+      "n_instr": 3370
+    }
+  },
+  "cached": false,
+  "gcc_jobs": 6
+}

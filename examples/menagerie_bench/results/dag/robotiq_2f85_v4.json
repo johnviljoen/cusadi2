@@ -1,0 +1,131 @@
+{
+ "robot": "robotiq_2f85_v4",
+ "xml": "robotiq_2f85_v4/2f85.xml",
+ "status": "ok",
+ "menagerie_head": "8161bba264d7fa7c99ca301e91e7fb44737676ad",
+ "functions": {
+  "fk": {
+   "n_instr": 396,
+   "nnz_out": 132,
+   "n_compute": 207,
+   "depth": 9,
+   "mean_width": 23.0,
+   "median_width": 26.0,
+   "max_width": 41,
+   "widths": [
+    12,
+    23,
+    41,
+    32,
+    26,
+    33,
+    28,
+    6,
+    6
+   ],
+   "peak_live_slots": 142,
+   "n_levels": 11,
+   "build_s": 0.011982166994130239,
+   "plan_s": 0.0010455909941811115,
+   "fit": {
+    "double": {
+     "max_live": 12672,
+     "windowed": false,
+     "n_levels": 11,
+     "peak_live_slots": 142
+    },
+    "float": {
+     "max_live": 25344,
+     "windowed": false,
+     "n_levels": 11,
+     "peak_live_slots": 142
+    }
+   }
+  },
+  "fkjac": {
+   "n_instr": 709,
+   "nnz_out": 396,
+   "n_compute": 254,
+   "depth": 12,
+   "mean_width": 21.166666666666668,
+   "median_width": 23.0,
+   "max_width": 33,
+   "widths": [
+    12,
+    22,
+    33,
+    29,
+    24,
+    24,
+    24,
+    30,
+    21,
+    19,
+    12,
+    4
+   ],
+   "peak_live_slots": 115,
+   "n_levels": 14,
+   "build_s": 0.002299168991157785,
+   "plan_s": 0.0015255849866662174,
+   "fit": {
+    "double": {
+     "max_live": 12672,
+     "windowed": false,
+     "n_levels": 14,
+     "peak_live_slots": 115
+    },
+    "float": {
+     "max_live": 25344,
+     "windowed": false,
+     "n_levels": 14,
+     "peak_live_slots": 115
+    }
+   }
+  },
+  "fkhess": {
+   "n_instr": 405,
+   "nnz_out": 38,
+   "n_compute": 339,
+   "depth": 11,
+   "mean_width": 30.818181818181817,
+   "median_width": 35.0,
+   "max_width": 48,
+   "widths": [
+    20,
+    35,
+    46,
+    48,
+    40,
+    40,
+    35,
+    23,
+    22,
+    20,
+    10
+   ],
+   "peak_live_slots": 125,
+   "n_levels": 13,
+   "build_s": 0.0026761259941849858,
+   "plan_s": 0.0010272359941154718,
+   "fit": {
+    "double": {
+     "max_live": 12672,
+     "windowed": false,
+     "n_levels": 13,
+     "peak_live_slots": 125
+    },
+    "float": {
+     "max_live": 25344,
+     "windowed": false,
+     "n_levels": 13,
+     "peak_live_slots": 125
+    }
+   }
+  }
+ },
+ "nq": 6,
+ "nv": 6,
+ "n_bodies": 12,
+ "wall_s": 0.40020078598172404
+}

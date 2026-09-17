@@ -54,8 +54,9 @@ enum CasadiOp {
     OP_IF_ELSE_ZERO, OP_ERF, OP_FMIN, OP_FMAX, OP_INV,        // 32-36
     OP_SINH, OP_COSH, OP_TANH, OP_ASINH, OP_ACOSH, OP_ATANH,  // 37-42
     OP_ATAN2,                                                   // 43
-    OP_CONST, OP_INPUT, OP_OUTPUT                               // 44-46: serial stream only
-};
+    OP_CONST, OP_INPUT, OP_OUTPUT,                              // 44-46: IO moves
+    OP_ERFINV = 86, OP_LOG1P = 93, OP_EXPM1 = 94, OP_HYPOT = 95, OP_REMAINDER = 97
+};   // every scalar op an SX stream can carry (ops.py); the planner rejects others
 
 __EXEC_OP__
 
@@ -101,14 +102,14 @@ __global__ void cusadi2_kernel(CUSADI2_KERNEL_PARAMS) {
         int width = level_widths[lev];
         for (int idx = tid; idx < width; idx += block_sz) {
             const int g = offset + idx, op = node_ops[g], o = node_outs[g], a = node_in_a[g], b = node_in_b[g];
-            if (op < OP_CONST) {
-                w[o] = exec_op(op, w[a], w[b]);
-            } else if (op == OP_INPUT) {
+            if (op == OP_INPUT) {
                 int s = (in_stage_mode[a] == 1) ? 0 : (stage + in_stage_offset[a]);
                 w[o] = inputs[a][((long long)inst * in_stage_count[a] + s) * nnz_in[a] + b];
-            } else {
+            } else if (op == OP_OUTPUT) {
                 int s = (out_stage_mode[a] == 1) ? 0 : stage;
                 outputs[a][((long long)inst * out_stage_count[a] + s) * nnz_out[a] + b] = w[o];
+            } else {
+                w[o] = exec_op(op, w[a], w[b]);
             }
         }
         __syncthreads();
@@ -147,15 +148,15 @@ __global__ void cusadi2_kernel_serial(
         const int inst = (int)(g / n_stages), stage = (int)(g % n_stages);
         for (int i = 0; i < n_instr; i++) {
             const int op = s_ops[i], o = s_outs[i], a = s_in_a[i], b = s_in_b[i];
-            if (op < OP_CONST) {
-                W(o) = exec_op(op, W(a), W(b));
-            } else if (op == OP_CONST) {          // a: index into s_const_vals
+            if (op == OP_CONST) {                 // a: index into s_const_vals
                 W(o) = s_const_vals[a];
             } else if (op == OP_INPUT) {          // a: arg, b: element
                 int s = (in_stage_mode[a] == 1) ? 0 : (stage + in_stage_offset[a]);
                 W(o) = inputs[a][((long long)inst * in_stage_count[a] + s) * nnz_in[a] + b];
-            } else {                              // OP_OUTPUT: o read into arg a element b
+            } else if (op == OP_OUTPUT) {         // o read into arg a element b
                 outputs[a][((long long)inst * out_stage_count[a] + stage) * nnz_out[a] + b] = W(o);
+            } else {
+                W(o) = exec_op(op, W(a), W(b));
             }
         }
     }

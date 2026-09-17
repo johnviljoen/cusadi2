@@ -1,0 +1,74 @@
+{
+  "robot": "flybody",
+  "dtype": "float",
+  "codegen_s": {
+    "fk": 1.3521862350171432,
+    "fkjac": 3.024514780001482,
+    "fkhess": 41.54352202499285
+  },
+  "nvcc_s": 3.569594753003912,
+  "codegen_unrolled_s": {
+    "fk": 0.01210217599873431,
+    "fk_unr": 0.08880358200985938,
+    "fkjac": 0.07700296898838133,
+    "fkjac_unr": 0.6517453620035667,
+    "fkhess": 0.34517654101364315,
+    "fkhess_unr": 2.979659091011854
+  },
+  "nvcc_unrolled_s": {
+    "fk": null,
+    "fk_unr": null,
+    "fkjac": null,
+    "fkjac_unr": 2089.3473016530043,
+    "fkhess": null
+  },
+  "unrolled_failed": {
+    "fkhess_unr": "exit code 143 (killed while compiling alone: exceeds this machine's memory)"
+  },
+  "nvcc_jobs": 6,
+  "cached": false,
+  "nq": 109,
+  "nv": 108,
+  "n_bodies": 67,
+  "meta": {
+    "fk": {
+      "nnz_out": 804,
+      "n_instr": 8677,
+      "n_instr_unr": 64908,
+      "sz_w": 76,
+      "sz_w_unr": 695,
+      "smem_kb": 7.046875,
+      "smem_unr_kb": 44.2890625,
+      "levels": 40,
+      "levels_unr": 40,
+      "windowed": false,
+      "windowed_unr": false
+    },
+    "fkjac": {
+      "nnz_out": 43416,
+      "n_instr": 60224,
+      "n_instr_unr": 477431,
+      "sz_w": 146,
+      "sz_w_unr": 732,
+      "smem_kb": 11.86328125,
+      "smem_unr_kb": 94.87890625,
+      "levels": 43,
+      "levels_unr": 43,
+      "windowed": false,
+      "windowed_unr": false
+    },
+    "fkhess": {
+      "nnz_out": 40488,
+      "n_instr": 250187,
+      "n_instr_unr": 1997135,
+      "sz_w": 2369,
+      "sz_w_unr": 2407,
+      "smem_kb": 85.73046875,
+      "smem_unr_kb": 60.8125,
+      "levels": 86,
+      "levels_unr": 1057,
+      "windowed": true,
+      "windowed_unr": true
+    }
+  }
+}

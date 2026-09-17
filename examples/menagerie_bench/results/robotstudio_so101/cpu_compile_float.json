@@ -1,0 +1,37 @@
+{
+  "robot": "robotstudio_so101",
+  "dtype": "float",
+  "cpu": "AMD Ryzen 7 5800X3D 8-Core Processor",
+  "threads": 16,
+  "cc": "x86_64-conda-linux-gnu-cc -O3 -march=native -fopenmp",
+  "compile_s": {
+    "fk": 0.2773007409996353,
+    "fkjac": 0.3213710720301606,
+    "fkhess": 0.42090482998173684
+  },
+  "gcc_s": {
+    "fk": 0.26414267800282687,
+    "fkjac": 0.31419032101985067,
+    "fkhess": 0.4143795460113324
+  },
+  "failed": {},
+  "sizes": {
+    "fk": {
+      "nnz_in": 6,
+      "nnz_out": 96,
+      "n_instr": 353
+    },
+    "fkjac": {
+      "nnz_in": 6,
+      "nnz_out": 288,
+      "n_instr": 681
+    },
+    "fkhess": {
+      "nnz_in": 6,
+      "nnz_out": 316,
+      "n_instr": 2002
+    }
+  },
+  "cached": false,
+  "gcc_jobs": 6
+}

@@ -1,0 +1,176 @@
+{
+  "robot": "dynamixel_2r",
+  "xml": "dynamixel_2r/dynamixel_2r.xml",
+  "menagerie_commit": "8161bba264d7fa7c99ca301e91e7fb44737676ad",
+  "manifest_commit": "8161bba264d7fa7c99ca301e91e7fb44737676ad",
+  "gate": {
+    "status": "pass",
+    "reason": null,
+    "nq": 2,
+    "nv": 2,
+    "n_bodies": 3,
+    "n_bodies_unnamed": 0,
+    "floating": false,
+    "fk_max_err": 7.771561172376096e-16,
+    "root_corr": false,
+    "preproc": {
+      "includes_flattened": false,
+      "multitree_wrapped": false,
+      "anchors_fixed": 0
+    }
+  },
+  "stages": {
+    "gate": {
+      "status": "pass",
+      "cached": true,
+      "seconds": 0
+    },
+    "compile_float": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 0.4,
+      "cached": true
+    },
+    "compile_double": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 0.42,
+      "cached": true
+    },
+    "mjx_fp64": {
+      "status": "pass",
+      "cached": true
+    },
+    "mjx_fp32": {
+      "status": "pass",
+      "cached": true
+    },
+    "warp": {
+      "status": "pass",
+      "cached": true
+    },
+    "plot": {
+      "status": "pass",
+      "seconds": 6.75
+    },
+    "cpu_compile_double": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 1.93,
+      "cached": false
+    },
+    "cpu_compile_float": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 1.88,
+      "cached": false
+    }
+  },
+  "runs": {
+    "0": {
+      "double": {
+        "status": "pass",
+        "seconds": 0.9
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 0.7
+      }
+    },
+    "1": {
+      "double": {
+        "status": "pass",
+        "seconds": 0.9
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 0.7
+      }
+    },
+    "2": {
+      "double": {
+        "status": "pass",
+        "seconds": 0.9
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 0.7
+      }
+    },
+    "3": {
+      "double": {
+        "status": "pass",
+        "seconds": 0.9
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 0.7
+      }
+    },
+    "4": {
+      "double": {
+        "status": "pass",
+        "seconds": 0.9
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 0.7
+      }
+    }
+  },
+  "complete": true,
+  "n_runs": 5,
+  "finished_at": "2026-09-15 19:24:10",
+  "cpu_runs": {
+    "0": {
+      "double": {
+        "status": "pass",
+        "seconds": 15.85
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 15.62
+      }
+    },
+    "1": {
+      "double": {
+        "status": "pass",
+        "seconds": 15.88
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 15.65
+      }
+    },
+    "2": {
+      "double": {
+        "status": "pass",
+        "seconds": 15.85
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 15.63
+      }
+    },
+    "3": {
+      "double": {
+        "status": "pass",
+        "seconds": 15.79
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 15.67
+      }
+    },
+    "4": {
+      "double": {
+        "status": "pass",
+        "seconds": 15.95
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 15.86
+      }
+    }
+  }
+}

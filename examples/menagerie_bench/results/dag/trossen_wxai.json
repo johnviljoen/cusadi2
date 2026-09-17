@@ -1,0 +1,148 @@
+{
+ "robot": "trossen_wxai",
+ "xml": "trossen_wxai/wxai_follower.xml",
+ "status": "ok",
+ "menagerie_head": "8161bba264d7fa7c99ca301e91e7fb44737676ad",
+ "functions": {
+  "fk": {
+   "n_instr": 384,
+   "nnz_out": 156,
+   "n_compute": 198,
+   "depth": 14,
+   "mean_width": 14.142857142857142,
+   "median_width": 13.5,
+   "max_width": 27,
+   "widths": [
+    14,
+    17,
+    13,
+    12,
+    15,
+    14,
+    26,
+    10,
+    27,
+    12,
+    17,
+    13,
+    6,
+    2
+   ],
+   "peak_live_slots": 99,
+   "n_levels": 16,
+   "build_s": 0.012233615998411551,
+   "plan_s": 0.0010248720063827932,
+   "fit": {
+    "double": {
+     "max_live": 12672,
+     "windowed": false,
+     "n_levels": 16,
+     "peak_live_slots": 99
+    },
+    "float": {
+     "max_live": 25344,
+     "windowed": false,
+     "n_levels": 16,
+     "peak_live_slots": 99
+    }
+   }
+  },
+  "fkjac": {
+   "n_instr": 1289,
+   "nnz_out": 624,
+   "n_compute": 639,
+   "depth": 17,
+   "mean_width": 37.588235294117645,
+   "median_width": 34.0,
+   "max_width": 86,
+   "widths": [
+    14,
+    20,
+    18,
+    18,
+    25,
+    18,
+    34,
+    23,
+    36,
+    46,
+    40,
+    80,
+    67,
+    86,
+    60,
+    45,
+    9
+   ],
+   "peak_live_slots": 271,
+   "n_levels": 19,
+   "build_s": 0.0033762389793992043,
+   "plan_s": 0.00308646701159887,
+   "fit": {
+    "double": {
+     "max_live": 12672,
+     "windowed": false,
+     "n_levels": 19,
+     "peak_live_slots": 271
+    },
+    "float": {
+     "max_live": 25344,
+     "windowed": false,
+     "n_levels": 19,
+     "peak_live_slots": 271
+    }
+   }
+  },
+  "fkhess": {
+   "n_instr": 5306,
+   "nnz_out": 1160,
+   "n_compute": 4122,
+   "depth": 18,
+   "mean_width": 229.0,
+   "median_width": 149.5,
+   "max_width": 675,
+   "widths": [
+    26,
+    46,
+    59,
+    59,
+    88,
+    78,
+    156,
+    143,
+    237,
+    341,
+    421,
+    590,
+    675,
+    504,
+    341,
+    198,
+    134,
+    26
+   ],
+   "peak_live_slots": 1695,
+   "n_levels": 20,
+   "build_s": 0.005225411005085334,
+   "plan_s": 0.014566197991371155,
+   "fit": {
+    "double": {
+     "max_live": 12672,
+     "windowed": false,
+     "n_levels": 20,
+     "peak_live_slots": 1695
+    },
+    "float": {
+     "max_live": 25344,
+     "windowed": false,
+     "n_levels": 20,
+     "peak_live_slots": 1695
+    }
+   }
+  }
+ },
+ "nq": 8,
+ "nv": 8,
+ "n_bodies": 14,
+ "wall_s": 0.3925722690182738
+}

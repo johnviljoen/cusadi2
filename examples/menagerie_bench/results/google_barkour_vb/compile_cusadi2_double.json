@@ -1,0 +1,73 @@
+{
+  "robot": "google_barkour_vb",
+  "dtype": "double",
+  "codegen_s": {
+    "fk": 0.07954470399999991,
+    "fkjac": 0.11960908301989548,
+    "fkhess": 1.0357207889901474
+  },
+  "nvcc_s": 4.1706132820108905,
+  "codegen_unrolled_s": {
+    "fk": 0.0015207139949779958,
+    "fk_unr": 0.010311660007573664,
+    "fkjac": 0.004280413995729759,
+    "fkjac_unr": 0.033107372000813484,
+    "fkhess": 0.019270655000582337,
+    "fkhess_unr": 0.1576446999970358
+  },
+  "nvcc_unrolled_s": {
+    "fk": 1.2156298409972806,
+    "fk_unr": 4.470185059995856,
+    "fkjac": 2.717721585999243,
+    "fkjac_unr": 21.948592328000814,
+    "fkhess": 10.078926677000709,
+    "fkhess_unr": 115.6001566729974
+  },
+  "unrolled_failed": {},
+  "nvcc_jobs": 6,
+  "cached": true,
+  "nq": 19,
+  "nv": 18,
+  "n_bodies": 14,
+  "meta": {
+    "fk": {
+      "nnz_out": 168,
+      "n_instr": 920,
+      "n_instr_unr": 7171,
+      "sz_w": 40,
+      "sz_w_unr": 56,
+      "smem_kb": 2.203125,
+      "smem_unr_kb": 16.9140625,
+      "levels": 14,
+      "levels_unr": 14,
+      "windowed": false,
+      "windowed_unr": false
+    },
+    "fkjac": {
+      "nnz_out": 1512,
+      "n_instr": 2923,
+      "n_instr_unr": 23195,
+      "sz_w": 59,
+      "sz_w_unr": 74,
+      "smem_kb": 3.6640625,
+      "smem_unr_kb": 28.984375,
+      "levels": 17,
+      "levels_unr": 17,
+      "windowed": false,
+      "windowed_unr": false
+    },
+    "fkhess": {
+      "nnz_out": 2544,
+      "n_instr": 12957,
+      "n_instr_unr": 103467,
+      "sz_w": 195,
+      "sz_w_unr": 196,
+      "smem_kb": 27.4296875,
+      "smem_unr_kb": 87.328125,
+      "levels": 19,
+      "levels_unr": 53,
+      "windowed": false,
+      "windowed_unr": true
+    }
+  }
+}

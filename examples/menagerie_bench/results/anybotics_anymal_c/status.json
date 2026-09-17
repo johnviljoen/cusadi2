@@ -1,0 +1,188 @@
+{
+  "robot": "anybotics_anymal_c",
+  "xml": "anybotics_anymal_c/anymal_c.xml",
+  "menagerie_commit": "8161bba264d7fa7c99ca301e91e7fb44737676ad",
+  "manifest_commit": "8161bba264d7fa7c99ca301e91e7fb44737676ad",
+  "gate": {
+    "status": "pass",
+    "reason": null,
+    "nq": 19,
+    "nv": 18,
+    "n_bodies": 13,
+    "n_bodies_unnamed": 0,
+    "floating": true,
+    "fk_max_err": 3.552713678800501e-15,
+    "root_corr": false,
+    "preproc": {
+      "includes_flattened": false,
+      "multitree_wrapped": false,
+      "anchors_fixed": 0
+    }
+  },
+  "stages": {
+    "gate": {
+      "status": "pass",
+      "cached": true,
+      "seconds": 0
+    },
+    "compile_double": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 2.75,
+      "cached": true
+    },
+    "compile_float": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 2.52,
+      "cached": true
+    },
+    "mjx_fp64": {
+      "status": "pass",
+      "cached": true,
+      "failed_shapes": {
+        "hess_batched:4096": "JaxRuntimeError: RESOURCE_EXHAUSTED: Out of memory while trying to allocate 6.51GiB with allocator GPU_0_bfc on device 0. [executable_name='jit__lambda'] [tf-allocator-allocation-error='']",
+        "hess_batched:16384": "JaxRuntimeError: RESOURCE_EXHAUSTED: Out of memory while trying to allocate 26.05GiB with allocator GPU_0_bfc on device 0. [tf-allocator-allocation-error=''] [executable_name='jit__lambda']",
+        "hess_rollout:4096": "JaxRuntimeError: RESOURCE_EXHAUSTED: Out of memory while trying to allocate 6.53GiB with allocator GPU_0_bfc on device 0. [tf-allocator-allocation-error='']",
+        "hess_rollout:16384": "JaxRuntimeError: RESOURCE_EXHAUSTED: Out of memory while trying to allocate 26.07GiB with allocator GPU_0_bfc on device 0. [tf-allocator-allocation-error='']",
+        "hess_batched_gpu:16384": "JaxRuntimeError: RESOURCE_EXHAUSTED: Out of memory while trying to allocate 6.42GiB with allocator GPU_0_bfc on device 0. [executable_name='jit_rep'] [tf-allocator-allocation-error='']"
+      }
+    },
+    "mjx_fp32": {
+      "status": "pass",
+      "cached": true,
+      "failed_shapes": {
+        "hess_batched:16384": "JaxRuntimeError: RESOURCE_EXHAUSTED: Out of memory while trying to allocate 13.03GiB with allocator GPU_0_bfc on device 0. [tf-allocator-allocation-error=''] [executable_name='jit__lambda']",
+        "hess_rollout:4096": "JaxRuntimeError: NOT_FOUND: All configs failed during profiling.\nFailures (2):\nEXECUTION FAILED: RESOURCE_EXHAUSTED: Out of memory while trying to allocate 3.27GiB with allocator GPU_0_bfc on device 0. [tf-allocator-allocation-error='']\nEXECUTION FAILED: RESOURCE_EXHAUSTED: Out of memory while tryin",
+        "hess_rollout:16384": "JaxRuntimeError: RESOURCE_EXHAUSTED: Out of memory while trying to allocate 13.04GiB with allocator GPU_0_bfc on device 0. [tf-allocator-allocation-error='']"
+      }
+    },
+    "warp": {
+      "status": "pass",
+      "cached": true
+    },
+    "plot": {
+      "status": "pass",
+      "seconds": 6.83
+    },
+    "cpu_compile_double": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 11.12,
+      "cached": false
+    },
+    "cpu_compile_float": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 10.88,
+      "cached": false
+    }
+  },
+  "runs": {
+    "0": {
+      "double": {
+        "status": "pass",
+        "seconds": 19.9
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 13.5
+      }
+    },
+    "1": {
+      "double": {
+        "status": "pass",
+        "seconds": 19.9
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 13.4
+      }
+    },
+    "2": {
+      "double": {
+        "status": "pass",
+        "seconds": 19.9
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 13.5
+      }
+    },
+    "3": {
+      "double": {
+        "status": "pass",
+        "seconds": 19.9
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 13.5
+      }
+    },
+    "4": {
+      "double": {
+        "status": "pass",
+        "seconds": 19.9
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 13.4
+      }
+    }
+  },
+  "complete": true,
+  "n_runs": 5,
+  "finished_at": "2026-09-15 19:23:22",
+  "cpu_runs": {
+    "0": {
+      "double": {
+        "status": "pass",
+        "seconds": 50.35
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 35.02
+      }
+    },
+    "1": {
+      "double": {
+        "status": "pass",
+        "seconds": 50.89
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 35.16
+      }
+    },
+    "2": {
+      "double": {
+        "status": "pass",
+        "seconds": 50.73
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 34.85
+      }
+    },
+    "3": {
+      "double": {
+        "status": "pass",
+        "seconds": 50.49
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 34.77
+      }
+    },
+    "4": {
+      "double": {
+        "status": "pass",
+        "seconds": 50.47
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 34.97
+      }
+    }
+  }
+}

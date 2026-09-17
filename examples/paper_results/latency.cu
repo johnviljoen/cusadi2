@@ -18,8 +18,10 @@
 //
 // Plans are read from <plan_dir>/<func>.plan (per-stage, horizon baked in) and
 // <plan_dir>/<func>_unr.plan (horizon-unrolled, n_stages == 1), written by
-// bench.py, which also generates unrolled_table.h (the function list and the
-// unrolled kernels' entry points) next to them. One CSV row per (func, config, B):
+// bench.py, which also generates unrolled_table.h (FUNC_NAMES[], the per-stage
+// function list, and UNROLLED[], the unrolled kernels' entry points; a function
+// whose unrolled kernel is missing gets nan staged/batch rows) next to them.
+// One CSV row per (func, config, B):
 //
 //   dtype,func,config,batch,n_stages,grid_blocks,latency_us,wall_us
 //
@@ -109,7 +111,7 @@ static Case* setup_case(const Plan& p, bool serial, int batch) {
     int smem = 0; cudaDeviceGetAttribute(&smem, cudaDevAttrMaxSharedMemoryPerBlockOptin, 0);
     if (!serial && p.shared_bytes() > smem) return nullptr;
     const UnrolledFn* unr = serial ? find_unrolled(p.name) : nullptr;
-    if (serial && !unr) { fprintf(stderr, "no unrolled kernel for %s\n", p.name.c_str()); abort(); }
+    if (serial && !unr) return nullptr;    // unrolled kernel not built (e.g. nvcc gave up): nan row
     size_t work_n = unr ? (size_t)batch * p.n_stages * unr->sz_w() : 0;
     double bytes = (double)work_n * sizeof(S);
     for (const Arg& a : p.in) bytes += (double)a.len(batch) * sizeof(S);
@@ -154,14 +156,9 @@ extern "C" void c2_teardown(int h) {
 #ifndef CUSADI2_BENCH_LIB
 static const char* CONFIGS[] = {"full", "staged", "lp", "batch"};
 
-// The per-stage functions: every table entry that is not a horizon-unrolled "<f>_unr".
+// The per-stage functions, from the generated table.
 static std::vector<std::string> funcs() {
-    std::vector<std::string> out;
-    for (const UnrolledFn& u : UNROLLED) {
-        std::string n = u.name;
-        if (n.size() < 4 || n.compare(n.size() - 4, 4, "_unr") != 0) out.push_back(n);
-    }
-    return out;
+    return std::vector<std::string>(std::begin(FUNC_NAMES), std::end(FUNC_NAMES));
 }
 
 // config -> plan file and whether it runs the serial kernel.

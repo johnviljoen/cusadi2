@@ -7,6 +7,7 @@ import pytest
 from cusadi2 import (extract_level_plan, extract_serial_program, read_plan, verify_plan,
                      verify_serial_program, write_plan, write_unrolled_source)
 from cusadi2.dag import IO_OPS, _demo_function, validate_specs
+from cusadi2.ops import SUPPORTED_OPS
 
 
 def dyn_function():
@@ -24,20 +25,56 @@ def wide_function():
     return ca.Function("wide", [x], [y, ca.sum1(y)])
 
 
-@pytest.mark.parametrize("make", [_demo_function, dyn_function, wide_function])
+def late_ops_function():
+    """The scalar ops CasADi added after OP_OUTPUT (ids above 46) that libm
+    evaluates exactly as CasADi does: log1p, expm1, hypot, remainder. The kernel
+    must dispatch these as compute, not IO."""
+    x = ca.SX.sym("x", 4)
+    y = ca.SX.sym("y", 4)
+    z = ca.log1p(x * x) + ca.expm1(y) + ca.hypot(x, y) + ca.remainder(x, 0.7)
+    return ca.Function("late_ops", [x, y], [z, ca.sum1(z)])
+
+
+def erfinv_function():
+    """OP_ERFINV (id 86). CasADi evaluates it with a rational approximation good
+    to about 1e-11; the CUDA library and the host verifier are exact, so this
+    one is checked to a tolerance rather than bit-exact."""
+    x = ca.SX.sym("x", 4)
+    return ca.Function("erfinv", [x], [ca.erfinv(0.5 * x)])
+
+
+ALL_FUNCTIONS = [_demo_function, dyn_function, wide_function, late_ops_function]
+
+
+@pytest.mark.parametrize("make", ALL_FUNCTIONS)
 def test_plan_matches_casadi_under_parallel_execution(make):
     f = make()
     plan = extract_level_plan(f)
     assert verify_plan(f, plan) < 1e-12
 
 
-@pytest.mark.parametrize("make", [_demo_function, dyn_function, wide_function])
+@pytest.mark.parametrize("make", ALL_FUNCTIONS)
 def test_serial_program_is_casadi_stream_and_bit_exact(make):
     f = make()
     prog = extract_serial_program(f)
     assert prog.n_instr == f.n_instructions() and prog.sz_w == f.sz_w()
-    assert all(op in IO_OPS for op in prog.ops if op >= min(IO_OPS))
+    assert all(op in IO_OPS or op in SUPPORTED_OPS for op in prog.ops)
     assert verify_serial_program(f, prog) == 0.0
+
+
+def test_erfinv_matches_casadi_to_its_approximation():
+    f = erfinv_function()
+    assert verify_plan(f, extract_level_plan(f)) < 1e-9
+    assert verify_serial_program(f, extract_serial_program(f)) < 1e-9
+
+
+def test_unsupported_op_is_rejected_at_extraction():
+    x, y = ca.SX.sym("x"), ca.SX.sym("y")
+    f = ca.Function("pm", [x, y], [x.printme(y)])          # OP_PRINTME reaches an SX stream
+    with pytest.raises(ValueError, match="OP_PRINTME"):
+        extract_level_plan(f)
+    with pytest.raises(ValueError, match="OP_PRINTME"):
+        extract_serial_program(f)
 
 
 def test_level_plan_renames_io_but_serial_program_cannot():

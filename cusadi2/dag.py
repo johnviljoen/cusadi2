@@ -49,7 +49,19 @@ import casadi
 import numpy as np
 from casadi import OP_CONST, OP_INPUT, OP_OUTPUT, OP_SQ
 
+from cusadi2.ops import SUPPORTED_OPS
+
 IO_OPS = (OP_CONST, OP_INPUT, OP_OUTPUT)   # inline in SerialProgram; LevelPlan: CONST preamble, INPUT/OUTPUT nodes
+
+
+def _check_op(f: casadi.Function, k: int, op: int) -> None:
+    """Reject an op the kernel has no case for. Op ids are not range-checked on
+    device (the level kernel's dispatch is INPUT / OUTPUT / exec_op), so an
+    unknown id must never reach a plan file."""
+    if op not in SUPPORTED_OPS and op not in IO_OPS:
+        names = {getattr(casadi, n): n for n in dir(casadi) if n.startswith("OP_")}
+        raise ValueError(f"{f.name()}: instruction {k} is {names.get(op, op)}, which cusadi2 does not "
+                         "support (see cusadi2.ops.SUPPORTED_OPS)")
 
 
 @dataclasses.dataclass
@@ -107,6 +119,7 @@ def extract_serial_program(f: casadi.Function) -> SerialProgram:
     ops, outs, in_a, in_b, consts = [], [], [], [], []
     for k in range(f.n_instructions()):
         op = f.instruction_id(k)
+        _check_op(f, k, op)
         inp = tuple(f.instruction_input(k))
         out = tuple(f.instruction_output(k))
         if op == OP_CONST:
@@ -154,8 +167,13 @@ def verify_serial_program(f: casadi.Function, prog: SerialProgram, n_samples: in
 
 def _instructions(f: casadi.Function) -> List[Tuple[int, Tuple[int, ...], Tuple[int, ...], float]]:
     """CasADi's instruction stream as (op, inputs, outputs, constant) tuples."""
-    return [(f.instruction_id(k), tuple(f.instruction_input(k)), tuple(f.instruction_output(k)),
-             f.instruction_constant(k)) for k in range(f.n_instructions())]
+    instrs = []
+    for k in range(f.n_instructions()):
+        op = f.instruction_id(k)
+        _check_op(f, k, op)
+        instrs.append((op, tuple(f.instruction_input(k)), tuple(f.instruction_output(k)),
+                       f.instruction_constant(k)))
+    return instrs
 
 
 def _extract_pass1(instrs, window: int = None):
@@ -219,8 +237,12 @@ def _compute_liveness(nodes, total_ssa):
     levels: Dict[int, list] = {}
     for n in nodes:
         levels.setdefault(n[3], []).append(n)
-    for ns in levels.values():   # compute first, then IO by (arg, element): coalesced, no divergence
-        ns.sort(key=lambda n: (n[0] in IO_OPS, n[4], n[5]) if n[0] in IO_OPS else (False, 0, 0))
+    # Order within a level is free (no slot is both read and written in one level).
+    # Compute nodes grouped by op id, CasADi's order within a group, so a warp's 32
+    # nodes take one switch target except at group boundaries; then IO by (arg,
+    # element) so a warp's global accesses coalesce.
+    for ns in levels.values():
+        ns.sort(key=lambda n: (True, n[4], n[5]) if n[0] in IO_OPS else (False, n[0], 0))
     free_at_level: Dict[int, List[int]] = {}
     for s in range(total_ssa):
         free_at_level.setdefault(max(last_read[s], produced[s]) + 1, []).append(s)

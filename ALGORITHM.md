@@ -39,7 +39,11 @@ which slice of each argument a block reads and writes.
 over CasADi's op ids (generated from `ops.py`, so the double and float forms
 cannot drift) and a loop that reads each node's op and slot indices from the
 device arrays `node_ops / node_outs / node_in_a / node_in_b`, indexed per level
-by `level_offsets / level_widths`. Every plan runs on the same symbol, so the
+by `level_offsets / level_widths`. The switch covers every scalar op an SX
+stream can carry: CasADi's ids 0 to 43 and the five added later (`erfinv`,
+`log1p`, `expm1`, `hypot`, `remainder`). The planner rejects a stream holding
+any other op (the MX-level ops, `printme`) at extraction, since the kernel does
+not range-check ids. Every plan runs on the same symbol, so the
 dynamic shared-memory cap is process-wide and raise-only
 (`cusadi2_set_shared_memory`).
 
@@ -69,6 +73,27 @@ barrier per level suffices, and the high-water mark is `peak_live_slots`.
 Levelling on the original slots and repairing conflicts by delaying nodes does
 not work: on a humanoid Jacobian the critical path grows from hundreds of
 levels to over ten thousand.
+
+Order within a level is free, since no level both reads and writes a slot, and
+it decides warp divergence: a warp takes 32 consecutive nodes of the level
+(`tid, tid + b, ...` for any block size `b`) and serialises over the distinct
+ops among them, each op body issued at full warp cost for its active lanes.
+CasADi's emission order interleaves the ops of adjacent products (a Jacobian
+level reads `sub x13, add x4, mul, add, sub, mul, ...`), so the Pinocchio plans
+issue 2.0 to 2.3 op bodies per warp pass and the KKT solves 1.2 to 1.7. The
+planner therefore sorts each level's compute nodes by op id (CasADi's order
+within an op, so a warp's operands stay near each other in the work vector),
+which leaves one op per warp except where an op's run ends mid-warp: 1.05 to
+1.2 op bodies per pass, within 3 to 5% of the floor of one. Everything about
+the resulting warp roles (the distinct ops of a level, `ceil(run / 32)` warps
+each, which warp takes which op) is fixed by the plan, so the kernel, the
+plan file and the block-size rule are unchanged. Measured on the RTX 4080 in
+fp64, horizon 8, by permuting the benchmarked plans: 1.4x on the frame
+Hessians at every batch size, 1.2 to 1.6x on forward kinematics, the frame
+Jacobians within noise (55 to 58% of their nodes are output stores, already
+grouped). Padding each op's run to a multiple of 32, true single-op warps,
+trades the 3 to 5% boundary waste for idle lanes and models as a wash on
+every plan, so the runs are left unpadded.
 
 Width is liveness: everything a level produces is live at once, so longest-path
 plans can need far more than CasADi's `sz_w` (horizon-unrolled H1 Hessian:
@@ -207,7 +232,9 @@ from CasADi only where the CUDA math library differs from the host libm:
 transcendentals can land an ulp apart, and those ulps compound with depth. A
 function of `+ - * /` alone is bit-exact at any depth (a 240-level polynomial
 recursion reproduces CasADi exactly in both kernels); a 300-level function with
-`sin`/`cos`/`exp` differs at relative 3e-16. Absolute error scales with output
+`sin`/`cos`/`exp` differs at relative 3e-16. `erfinv` is the one op where
+CasADi itself is the less accurate side: its rational approximation is off by
+about 1e-11 near 0.5, where the CUDA library and the host verifier are exact. Absolute error scales with output
 magnitude, so compare relatively and sample inputs inside the function's
 domain (non-unit quaternions fed to a free-flyer Jacobian give outputs of 1e13
 and alarming absolute errors at relative 1e-14).

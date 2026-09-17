@@ -1,0 +1,179 @@
+{
+  "robot": "trossen_wxai",
+  "xml": "trossen_wxai/wxai_follower.xml",
+  "menagerie_commit": "8161bba264d7fa7c99ca301e91e7fb44737676ad",
+  "manifest_commit": "8161bba264d7fa7c99ca301e91e7fb44737676ad",
+  "gate": {
+    "status": "pass",
+    "reason": null,
+    "nq": 8,
+    "nv": 8,
+    "n_bodies": 13,
+    "n_bodies_unnamed": 0,
+    "floating": false,
+    "fk_max_err": 8.881784197001252e-16,
+    "root_corr": false,
+    "preproc": {
+      "includes_flattened": false,
+      "multitree_wrapped": false,
+      "anchors_fixed": 0
+    }
+  },
+  "stages": {
+    "gate": {
+      "status": "pass",
+      "cached": true,
+      "seconds": 0
+    },
+    "compile_double": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 1.17,
+      "cached": true
+    },
+    "compile_float": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 1.0,
+      "cached": true
+    },
+    "mjx_fp64": {
+      "status": "pass",
+      "cached": true,
+      "failed_shapes": {
+        "hess_rollout:16384": "JaxRuntimeError: NOT_FOUND: All configs failed during profiling.\nFailures (2):\nEXECUTION FAILED: RESOURCE_EXHAUSTED: Out of memory while trying to allocate 4.89GiB with allocator GPU_0_bfc on device 0. [tf-allocator-allocation-error='']\nEXECUTION FAILED: RESOURCE_EXHAUSTED: Out of memory while tryin"
+      }
+    },
+    "mjx_fp32": {
+      "status": "pass",
+      "cached": true
+    },
+    "warp": {
+      "status": "pass",
+      "cached": true
+    },
+    "plot": {
+      "status": "pass",
+      "seconds": 6.86
+    },
+    "cpu_compile_double": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 5.31,
+      "cached": false
+    },
+    "cpu_compile_float": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 4.66,
+      "cached": false
+    }
+  },
+  "runs": {
+    "0": {
+      "double": {
+        "status": "pass",
+        "seconds": 7.8
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 5.6
+      }
+    },
+    "1": {
+      "double": {
+        "status": "pass",
+        "seconds": 7.7
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 5.6
+      }
+    },
+    "2": {
+      "double": {
+        "status": "pass",
+        "seconds": 7.8
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 5.7
+      }
+    },
+    "3": {
+      "double": {
+        "status": "pass",
+        "seconds": 7.7
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 5.5
+      }
+    },
+    "4": {
+      "double": {
+        "status": "pass",
+        "seconds": 7.8
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 5.6
+      }
+    }
+  },
+  "complete": true,
+  "n_runs": 5,
+  "finished_at": "2026-09-15 19:28:58",
+  "cpu_runs": {
+    "0": {
+      "double": {
+        "status": "pass",
+        "seconds": 31.95
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 24.34
+      }
+    },
+    "1": {
+      "double": {
+        "status": "pass",
+        "seconds": 31.67
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 24.28
+      }
+    },
+    "2": {
+      "double": {
+        "status": "pass",
+        "seconds": 31.77
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 24.23
+      }
+    },
+    "3": {
+      "double": {
+        "status": "pass",
+        "seconds": 31.81
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 24.29
+      }
+    },
+    "4": {
+      "double": {
+        "status": "pass",
+        "seconds": 31.88
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 24.24
+      }
+    }
+  }
+}

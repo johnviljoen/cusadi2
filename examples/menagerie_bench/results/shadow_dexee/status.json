@@ -1,0 +1,232 @@
+{
+  "robot": "shadow_dexee",
+  "xml": "shadow_dexee/shadow_dexee.xml",
+  "menagerie_commit": "8161bba264d7fa7c99ca301e91e7fb44737676ad",
+  "manifest_commit": "8161bba264d7fa7c99ca301e91e7fb44737676ad",
+  "gate": {
+    "status": "pass",
+    "reason": null,
+    "nq": 12,
+    "nv": 12,
+    "n_bodies": 19,
+    "n_bodies_unnamed": 0,
+    "floating": false,
+    "fk_max_err": 1.6653345369377348e-15,
+    "root_corr": false,
+    "preproc": {
+      "includes_flattened": false,
+      "multitree_wrapped": true,
+      "anchors_fixed": 0
+    }
+  },
+  "stages": {
+    "gate": {
+      "status": "pass",
+      "cached": true,
+      "seconds": 0
+    },
+    "compile_double": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 0.87,
+      "cached": true
+    },
+    "compile_float": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 0.88,
+      "cached": true
+    },
+    "mjx_fp64": {
+      "status": "pass",
+      "cached": true,
+      "failed_shapes": {
+        "fk_rollout:1": "IndexError: f argument \"3\" with type \"a\" has length \"12\" which does not match the in_types[3] expected length of \"24\".",
+        "fk_rollout:4": "IndexError: f argument \"3\" with type \"a\" has length \"12\" which does not match the in_types[3] expected length of \"24\".",
+        "fk_rollout:16": "IndexError: f argument \"3\" with type \"a\" has length \"12\" which does not match the in_types[3] expected length of \"24\".",
+        "fk_rollout:64": "IndexError: f argument \"3\" with type \"a\" has length \"12\" which does not match the in_types[3] expected length of \"24\".",
+        "fk_rollout:256": "IndexError: f argument \"3\" with type \"a\" has length \"12\" which does not match the in_types[3] expected length of \"24\".",
+        "fk_rollout:1024": "IndexError: f argument \"3\" with type \"a\" has length \"12\" which does not match the in_types[3] expected length of \"24\".",
+        "fk_rollout:4096": "IndexError: f argument \"3\" with type \"a\" has length \"12\" which does not match the in_types[3] expected length of \"24\".",
+        "fk_rollout:16384": "IndexError: f argument \"3\" with type \"a\" has length \"12\" which does not match the in_types[3] expected length of \"24\".",
+        "jac_rollout:1": "IndexError: f argument \"3\" with type \"a\" has length \"12\" which does not match the in_types[3] expected length of \"24\".",
+        "jac_rollout:4": "IndexError: f argument \"3\" with type \"a\" has length \"12\" which does not match the in_types[3] expected length of \"24\".",
+        "jac_rollout:16": "IndexError: f argument \"3\" with type \"a\" has length \"12\" which does not match the in_types[3] expected length of \"24\".",
+        "jac_rollout:64": "IndexError: f argument \"3\" with type \"a\" has length \"12\" which does not match the in_types[3] expected length of \"24\".",
+        "jac_rollout:256": "IndexError: f argument \"3\" with type \"a\" has length \"12\" which does not match the in_types[3] expected length of \"24\".",
+        "jac_rollout:1024": "IndexError: f argument \"3\" with type \"a\" has length \"12\" which does not match the in_types[3] expected length of \"24\".",
+        "jac_rollout:4096": "IndexError: f argument \"3\" with type \"a\" has length \"12\" which does not match the in_types[3] expected length of \"24\".",
+        "jac_rollout:16384": "IndexError: f argument \"3\" with type \"a\" has length \"12\" which does not match the in_types[3] expected length of \"24\".",
+        "hess_batched:16384": "JaxRuntimeError: RESOURCE_EXHAUSTED: Out of memory while trying to allocate 16.03GiB with allocator GPU_0_bfc on device 0. [executable_name='jit__lambda'] [tf-allocator-allocation-error='']",
+        "hess_rollout:1": "IndexError: f argument \"3\" with type \"a\" has length \"12\" which does not match the in_types[3] expected length of \"24\".",
+        "hess_rollout:4": "IndexError: f argument \"3\" with type \"a\" has length \"12\" which does not match the in_types[3] expected length of \"24\".",
+        "hess_rollout:16": "IndexError: f argument \"3\" with type \"a\" has length \"12\" which does not match the in_types[3] expected length of \"24\".",
+        "hess_rollout:64": "IndexError: f argument \"3\" with type \"a\" has length \"12\" which does not match the in_types[3] expected length of \"24\".",
+        "hess_rollout:256": "IndexError: f argument \"3\" with type \"a\" has length \"12\" which does not match the in_types[3] expected length of \"24\".",
+        "hess_rollout:1024": "IndexError: f argument \"3\" with type \"a\" has length \"12\" which does not match the in_types[3] expected length of \"24\".",
+        "hess_rollout:4096": "IndexError: f argument \"3\" with type \"a\" has length \"12\" which does not match the in_types[3] expected length of \"24\".",
+        "hess_rollout:16384": "IndexError: f argument \"3\" with type \"a\" has length \"12\" which does not match the in_types[3] expected length of \"24\"."
+      }
+    },
+    "mjx_fp32": {
+      "status": "pass",
+      "cached": true,
+      "failed_shapes": {
+        "fk_rollout:1": "IndexError: f argument \"3\" with type \"a\" has length \"12\" which does not match the in_types[3] expected length of \"24\".",
+        "fk_rollout:4": "IndexError: f argument \"3\" with type \"a\" has length \"12\" which does not match the in_types[3] expected length of \"24\".",
+        "fk_rollout:16": "IndexError: f argument \"3\" with type \"a\" has length \"12\" which does not match the in_types[3] expected length of \"24\".",
+        "fk_rollout:64": "IndexError: f argument \"3\" with type \"a\" has length \"12\" which does not match the in_types[3] expected length of \"24\".",
+        "fk_rollout:256": "IndexError: f argument \"3\" with type \"a\" has length \"12\" which does not match the in_types[3] expected length of \"24\".",
+        "fk_rollout:1024": "IndexError: f argument \"3\" with type \"a\" has length \"12\" which does not match the in_types[3] expected length of \"24\".",
+        "fk_rollout:4096": "IndexError: f argument \"3\" with type \"a\" has length \"12\" which does not match the in_types[3] expected length of \"24\".",
+        "fk_rollout:16384": "IndexError: f argument \"3\" with type \"a\" has length \"12\" which does not match the in_types[3] expected length of \"24\".",
+        "jac_rollout:1": "IndexError: f argument \"3\" with type \"a\" has length \"12\" which does not match the in_types[3] expected length of \"24\".",
+        "jac_rollout:4": "IndexError: f argument \"3\" with type \"a\" has length \"12\" which does not match the in_types[3] expected length of \"24\".",
+        "jac_rollout:16": "IndexError: f argument \"3\" with type \"a\" has length \"12\" which does not match the in_types[3] expected length of \"24\".",
+        "jac_rollout:64": "IndexError: f argument \"3\" with type \"a\" has length \"12\" which does not match the in_types[3] expected length of \"24\".",
+        "jac_rollout:256": "IndexError: f argument \"3\" with type \"a\" has length \"12\" which does not match the in_types[3] expected length of \"24\".",
+        "jac_rollout:1024": "IndexError: f argument \"3\" with type \"a\" has length \"12\" which does not match the in_types[3] expected length of \"24\".",
+        "jac_rollout:4096": "IndexError: f argument \"3\" with type \"a\" has length \"12\" which does not match the in_types[3] expected length of \"24\".",
+        "jac_rollout:16384": "IndexError: f argument \"3\" with type \"a\" has length \"12\" which does not match the in_types[3] expected length of \"24\".",
+        "hess_batched:16384": "JaxRuntimeError: RESOURCE_EXHAUSTED: Out of memory while trying to allocate 8.02GiB with allocator GPU_0_bfc on device 0. [tf-allocator-allocation-error=''] [executable_name='jit__lambda']",
+        "hess_rollout:1": "IndexError: f argument \"3\" with type \"a\" has length \"12\" which does not match the in_types[3] expected length of \"24\".",
+        "hess_rollout:4": "IndexError: f argument \"3\" with type \"a\" has length \"12\" which does not match the in_types[3] expected length of \"24\".",
+        "hess_rollout:16": "IndexError: f argument \"3\" with type \"a\" has length \"12\" which does not match the in_types[3] expected length of \"24\".",
+        "hess_rollout:64": "IndexError: f argument \"3\" with type \"a\" has length \"12\" which does not match the in_types[3] expected length of \"24\".",
+        "hess_rollout:256": "IndexError: f argument \"3\" with type \"a\" has length \"12\" which does not match the in_types[3] expected length of \"24\".",
+        "hess_rollout:1024": "IndexError: f argument \"3\" with type \"a\" has length \"12\" which does not match the in_types[3] expected length of \"24\".",
+        "hess_rollout:4096": "IndexError: f argument \"3\" with type \"a\" has length \"12\" which does not match the in_types[3] expected length of \"24\".",
+        "hess_rollout:16384": "IndexError: f argument \"3\" with type \"a\" has length \"12\" which does not match the in_types[3] expected length of \"24\"."
+      }
+    },
+    "warp": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 9.08,
+      "attempts": 1
+    },
+    "plot": {
+      "status": "pass",
+      "seconds": 6.89
+    },
+    "cpu_compile_double": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 4.31,
+      "cached": false
+    },
+    "cpu_compile_float": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 4.21,
+      "cached": false
+    }
+  },
+  "runs": {
+    "0": {
+      "double": {
+        "status": "pass",
+        "seconds": 5.3
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 4.3
+      }
+    },
+    "1": {
+      "double": {
+        "status": "pass",
+        "seconds": 5.3
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 4.3
+      }
+    },
+    "2": {
+      "double": {
+        "status": "pass",
+        "seconds": 5.3
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 4.3
+      }
+    },
+    "3": {
+      "double": {
+        "status": "pass",
+        "seconds": 5.3
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 4.3
+      }
+    },
+    "4": {
+      "double": {
+        "status": "pass",
+        "seconds": 5.2
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 4.3
+      }
+    }
+  },
+  "complete": true,
+  "n_runs": 5,
+  "finished_at": "2026-09-15 19:27:49",
+  "cpu_runs": {
+    "0": {
+      "double": {
+        "status": "pass",
+        "seconds": 31.65
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 24.51
+      }
+    },
+    "1": {
+      "double": {
+        "status": "pass",
+        "seconds": 31.77
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 24.35
+      }
+    },
+    "2": {
+      "double": {
+        "status": "pass",
+        "seconds": 31.7
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 24.39
+      }
+    },
+    "3": {
+      "double": {
+        "status": "pass",
+        "seconds": 31.57
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 24.2
+      }
+    },
+    "4": {
+      "double": {
+        "status": "pass",
+        "seconds": 31.49
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 24.32
+      }
+    }
+  }
+}

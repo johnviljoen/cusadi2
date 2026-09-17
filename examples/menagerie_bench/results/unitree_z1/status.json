@@ -1,0 +1,176 @@
+{
+  "robot": "unitree_z1",
+  "xml": "unitree_z1/z1.xml",
+  "menagerie_commit": "8161bba264d7fa7c99ca301e91e7fb44737676ad",
+  "manifest_commit": "8161bba264d7fa7c99ca301e91e7fb44737676ad",
+  "gate": {
+    "status": "pass",
+    "reason": null,
+    "nq": 6,
+    "nv": 6,
+    "n_bodies": 7,
+    "n_bodies_unnamed": 0,
+    "floating": false,
+    "fk_max_err": 6.661338147750939e-16,
+    "root_corr": false,
+    "preproc": {
+      "includes_flattened": false,
+      "multitree_wrapped": false,
+      "anchors_fixed": 0
+    }
+  },
+  "stages": {
+    "gate": {
+      "status": "pass",
+      "cached": true,
+      "seconds": 0
+    },
+    "compile_double": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 0.65,
+      "cached": true
+    },
+    "compile_float": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 0.65,
+      "cached": true
+    },
+    "mjx_fp64": {
+      "status": "pass",
+      "cached": true
+    },
+    "mjx_fp32": {
+      "status": "pass",
+      "cached": true
+    },
+    "warp": {
+      "status": "pass",
+      "cached": true
+    },
+    "plot": {
+      "status": "pass",
+      "seconds": 6.66
+    },
+    "cpu_compile_double": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 2.58,
+      "cached": false
+    },
+    "cpu_compile_float": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 2.59,
+      "cached": false
+    }
+  },
+  "runs": {
+    "0": {
+      "double": {
+        "status": "pass",
+        "seconds": 2.5
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 2.0
+      }
+    },
+    "1": {
+      "double": {
+        "status": "pass",
+        "seconds": 2.5
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 2.0
+      }
+    },
+    "2": {
+      "double": {
+        "status": "pass",
+        "seconds": 2.5
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 1.9
+      }
+    },
+    "3": {
+      "double": {
+        "status": "pass",
+        "seconds": 2.5
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 2.0
+      }
+    },
+    "4": {
+      "double": {
+        "status": "pass",
+        "seconds": 2.5
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 1.9
+      }
+    }
+  },
+  "complete": true,
+  "n_runs": 5,
+  "finished_at": "2026-09-15 19:30:05",
+  "cpu_runs": {
+    "0": {
+      "double": {
+        "status": "pass",
+        "seconds": 20.35
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 18.01
+      }
+    },
+    "1": {
+      "double": {
+        "status": "pass",
+        "seconds": 20.36
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 18.19
+      }
+    },
+    "2": {
+      "double": {
+        "status": "pass",
+        "seconds": 20.29
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 18.21
+      }
+    },
+    "3": {
+      "double": {
+        "status": "pass",
+        "seconds": 20.42
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 18.16
+      }
+    },
+    "4": {
+      "double": {
+        "status": "pass",
+        "seconds": 20.37
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 18.25
+      }
+    }
+  }
+}

@@ -10,7 +10,7 @@ import pytest
 import cusadi2
 from cusadi2 import write_kernel_source, write_plan, write_reference, write_unrolled_source
 from cusadi2.dag import _demo_function
-from test_plan import dyn_function, wide_function
+from test_plan import dyn_function, erfinv_function, late_ops_function, wide_function
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 NVCC = os.environ.get("NVCC", shutil.which("nvcc"))
@@ -18,6 +18,8 @@ NVCC = os.environ.get("NVCC", shutil.which("nvcc"))
 CASES = [  # (function, plan kwargs)
     (_demo_function, {}),
     (wide_function, {}),
+    (late_ops_function, {}),
+    (erfinv_function, {}),
     (dyn_function, dict(n_stages=4, in_mode=["coupled", "shared"], in_offset=[0, 0], in_span=[1, 0])),
 ]
 

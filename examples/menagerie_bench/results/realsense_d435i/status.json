@@ -1,0 +1,30 @@
+{
+  "robot": "realsense_d435i",
+  "xml": null,
+  "menagerie_commit": "8161bba264d7fa7c99ca301e91e7fb44737676ad",
+  "manifest_commit": "8161bba264d7fa7c99ca301e91e7fb44737676ad",
+  "gate": {
+    "status": "skip",
+    "reason": "manifest: zero_dof_camera"
+  },
+  "stages": {
+    "gate": {
+      "status": "skip",
+      "reason": "manifest: zero_dof_camera"
+    },
+    "mjx_fp64": {
+      "status": "skip",
+      "reason": "--no-baselines"
+    },
+    "mjx_fp32": {
+      "status": "skip",
+      "reason": "--no-baselines"
+    },
+    "warp": {
+      "status": "skip",
+      "reason": "--no-baselines"
+    }
+  },
+  "runs": {},
+  "complete": true
+}

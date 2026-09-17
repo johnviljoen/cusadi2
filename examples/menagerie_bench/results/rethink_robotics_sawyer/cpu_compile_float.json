@@ -1,0 +1,37 @@
+{
+  "robot": "rethink_robotics_sawyer",
+  "dtype": "float",
+  "cpu": "AMD Ryzen 7 5800X3D 8-Core Processor",
+  "threads": 16,
+  "cc": "x86_64-conda-linux-gnu-cc -O3 -march=native -fopenmp",
+  "compile_s": {
+    "fk": 0.2783829389954917,
+    "fkjac": 0.3719728290452622,
+    "fkhess": 0.7235521299298853
+  },
+  "gcc_s": {
+    "fk": 0.2641404540045187,
+    "fkjac": 0.3642218930181116,
+    "fkhess": 0.7147320709773339
+  },
+  "failed": {},
+  "sizes": {
+    "fk": {
+      "nnz_in": 7,
+      "nnz_out": 108,
+      "n_instr": 485
+    },
+    "fkjac": {
+      "nnz_in": 7,
+      "nnz_out": 378,
+      "n_instr": 969
+    },
+    "fkhess": {
+      "nnz_in": 7,
+      "nnz_out": 460,
+      "n_instr": 3503
+    }
+  },
+  "cached": false,
+  "gcc_jobs": 6
+}

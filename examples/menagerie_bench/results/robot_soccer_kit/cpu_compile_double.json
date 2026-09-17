@@ -1,0 +1,37 @@
+{
+  "robot": "robot_soccer_kit",
+  "dtype": "double",
+  "cpu": "AMD Ryzen 7 5800X3D 8-Core Processor",
+  "threads": 16,
+  "cc": "x86_64-conda-linux-gnu-cc -O3 -march=native -fopenmp",
+  "compile_s": {
+    "fk": 1.223853099043481,
+    "fkjac": 28.69576919998508,
+    "fkhess": 28.198414615006186
+  },
+  "gcc_s": {
+    "fk": 0.9151617010356858,
+    "fkjac": 28.400460214994382,
+    "fkhess": 27.850734576990362
+  },
+  "failed": {},
+  "sizes": {
+    "fk": {
+      "nnz_in": 71,
+      "nnz_out": 780,
+      "n_instr": 5983
+    },
+    "fkjac": {
+      "nnz_in": 71,
+      "nnz_out": 27300,
+      "n_instr": 33975
+    },
+    "fkhess": {
+      "nnz_in": 71,
+      "nnz_out": 12157,
+      "n_instr": 63875
+    }
+  },
+  "cached": false,
+  "gcc_jobs": 6
+}

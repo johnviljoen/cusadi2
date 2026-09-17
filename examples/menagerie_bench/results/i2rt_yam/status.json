@@ -1,0 +1,179 @@
+{
+  "robot": "i2rt_yam",
+  "xml": "i2rt_yam/yam.xml",
+  "menagerie_commit": "8161bba264d7fa7c99ca301e91e7fb44737676ad",
+  "manifest_commit": "8161bba264d7fa7c99ca301e91e7fb44737676ad",
+  "gate": {
+    "status": "pass",
+    "reason": null,
+    "nq": 8,
+    "nv": 8,
+    "n_bodies": 13,
+    "n_bodies_unnamed": 0,
+    "floating": false,
+    "fk_max_err": 3.885780586188048e-15,
+    "root_corr": false,
+    "preproc": {
+      "includes_flattened": false,
+      "multitree_wrapped": false,
+      "anchors_fixed": 0
+    }
+  },
+  "stages": {
+    "gate": {
+      "status": "pass",
+      "cached": true,
+      "seconds": 0
+    },
+    "compile_double": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 1.27,
+      "cached": true
+    },
+    "compile_float": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 1.15,
+      "cached": true
+    },
+    "mjx_fp64": {
+      "status": "pass",
+      "cached": true,
+      "failed_shapes": {
+        "hess_rollout:16384": "JaxRuntimeError: NOT_FOUND: All configs failed during profiling.\nFailures (2):\nEXECUTION FAILED: RESOURCE_EXHAUSTED: Out of memory while trying to allocate 4.89GiB with allocator GPU_0_bfc on device 0. [tf-allocator-allocation-error='']\nEXECUTION FAILED: RESOURCE_EXHAUSTED: Out of memory while tryin"
+      }
+    },
+    "mjx_fp32": {
+      "status": "pass",
+      "cached": true
+    },
+    "warp": {
+      "status": "pass",
+      "cached": true
+    },
+    "plot": {
+      "status": "pass",
+      "seconds": 6.87
+    },
+    "cpu_compile_double": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 5.66,
+      "cached": false
+    },
+    "cpu_compile_float": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 5.42,
+      "cached": false
+    }
+  },
+  "runs": {
+    "0": {
+      "double": {
+        "status": "pass",
+        "seconds": 10.8
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 7.0
+      }
+    },
+    "1": {
+      "double": {
+        "status": "pass",
+        "seconds": 10.8
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 7.0
+      }
+    },
+    "2": {
+      "double": {
+        "status": "pass",
+        "seconds": 10.7
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 6.9
+      }
+    },
+    "3": {
+      "double": {
+        "status": "pass",
+        "seconds": 10.7
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 7.0
+      }
+    },
+    "4": {
+      "double": {
+        "status": "pass",
+        "seconds": 10.7
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 7.0
+      }
+    }
+  },
+  "complete": true,
+  "n_runs": 5,
+  "finished_at": "2026-09-15 19:25:39",
+  "cpu_runs": {
+    "0": {
+      "double": {
+        "status": "pass",
+        "seconds": 33.36
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 25.49
+      }
+    },
+    "1": {
+      "double": {
+        "status": "pass",
+        "seconds": 33.27
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 25.48
+      }
+    },
+    "2": {
+      "double": {
+        "status": "pass",
+        "seconds": 33.16
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 25.43
+      }
+    },
+    "3": {
+      "double": {
+        "status": "pass",
+        "seconds": 33.13
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 25.41
+      }
+    },
+    "4": {
+      "double": {
+        "status": "pass",
+        "seconds": 33.35
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 25.36
+      }
+    }
+  }
+}

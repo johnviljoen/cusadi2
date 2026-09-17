@@ -1,0 +1,37 @@
+{
+  "robot": "i2rt_yam",
+  "dtype": "double",
+  "cpu": "AMD Ryzen 7 5800X3D 8-Core Processor",
+  "threads": 16,
+  "cc": "x86_64-conda-linux-gnu-cc -O3 -march=native -fopenmp",
+  "compile_s": {
+    "fk": 0.33027422899613157,
+    "fkjac": 0.5727661979617551,
+    "fkhess": 1.680515212006867
+  },
+  "gcc_s": {
+    "fk": 0.31425587501144037,
+    "fkjac": 0.5646377339726314,
+    "fkhess": 1.66607529099565
+  },
+  "failed": {},
+  "sizes": {
+    "fk": {
+      "nnz_in": 8,
+      "nnz_out": 156,
+      "n_instr": 602
+    },
+    "fkjac": {
+      "nnz_in": 8,
+      "nnz_out": 624,
+      "n_instr": 1461
+    },
+    "fkhess": {
+      "nnz_in": 8,
+      "nnz_out": 1245,
+      "n_instr": 6400
+    }
+  },
+  "cached": false,
+  "gcc_jobs": 6
+}

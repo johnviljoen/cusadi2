@@ -1,0 +1,115 @@
+{
+ "robot": "skydio_x2",
+ "xml": "skydio_x2/x2.xml",
+ "status": "ok",
+ "menagerie_head": "8161bba264d7fa7c99ca301e91e7fb44737676ad",
+ "functions": {
+  "fk": {
+   "n_instr": 45,
+   "nnz_out": 12,
+   "n_compute": 24,
+   "depth": 4,
+   "mean_width": 6.0,
+   "median_width": 6.0,
+   "max_width": 9,
+   "widths": [
+    3,
+    9,
+    9,
+    3
+   ],
+   "peak_live_slots": 22,
+   "n_levels": 6,
+   "build_s": 0.010642937006196007,
+   "plan_s": 0.00018832797650247812,
+   "fit": {
+    "double": {
+     "max_live": 12672,
+     "windowed": false,
+     "n_levels": 6,
+     "peak_live_slots": 22
+    },
+    "float": {
+     "max_live": 25344,
+     "windowed": false,
+     "n_levels": 6,
+     "peak_live_slots": 22
+    }
+   }
+  },
+  "fkjac": {
+   "n_instr": 133,
+   "nnz_out": 36,
+   "n_compute": 87,
+   "depth": 7,
+   "mean_width": 12.428571428571429,
+   "median_width": 9.0,
+   "max_width": 27,
+   "widths": [
+    3,
+    9,
+    9,
+    27,
+    18,
+    15,
+    6
+   ],
+   "peak_live_slots": 55,
+   "n_levels": 9,
+   "build_s": 0.0010549589933361858,
+   "plan_s": 0.00040346902096644044,
+   "fit": {
+    "double": {
+     "max_live": 12672,
+     "windowed": false,
+     "n_levels": 9,
+     "peak_live_slots": 55
+    },
+    "float": {
+     "max_live": 25344,
+     "windowed": false,
+     "n_levels": 9,
+     "peak_live_slots": 55
+    }
+   }
+  },
+  "fkhess": {
+   "n_instr": 318,
+   "nnz_out": 114,
+   "n_compute": 195,
+   "depth": 5,
+   "mean_width": 39.0,
+   "median_width": 36.0,
+   "max_width": 81,
+   "widths": [
+    12,
+    81,
+    54,
+    36,
+    12
+   ],
+   "peak_live_slots": 148,
+   "n_levels": 7,
+   "build_s": 0.001317087997449562,
+   "plan_s": 0.0008033299818634987,
+   "fit": {
+    "double": {
+     "max_live": 12672,
+     "windowed": false,
+     "n_levels": 7,
+     "peak_live_slots": 148
+    },
+    "float": {
+     "max_live": 25344,
+     "windowed": false,
+     "n_levels": 7,
+     "peak_live_slots": 148
+    }
+   }
+  }
+ },
+ "nq": 7,
+ "nv": 6,
+ "n_bodies": 2,
+ "wall_s": 0.2905106880061794
+}

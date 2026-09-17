@@ -1,0 +1,234 @@
+{
+  "robot": "shadow_dexee",
+  "dtype": "fp32",
+  "n_stages": 8,
+  "n_bodies": 19,
+  "nq": 12,
+  "nv": 12,
+  "batches": [
+    1,
+    4,
+    16,
+    64,
+    256,
+    1024,
+    4096,
+    16384
+  ],
+  "runs": 5,
+  "jax": "0.11.1",
+  "mujoco": "3.12.0",
+  "run": 3,
+  "results": {
+    "fk_batched": {
+      "1": 8.740596240386367e-05,
+      "4": 9.520602179691195e-05,
+      "16": 0.00011604599421843886,
+      "64": 0.00010174349881708622,
+      "256": 0.00011693753185681999,
+      "1024": 0.00019125896506011486,
+      "4096": 0.00035642299917526543,
+      "16384": 0.0011929889733437449
+    },
+    "fk_rollout": {
+      "1": null,
+      "4": null,
+      "16": null,
+      "64": null,
+      "256": null,
+      "1024": null,
+      "4096": null,
+      "16384": null
+    },
+    "fk_batched_gpu": {
+      "1": 1.9383904566267628e-05,
+      "4": 2.0394666119239962e-05,
+      "16": 3.761100499708224e-05,
+      "64": 2.386782920320317e-05,
+      "256": 4.194077395660868e-05,
+      "1024": 6.978808294972358e-05,
+      "4096": 0.00013408660066744602,
+      "16384": 0.000459912005196508
+    },
+    "jac_batched": {
+      "1": 0.00012293897452764213,
+      "4": 0.00013550248695537448,
+      "16": 0.00013829852105118334,
+      "64": 0.00013902000500820577,
+      "256": 0.0001457569596823305,
+      "1024": 0.00020947351003997028,
+      "4096": 0.0006355239893309772,
+      "16384": 0.002759984025033191
+    },
+    "jac_rollout": {
+      "1": null,
+      "4": null,
+      "16": null,
+      "64": null,
+      "256": null,
+      "1024": null,
+      "4096": null,
+      "16384": null
+    },
+    "jac_batched_gpu": {
+      "1": 5.084819110091682e-05,
+      "4": 5.629906257095012e-05,
+      "16": 5.834977140757793e-05,
+      "64": 6.15446180708931e-05,
+      "256": 7.533101524675648e-05,
+      "1024": 0.0001266864523286908,
+      "4096": 0.0003317009220917676,
+      "16384": 0.001556136288964447
+    },
+    "hess_batched": {
+      "1": 0.00018168598762713373,
+      "4": 0.0001840899931266904,
+      "16": 0.00019270149641670287,
+      "64": 0.00025861701578833163,
+      "256": 0.0005776190082542598,
+      "1024": 0.0019932715222239494,
+      "4096": 0.010907841002335772,
+      "16384": null
+    },
+    "hess_rollout": {
+      "1": null,
+      "4": null,
+      "16": null,
+      "64": null,
+      "256": null,
+      "1024": null,
+      "4096": null,
+      "16384": null
+    },
+    "hess_batched_gpu": {
+      "1": 0.0001063743240876245,
+      "4": 0.00010827480143769153,
+      "16": 0.0001292924898917595,
+      "64": 0.00017007966581427834,
+      "256": 0.00039783293959314947,
+      "1024": 0.0016069643643460045,
+      "4096": 0.00910401751504317,
+      "16384": 0.04557303993201618
+    }
+  },
+  "compile": {
+    "fk_batched": {
+      "1": 1.5254755249479786,
+      "4": 1.6991317439824343,
+      "16": 1.6693382000084966,
+      "64": 1.771438016963657,
+      "256": 1.372096904029604,
+      "1024": 1.5847797790193,
+      "4096": 1.3844303610385396,
+      "16384": 1.4421074189594947
+    },
+    "fk_rollout": {
+      "1": null,
+      "4": null,
+      "16": null,
+      "64": null,
+      "256": null,
+      "1024": null,
+      "4096": null,
+      "16384": null
+    },
+    "fk_batched_gpu": {
+      "1": 2.7426675889873877,
+      "4": 3.1087558909785002,
+      "16": 3.229858721024357,
+      "64": 3.211168756010011,
+      "256": 2.9157619189936668,
+      "1024": 2.453114921983797,
+      "4096": 2.844262655999046,
+      "16384": 2.5990207780268975
+    },
+    "jac_batched": {
+      "1": 1.957801663025748,
+      "4": 1.5721713130478747,
+      "16": 2.2487324030371383,
+      "64": 1.783445262000896,
+      "256": 1.6504628589609638,
+      "1024": 1.1406827560276724,
+      "4096": 1.3939497210085392,
+      "16384": 1.4361417170148343
+    },
+    "jac_rollout": {
+      "1": null,
+      "4": null,
+      "16": null,
+      "64": null,
+      "256": null,
+      "1024": null,
+      "4096": null,
+      "16384": null
+    },
+    "jac_batched_gpu": {
+      "1": 3.3897858199779876,
+      "4": 3.2275706009822898,
+      "16": 3.7247872640145943,
+      "64": 3.2640684609650634,
+      "256": 3.072801376983989,
+      "1024": 2.4990958200069144,
+      "4096": 2.5352907319902442,
+      "16384": 2.8577718550222926
+    },
+    "hess_batched": {
+      "1": 4.85075252095703,
+      "4": 4.425907525001094,
+      "16": 3.590775994991418,
+      "64": 4.101659348001704,
+      "256": 3.489470512024127,
+      "1024": 3.126058746012859,
+      "4096": 4.249608665006235,
+      "16384": null
+    },
+    "hess_rollout": {
+      "1": null,
+      "4": null,
+      "16": null,
+      "64": null,
+      "256": null,
+      "1024": null,
+      "4096": null,
+      "16384": null
+    },
+    "hess_batched_gpu": {
+      "1": 9.826152066991199,
+      "4": 10.639264400000684,
+      "16": 8.180053790973034,
+      "64": 7.408875597000588,
+      "256": 6.814053684007376,
+      "1024": 7.4539867009734735,
+      "4096": 8.733381361991633,
+      "16384": 17.896610580966808
+    }
+  },
+  "failed": {
+    "fk_rollout:1": "IndexError: f argument \"3\" with type \"a\" has length \"12\" which does not match the in_types[3] expected length of \"24\".",
+    "fk_rollout:4": "IndexError: f argument \"3\" with type \"a\" has length \"12\" which does not match the in_types[3] expected length of \"24\".",
+    "fk_rollout:16": "IndexError: f argument \"3\" with type \"a\" has length \"12\" which does not match the in_types[3] expected length of \"24\".",
+    "fk_rollout:64": "IndexError: f argument \"3\" with type \"a\" has length \"12\" which does not match the in_types[3] expected length of \"24\".",
+    "fk_rollout:256": "IndexError: f argument \"3\" with type \"a\" has length \"12\" which does not match the in_types[3] expected length of \"24\".",
+    "fk_rollout:1024": "IndexError: f argument \"3\" with type \"a\" has length \"12\" which does not match the in_types[3] expected length of \"24\".",
+    "fk_rollout:4096": "IndexError: f argument \"3\" with type \"a\" has length \"12\" which does not match the in_types[3] expected length of \"24\".",
+    "fk_rollout:16384": "IndexError: f argument \"3\" with type \"a\" has length \"12\" which does not match the in_types[3] expected length of \"24\".",
+    "jac_rollout:1": "IndexError: f argument \"3\" with type \"a\" has length \"12\" which does not match the in_types[3] expected length of \"24\".",
+    "jac_rollout:4": "IndexError: f argument \"3\" with type \"a\" has length \"12\" which does not match the in_types[3] expected length of \"24\".",
+    "jac_rollout:16": "IndexError: f argument \"3\" with type \"a\" has length \"12\" which does not match the in_types[3] expected length of \"24\".",
+    "jac_rollout:64": "IndexError: f argument \"3\" with type \"a\" has length \"12\" which does not match the in_types[3] expected length of \"24\".",
+    "jac_rollout:256": "IndexError: f argument \"3\" with type \"a\" has length \"12\" which does not match the in_types[3] expected length of \"24\".",
+    "jac_rollout:1024": "IndexError: f argument \"3\" with type \"a\" has length \"12\" which does not match the in_types[3] expected length of \"24\".",
+    "jac_rollout:4096": "IndexError: f argument \"3\" with type \"a\" has length \"12\" which does not match the in_types[3] expected length of \"24\".",
+    "jac_rollout:16384": "IndexError: f argument \"3\" with type \"a\" has length \"12\" which does not match the in_types[3] expected length of \"24\".",
+    "hess_batched:16384": "JaxRuntimeError: RESOURCE_EXHAUSTED: Out of memory while trying to allocate 8.02GiB with allocator GPU_0_bfc on device 0. [tf-allocator-allocation-error=''] [executable_name='jit__lambda']",
+    "hess_rollout:1": "IndexError: f argument \"3\" with type \"a\" has length \"12\" which does not match the in_types[3] expected length of \"24\".",
+    "hess_rollout:4": "IndexError: f argument \"3\" with type \"a\" has length \"12\" which does not match the in_types[3] expected length of \"24\".",
+    "hess_rollout:16": "IndexError: f argument \"3\" with type \"a\" has length \"12\" which does not match the in_types[3] expected length of \"24\".",
+    "hess_rollout:64": "IndexError: f argument \"3\" with type \"a\" has length \"12\" which does not match the in_types[3] expected length of \"24\".",
+    "hess_rollout:256": "IndexError: f argument \"3\" with type \"a\" has length \"12\" which does not match the in_types[3] expected length of \"24\".",
+    "hess_rollout:1024": "IndexError: f argument \"3\" with type \"a\" has length \"12\" which does not match the in_types[3] expected length of \"24\".",
+    "hess_rollout:4096": "IndexError: f argument \"3\" with type \"a\" has length \"12\" which does not match the in_types[3] expected length of \"24\".",
+    "hess_rollout:16384": "IndexError: f argument \"3\" with type \"a\" has length \"12\" which does not match the in_types[3] expected length of \"24\"."
+  },
+  "complete": true
+}

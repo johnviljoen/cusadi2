@@ -1,0 +1,182 @@
+{
+ "robot": "iit_softfoot",
+ "xml": "iit_softfoot/softfoot.xml",
+ "status": "ok",
+ "menagerie_head": "8161bba264d7fa7c99ca301e91e7fb44737676ad",
+ "functions": {
+  "fk": {
+   "n_instr": 3086,
+   "nnz_out": 588,
+   "n_compute": 2367,
+   "depth": 25,
+   "mean_width": 94.68,
+   "median_width": 54.0,
+   "max_width": 442,
+   "widths": [
+    184,
+    442,
+    256,
+    48,
+    54,
+    40,
+    83,
+    45,
+    105,
+    45,
+    105,
+    45,
+    105,
+    45,
+    105,
+    45,
+    105,
+    45,
+    105,
+    45,
+    105,
+    45,
+    105,
+    45,
+    15
+   ],
+   "peak_live_slots": 731,
+   "n_levels": 27,
+   "build_s": 0.5818028089997824,
+   "plan_s": 0.008721979014808312,
+   "fit": {
+    "double": {
+     "max_live": 12672,
+     "windowed": false,
+     "n_levels": 27,
+     "peak_live_slots": 731
+    },
+    "float": {
+     "max_live": 25344,
+     "windowed": false,
+     "n_levels": 27,
+     "peak_live_slots": 731
+    }
+   }
+  },
+  "fkjac": {
+   "n_instr": 34193,
+   "nnz_out": 27048,
+   "n_compute": 7019,
+   "depth": 29,
+   "mean_width": 242.0344827586207,
+   "median_width": 245.0,
+   "max_width": 516,
+   "widths": [
+    182,
+    516,
+    273,
+    54,
+    51,
+    40,
+    83,
+    45,
+    135,
+    140,
+    180,
+    195,
+    215,
+    245,
+    245,
+    295,
+    275,
+    345,
+    305,
+    395,
+    335,
+    445,
+    365,
+    495,
+    305,
+    480,
+    280,
+    95,
+    5
+   ],
+   "peak_live_slots": 2041,
+   "n_levels": 31,
+   "build_s": 0.5603402990091126,
+   "plan_s": 0.07592168397968635,
+   "fit": {
+    "double": {
+     "max_live": 12672,
+     "windowed": false,
+     "n_levels": 31,
+     "peak_live_slots": 2041
+    },
+    "float": {
+     "max_live": 25344,
+     "windowed": false,
+     "n_levels": 31,
+     "peak_live_slots": 2041
+    }
+   }
+  },
+  "fkhess": {
+   "n_instr": 88638,
+   "nnz_out": 17685,
+   "n_compute": 70842,
+   "depth": 29,
+   "mean_width": 2442.8275862068967,
+   "median_width": 1530.0,
+   "max_width": 7965,
+   "widths": [
+    364,
+    1352,
+    706,
+    128,
+    142,
+    110,
+    270,
+    215,
+    710,
+    340,
+    1165,
+    775,
+    1685,
+    1385,
+    2310,
+    2195,
+    3035,
+    3205,
+    3860,
+    4415,
+    4785,
+    5825,
+    5810,
+    7435,
+    4975,
+    7965,
+    4070,
+    1530,
+    80
+   ],
+   "peak_live_slots": 25880,
+   "n_levels": 31,
+   "build_s": 0.5638991960149724,
+   "plan_s": 0.2550766200001817,
+   "fit": {
+    "double": {
+     "max_live": 12672,
+     "windowed": true,
+     "n_levels": 78,
+     "peak_live_slots": 12015
+    },
+    "float": {
+     "max_live": 25344,
+     "windowed": true,
+     "n_levels": 49,
+     "peak_live_slots": 23832
+    }
+   }
+  }
+ },
+ "nq": 92,
+ "nv": 92,
+ "n_bodies": 50,
+ "wall_s": 3.553221965994453
+}

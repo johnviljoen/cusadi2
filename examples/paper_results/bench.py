@@ -36,14 +36,20 @@ compiles latency.cu, runs the sweep, then reruns it
 through a ctypes-loaded shared build of latency.cu timed from Python (the
 host-language-symmetric counterpart to the Python-timed MJX/warp baselines).
 Baselines run in subprocesses (jax x64 must be set before any jnp op; MJX is
-capped at B=1024 by its per-shape JIT time; warp is fp32 FK only). The CPU
+capped at B=1024 by its per-shape JIT time; warp is fp32, FK and analytical
+Jacobians, no Hessian). The CPU
 reference is CasADi's own C code generation for each per-stage function,
 compiled with gcc -O3 and timed from a small C driver: B*N problems split over
 CPU_THREADS OpenMP threads (CPU_PLOT_THREADS of them drawn; counts above the
-machine's hardware threads oversubscribe it). One-problem latency is recorded in
+machine's hardware threads oversubscribe it), in two variants. "CPU idealized"
+times the evaluation alone with the data already in host memory. "CPU transfer"
+puts the data where the GPU curves have it, in device memory, and times the
+round trip: cudaMemcpy of every input to the host (pinned), the evaluation,
+cudaMemcpy of every output back to the device (the second table of the original
+cusadi paper, at full data size). One-problem latency is recorded in
 cpu_<dtype>.json but not drawn. Plots follow.
 
-    python examples/paper_results/bench.py [--runs N] [--first-run k] [--no-baselines] [--plot]
+    python examples/paper_results/bench.py [--runs N] [--first-run k] [--no-baselines | --baselines-only] [--plot]
 
 Each run k writes results/runs/k/: latency_<dtype>.csv, latency_py_<dtype>.csv,
 compile_cusadi2_<dtype>.json, cpu_<dtype>.json, mjx_<robot>_<fpXX>.json,
@@ -207,6 +213,7 @@ def run_cusadi2(dtype, out):
         f.write("static const UnrolledFn UNROLLED[] = {\n" + "".join(
             f'    {{"{n}", {n}_unrolled_sz_w, {n}_unrolled_n_stages, {n}_unrolled_launch}},\n' for n, _ in unrolled)
             + "};\n")
+        f.write("static const char* FUNC_NAMES[] = {" + ", ".join(f'"{stem}"' for stem, _ in FUNCS) + "};\n")
 
     arch = f"-arch={gpu_arch()}"
     nvcc_unrolled_s, objs = {}, []
@@ -285,13 +292,25 @@ CPU_DRIVER = r"""// Times a CasADi-generated function over n_items problems (dis
 // split statically over n_threads OpenMP threads, each with its own work
 // vectors and output buffer: median of n_timed repetitions, us.
 //   driver <n_warm> <n_timed> <n_items> <n_threads>
+// -DTRANSFER: the data lives on the GPU. The timed region also copies every
+// input device->host (pinned) before and every output host->device after the
+// evaluation; each thread writes its items' outputs into the full host buffer.
 #include <omp.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <time.h>
 #include FN_H
 #define CAT_(a, b) a##b
 #define CAT(a, b) CAT_(a, b)
+#ifdef TRANSFER
+#include <cuda_runtime.h>
+#define CK(x) do { cudaError_t e_ = (x); if (e_ != cudaSuccess) { \
+    fprintf(stderr, "%s: %s\n", #x, cudaGetErrorString(e_)); return 1; } } while (0)
+#define HOST_ALLOC(p, bytes) CK(cudaMallocHost((void**)&(p), (bytes)))
+#else
+#define HOST_ALLOC(p, bytes) (p) = malloc(bytes)
+#endif
 static casadi_int nnz(const casadi_int* sp) {         // {nrow, ncol, 1} is compact dense
     return sp[2] == 1 ? sp[0] * sp[1] : sp[2 + sp[1]];
 }
@@ -321,12 +340,43 @@ int main(int argc, char** argv) {
     casadi_int* nin = malloc(n_in * sizeof(*nin));
     for (casadi_int i = 0; i < n_in; ++i) {
         nin[i] = nnz(CAT(FN, _sparsity_in)(i));
-        in[i] = malloc(n_items * nin[i] * sizeof(casadi_real));
+        HOST_ALLOC(in[i], n_items * nin[i] * sizeof(casadi_real));
         for (long k = 0; k < n_items * nin[i]; ++k) in[i][k] = (casadi_real)(2.0 * rand() / RAND_MAX - 1.0);
     }
+#ifdef TRANSFER
+    // Device copies of the inputs (filled once) and of the outputs; every
+    // item's outputs in one pinned host buffer per output argument.
+    casadi_real** d_in = malloc(n_in * sizeof(*d_in));
+    for (casadi_int i = 0; i < n_in; ++i) {
+        size_t bytes = n_items * nin[i] * sizeof(casadi_real);
+        CK(cudaMalloc((void**)&d_in[i], bytes));
+        CK(cudaMemcpy(d_in[i], in[i], bytes, cudaMemcpyHostToDevice));
+    }
+    casadi_real** out = malloc(n_out * sizeof(*out));
+    casadi_real** d_out = malloc(n_out * sizeof(*d_out));
+    casadi_int* nout = malloc(n_out * sizeof(*nout));
+    for (casadi_int o = 0; o < n_out; ++o) {
+        nout[o] = nnz(CAT(FN, _sparsity_out)(o));
+        HOST_ALLOC(out[o], n_items * nout[o] * sizeof(casadi_real));
+        CK(cudaMalloc((void**)&d_out[o], n_items * nout[o] * sizeof(casadi_real)));
+    }
+#define SET_RES(t, j) for (casadi_int o = 0; o < n_out; ++o) ress[t][o] = out[o] + j * nout[o];
+#define TRANSFER_IN                                                             \
+    for (casadi_int i = 0; i < n_in; ++i)                                       \
+        CK(cudaMemcpy(in[i], d_in[i], n_items * nin[i] * sizeof(casadi_real), cudaMemcpyDeviceToHost));
+#define TRANSFER_OUT                                                            \
+    for (casadi_int o = 0; o < n_out; ++o)                                      \
+        CK(cudaMemcpy(d_out[o], out[o], n_items * nout[o] * sizeof(casadi_real), cudaMemcpyHostToDevice)); \
+    CK(cudaDeviceSynchronize());
+#else
+#define SET_RES(t, j)
+#define TRANSFER_IN
+#define TRANSFER_OUT
+#endif
 #define EVAL_ONE(t, j)                                                          \
     {                                                                           \
         for (casadi_int i = 0; i < n_in; ++i) args[t][i] = in[i] + j * nin[i]; \
+        SET_RES(t, j)                                                           \
         FN(args[t], ress[t], iws[t], ws[t], 0);                                 \
     }
 #define EVAL_ALL                                                                \
@@ -336,12 +386,12 @@ int main(int argc, char** argv) {
         _Pragma("omp parallel for schedule(static)")                            \
         for (long j = 0; j < n_items; ++j) EVAL_ONE(omp_get_thread_num(), j)    \
     }
-    for (int k = 0; k < n_warm; ++k) EVAL_ALL
+    for (int k = 0; k < n_warm; ++k) { TRANSFER_IN EVAL_ALL TRANSFER_OUT }
     double* t = malloc(n_timed * sizeof(double));
     struct timespec t0, t1;
     for (int k = 0; k < n_timed; ++k) {
         clock_gettime(CLOCK_MONOTONIC, &t0);
-        EVAL_ALL
+        TRANSFER_IN EVAL_ALL TRANSFER_OUT
         clock_gettime(CLOCK_MONOTONIC, &t1);
         t[k] = (t1.tv_sec - t0.tv_sec) * 1e6 + (t1.tv_nsec - t0.tv_nsec) * 1e-3;
     }
@@ -352,17 +402,34 @@ int main(int argc, char** argv) {
 """
 
 
+def cuda_root():
+    """Toolkit root from the nvcc in use (conda's cuda-toolkit: include under targets/)."""
+    import shutil
+    nvcc = shutil.which(NVCC) or os.path.join(sys.prefix, "bin", "nvcc")     # conda env not activated
+    root = os.path.dirname(os.path.dirname(os.path.realpath(nvcc)))
+    inc = next(p for p in (os.path.join(root, "targets", "x86_64-linux", "include"), os.path.join(root, "include"))
+               if os.path.exists(os.path.join(p, "cuda_runtime.h")))
+    lib = next(p for p in (os.path.join(root, "lib"), os.path.join(root, "lib64"),
+                           os.path.join(root, "targets", "x86_64-linux", "lib"))
+               if glob.glob(os.path.join(p, "libcudart.so*")))
+    return inc, lib
+
+
 def run_cpu(dtype, out, n_timed=2000):
     """CasADi's own C codegen for each per-stage function, gcc -O3 -march=native,
     timed from C: latency_us is one problem (one instance, one stage);
     seq_us[threads][B] is B*N problems split over that many OpenMP threads, the
-    CPU counterpart of every GPU curve. compile_s is codegen + gcc."""
+    CPU counterpart of every GPU curve ("CPU idealized"); seq_transfer_us is the
+    same with the data on the GPU, device->host copy of the inputs and
+    host->device copy of the outputs inside the timed region ("CPU transfer").
+    compile_s is codegen + gcc."""
     outdir = os.path.join(BUILD, dtype, "cpu")
     os.makedirs(outdir, exist_ok=True)
     driver = os.path.join(outdir, "driver.c")
     with open(driver, "w") as f:
         f.write(CPU_DRIVER)
-    lat, seq, comp = {}, {}, {}
+    cuda_inc, cuda_lib = cuda_root()
+    lat, seq, seq_tr, comp = {}, {}, {}, {}
 
     def run(exe, n_items, threads=1):      # median us for n_items evaluations over threads
         reps = max(5, n_timed // n_items)
@@ -379,14 +446,21 @@ def run_cpu(dtype, out, n_timed=2000):
         subprocess.run([CC, "-O3", "-march=native", "-fopenmp", f"-DFN={stem}", f'-DFN_H="{stem}.h"',
                         f"-I{outdir}", driver, os.path.join(outdir, f"{stem}.c"), "-lm", "-o", exe], check=True)
         comp[stem] = time.perf_counter() - t0
+        exe_tr = exe + "_transfer"
+        subprocess.run([CC, "-O3", "-march=native", "-fopenmp", "-DTRANSFER", f"-DFN={stem}", f'-DFN_H="{stem}.h"',
+                        f"-I{outdir}", f"-I{cuda_inc}", driver, os.path.join(outdir, f"{stem}.c"),
+                        f"-L{cuda_lib}", "-lcudart", f"-Wl,-rpath,{cuda_lib}", "-lm", "-o", exe_tr], check=True)
         lat[stem] = run(exe, 1)
         seq[stem] = {str(t): {str(B): run(exe, B * N_STAGES, t) for B in BATCHES} for t in CPU_THREADS}
+        seq_tr[stem] = {str(t): {str(B): run(exe_tr, B * N_STAGES, t) for B in BATCHES} for t in CPU_THREADS}
         print(f"  {stem}: {lat[stem]:6.2f} us/problem   codegen + gcc {comp[stem]:4.1f} s   B=16384: "
-              + "  ".join(f"{t}thr {seq[stem][str(t)]['16384'] / 1e3:7.1f} ms" for t in CPU_THREADS))
+              + "  ".join(f"{t}thr {seq[stem][str(t)]['16384'] / 1e3:7.1f} ms" for t in CPU_THREADS)
+              + "   transfer: "
+              + "  ".join(f"{t}thr {seq_tr[stem][str(t)]['16384'] / 1e3:7.1f} ms" for t in CPU_THREADS))
     cpu = next((l.split(":", 1)[1].strip() for l in open("/proc/cpuinfo") if l.startswith("model name")), "")
     with open(os.path.join(out, f"cpu_{dtype}.json"), "w") as f:
         json.dump({"dtype": dtype, "cpu": cpu, "threads": os.cpu_count(), "latency_us": lat,
-                   "seq_us": seq, "compile_s": comp}, f, indent=2)
+                   "seq_us": seq, "seq_transfer_us": seq_tr, "compile_s": comp}, f, indent=2)
 
 
 # ---------------------------------------------------------------------------
@@ -404,8 +478,24 @@ def _median_wall(fn, n_warmup, n_evals, sync):
     return float(np.median(s))
 
 
+def _disable_contacts_and_constraints(m):
+    """Fair-comparison model setup for both baselines: no contact detection and no
+    constraint solver. mjDSBL_CONTACT skips MJX's collision driver and contact
+    rows (ncon = 0); mjDSBL_CONSTRAINT makes make_constraint produce zero rows,
+    so mjx.forward returns qacc_smooth without tracing solver.solve at all (the
+    friction cone, joint limits and equality constraints enter no code path).
+    The rollout's mjx.step is smooth dynamics + kinematics, like the cusadi2 side."""
+    import mujoco
+    m.geom_contype[:] = 0
+    m.geom_conaffinity[:] = 0
+    m.opt.disableflags |= mujoco.mjtDisableBit.mjDSBL_CONTACT | mujoco.mjtDisableBit.mjDSBL_CONSTRAINT
+    m.opt.noslip_iterations = 0     # meaningless without constraints; mujoco-warp's put_model rejects it otherwise
+
+
 def run_mjx(robot, fp):
-    """Two MJX curves per quantity, both doing B*N evaluations at plotted B:
+    """Two MJX curves per quantity (fk; jac = MuJoCo's analytical body Jacobian,
+    mjx.jac; hess = exact forward-mode AD of it, no finite differences; contact
+    detection and the constraint solver disabled), both doing B*N evaluations at plotted B:
     *_batched (vmap over B*N configs, one jit) and *_rollout (vmap over B,
     lax.scan over N mjx.step()s; includes the dynamics step). *_batched_gpu is
     the repeat-subtraction marginal GPU time per launch, overhead-free."""
@@ -416,14 +506,12 @@ def run_mjx(robot, fp):
     import numpy as np
     import mujoco
     from mujoco import mjx
-    import mujoco.mjx._src.support as support
     from robot_descriptions.loaders.mujoco import load_robot_description
     from functools import partial
 
     dtype = jnp.float64 if fp == "fp64" else jnp.float32
     m = load_robot_description(ROBOTS[robot][1])
-    m.geom_contype[:] = 0
-    m.geom_conaffinity[:] = 0
+    _disable_contacts_and_constraints(m)
     mx, dx = mjx.put_model(m), mjx.put_data(m, mujoco.MjData(m))
     body_ids = jnp.arange(1, m.nbody)
     q0 = np.asarray(mujoco.MjData(m).qpos)
@@ -434,7 +522,7 @@ def run_mjx(robot, fp):
 
     def jac_of(d):
         def one(bid):
-            jp, jr = support.jac(mx, d, d.xpos[bid], bid)
+            jp, jr = mjx.jac(mx, d, d.xpos[bid], bid)          # MuJoCo's analytical body Jacobian (from cdof)
             return jnp.concatenate([jp.reshape(-1), jr.reshape(-1)])
         return jax.vmap(one)(body_ids).reshape(-1)
 
@@ -444,10 +532,18 @@ def run_mjx(robot, fp):
     def hess_of(d):                        # d/dq of the stacked body Jacobians (forward mode: nq inputs)
         return jax.jacfwd(lambda q: jac_of(kin(q)))(d.qpos).reshape(-1)
 
+    def _same_types(new, old):
+        """mjx.step widens some int fields under x64 (tendon wrap addresses, int32 ->
+        int64), which lax.scan rejects as a carry-type mismatch on models with tendons
+        at fp64; cast the step's output back to the carry's dtypes (no-op otherwise)."""
+        return jax.tree_util.tree_map(
+            lambda n, o: n.astype(o.dtype) if hasattr(n, "dtype") and hasattr(o, "dtype") and n.dtype != o.dtype else n,
+            new, old)
+
     def make_rollout(of):
         def roll(q):
             def step(d, _):
-                d = mjx.step(mx, d)
+                d = _same_types(mjx.step(mx, d), d)
                 return d, of(d)
             return jax.lax.scan(step, dx.replace(qpos=q), None, length=N_STAGES)[1]
         return jax.jit(jax.vmap(roll))
@@ -502,7 +598,11 @@ def run_mjx(robot, fp):
 
 
 def run_warp(robot):
-    """mujoco-warp FK over nworld = B*N worlds. fp32 only, no autodiff."""
+    """mujoco-warp over nworld = B*N worlds, fp32 only: fk (mjw.kinematics) and
+    jac (kinematics + com_pos + mjw.jac per body: warp's analytical body Jacobian
+    from cdof, one launch per body over all worlds into (nworld, 3, nv) buffers).
+    No autodiff in warp, so no Hessian. Kernels are shape-generic: compile once
+    per series (cold cache, timed)."""
     import numpy as np
     import warp as wp
     import mujoco
@@ -514,33 +614,50 @@ def run_warp(robot):
     except Exception:
         pass
     m = load_robot_description(ROBOTS[robot][1])
-    m.geom_contype[:] = 0
-    m.geom_conaffinity[:] = 0
+    _disable_contacts_and_constraints(m)
+    body_ids = list(range(1, m.nbody))
     mjw_m = mjw.put_model(m)
     rng = np.random.default_rng(0)
     q0 = np.asarray(mujoco.MjData(m).qpos)
-    results, compile_once = {"fk": {}}, None
+    results, compile_once = {"fk": {}, "jac": {}}, {"fk": None, "jac": None}
+
+    def sync(_=None):
+        wp.synchronize_device("cuda:0")
+
     for B in MJX_BATCHES:
         nworld = B * N_STAGES
-        try:
-            mjw_d = mjw.put_data(m, mujoco.MjData(m), nworld=nworld)
-            qpos = (rng.normal(0.0, 0.3, size=(nworld, m.nq)) + q0).astype(np.float32)
-            mjw_d.qpos = wp.from_numpy(qpos, dtype=wp.float32, device="cuda:0")
-            t0 = time.perf_counter()
-            mjw.kinematics(mjw_m, mjw_d)
-            wp.synchronize_device("cuda:0")
-            if compile_once is None:
-                compile_once = time.perf_counter() - t0
-            med = _median_wall(lambda: mjw.kinematics(mjw_m, mjw_d), MJX_N_WARMUP, MJX_N_EVALS,
-                               lambda _: wp.synchronize_device("cuda:0"))
-            results["fk"][str(B)] = med
-            print(f"[mjw]   fk B={B:6d} (nworld={nworld}): {med * 1e6:9.1f} us")
-        except Exception as e:
-            results["fk"][str(B)] = None
-            print(f"[mjw]   fk B={B:6d}: FAILED ({repr(e)[:70]})")
+        for key in ("fk", "jac"):
+            try:
+                mjw_d = mjw.put_data(m, mujoco.MjData(m), nworld=nworld)
+                qpos = (rng.normal(0.0, 0.3, size=(nworld, m.nq)) + q0).astype(np.float32)
+                mjw_d.qpos = wp.from_numpy(qpos, dtype=wp.float32, device="cuda:0")
+                if key == "fk":
+                    def fn():
+                        mjw.kinematics(mjw_m, mjw_d)
+                else:
+                    bodies = [wp.full(nworld, bid, dtype=int, device="cuda:0") for bid in body_ids]
+                    jacp = [wp.zeros((nworld, 3, m.nv), dtype=float, device="cuda:0") for _ in body_ids]
+                    jacr = [wp.zeros((nworld, 3, m.nv), dtype=float, device="cuda:0") for _ in body_ids]
+
+                    def fn():
+                        mjw.kinematics(mjw_m, mjw_d)
+                        mjw.com_pos(mjw_m, mjw_d)
+                        for i, bid in enumerate(body_ids):
+                            mjw.jac(mjw_m, mjw_d, jacp[i], jacr[i], mjw_d.xpos[:, bid], bodies[i])
+                t0 = time.perf_counter()
+                fn(); sync()
+                if compile_once[key] is None:
+                    compile_once[key] = time.perf_counter() - t0
+                med = _median_wall(fn, MJX_N_WARMUP, MJX_N_EVALS, sync)
+                results[key][str(B)] = med
+                print(f"[mjw]   {key:3s} B={B:6d} (nworld={nworld}): {med * 1e6:9.1f} us")
+                del mjw_d
+            except Exception as e:
+                results[key][str(B)] = None
+                print(f"[mjw]   {key:3s} B={B:6d}: FAILED ({repr(e)[:70]})")
     return {"robot": robot, "backend": "mujoco_warp", "dtype": "fp32", "n_stages": N_STAGES,
             "nq": int(m.nq), "nv": int(m.nv), "batches": MJX_BATCHES, "results": results,
-            "compile_once_s": compile_once}
+            "compile_once_s": compile_once["fk"], "compile_jac_once_s": compile_once["jac"]}
 
 
 # ---------------------------------------------------------------------------
@@ -607,13 +724,16 @@ def _line(ax, s, **kw):
 
 
 def _cpu_line(ax, dtype, func, per_eval=False):
-    """CasADi C codegen on the CPU: one line per thread count in CPU_PLOT_THREADS."""
+    """CasADi C codegen on the CPU, idealized (data in host memory) and with the
+    GPU->CPU->GPU transfer: one line each per thread count in CPU_PLOT_THREADS."""
     cpu = _jsons(f"cpu_{dtype}.json")
     styles = ["-", "--", "-.", ":"]
     for n, thr in enumerate(CPU_PLOT_THREADS):
-        _line(ax, _stat(_merge(cpu, "seq_us", func, str(thr)), 1e3 if per_eval else 1.0, per_eval),
-              marker="*", ms=7, color="gold", markeredgecolor="black", ls=styles[n % 4], lw=1.5,
-              label=f"CasADi C codegen, CPU, B·N over {thr} threads")
+        for key, color, label in (("seq_us", "gold", "CPU idealized"),
+                                  ("seq_transfer_us", "#8c564b", "CPU transfer (GPU→CPU→GPU)")):
+            _line(ax, _stat(_merge(cpu, key, func, str(thr)), 1e3 if per_eval else 1.0, per_eval),
+                  marker="*", ms=7, color=color, markeredgecolor="black", ls=styles[n % 4], lw=1.5,
+                  label=f"CasADi C codegen, {label}, B·N over {thr} threads")
 
 
 def _figure(dtype, ylabel, title, name, draw):
@@ -657,8 +777,8 @@ def plot_latency(dtype):
                                     ("rollout", ":", "^", "MJX rollout, N steps")):
             _line(ax, _stat(_merge(mjx, "results", f"{kind}_{suffix}"), 1e6), marker=mk, ms=4, color="black",
                   ls=ls, label=f"{lab} ({fp})")
-        if kind == "fk" and fp == "fp32":
-            _line(ax, _stat(_merge(_jsons(f"warp_{robot}.json"), "results", "fk"), 1e6), marker="D", ms=4,
+        if kind in ("fk", "jac") and fp == "fp32":            # warp: fp32, no autodiff -> fk and analytical jac
+            _line(ax, _stat(_merge(_jsons(f"warp_{robot}.json"), "results", kind), 1e6), marker="D", ms=4,
                   color="#9467bd", ls="-.", label="mujoco-warp (fp32)")
         _cpu_line(ax, dtype, func)
         if py and func == FUNCS[0][0]:
@@ -699,8 +819,9 @@ def plot_compile(dtype):
         for suffix, ls, mk, lab in (("batched", "--", "s", "MJX batched"), ("rollout", ":", "^", "MJX rollout")):
             _line(ax, _stat(_merge(mjx, "compile", f"{kind}_{suffix}")), color="black", ls=ls, marker=mk, ms=4,
                   label=f"{lab} JIT ({fp})")
-        if kind == "fk" and fp == "fp32":
-            w = [j["compile_once_s"] for j in _jsons(f"warp_{robot}.json") if j.get("compile_once_s")]
+        if kind in ("fk", "jac") and fp == "fp32":
+            ck = "compile_once_s" if kind == "fk" else "compile_jac_once_s"
+            w = [j[ck] for j in _jsons(f"warp_{robot}.json") if j.get(ck)]
             _line(ax, _stat(flat(w)), color="#9467bd", ls="-.", lw=2, label="mujoco-warp (once, fp32)")
         _line(ax, _stat({"1": [c["compile_s"][func] for c in _jsons(f"cpu_{dtype}.json") if func in c["compile_s"]]}),
               marker="*", ms=13, color="gold", markeredgecolor="black", ls="none", label="CasADi C codegen + gcc, CPU")
@@ -715,6 +836,9 @@ def main():
     ap.add_argument("--no-baselines", action="store_true", help="skip the MJX and mujoco-warp runs")
     ap.add_argument("--plot", action="store_true", help="only re-plot existing results")
     ap.add_argument("--cpu", action="store_true", help="only run the CPU reference, then plot")
+    ap.add_argument("--no-cpu", action="store_true", help="skip the CPU reference (keep existing cpu_<dtype>.json)")
+    ap.add_argument("--baselines-only", action="store_true",
+                    help="only the MJX and mujoco-warp runs (keep existing cusadi2 + CPU results), then plot")
     ap.add_argument("--pylib", action="store_true", help="(internal) Python-timed cusadi2 sweep")
     ap.add_argument("--mjx", action="store_true", help="(internal) MJX baseline")
     ap.add_argument("--warp", action="store_true", help="(internal) mujoco-warp baseline")
@@ -737,9 +861,10 @@ def main():
         os.makedirs(out, exist_ok=True)
         print(f"##### run {k + 1} / {args.runs} -> {out}")
         for dtype in DTYPES:
-            if not args.cpu:
+            if not (args.cpu or args.baselines_only):
                 run_cusadi2(dtype, out)
-            run_cpu(dtype, out)
+            if not (args.no_cpu or args.baselines_only):
+                run_cpu(dtype, out)
         if not (args.cpu or args.no_baselines):
             env = dict(os.environ, CUDA_VISIBLE_DEVICES=DEVICE, XLA_PYTHON_CLIENT_PREALLOCATE="false")
             for robot in ROBOTS:

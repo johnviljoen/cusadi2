@@ -1,0 +1,176 @@
+{
+  "robot": "franka_fr3",
+  "xml": "franka_fr3/fr3.xml",
+  "menagerie_commit": "8161bba264d7fa7c99ca301e91e7fb44737676ad",
+  "manifest_commit": "8161bba264d7fa7c99ca301e91e7fb44737676ad",
+  "gate": {
+    "status": "pass",
+    "reason": null,
+    "nq": 7,
+    "nv": 7,
+    "n_bodies": 9,
+    "n_bodies_unnamed": 0,
+    "floating": false,
+    "fk_max_err": 7.216449660063518e-15,
+    "root_corr": false,
+    "preproc": {
+      "includes_flattened": false,
+      "multitree_wrapped": false,
+      "anchors_fixed": 0
+    }
+  },
+  "stages": {
+    "gate": {
+      "status": "pass",
+      "cached": true,
+      "seconds": 0
+    },
+    "compile_double": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 0.98,
+      "cached": true
+    },
+    "compile_float": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 1.02,
+      "cached": true
+    },
+    "mjx_fp64": {
+      "status": "pass",
+      "cached": true
+    },
+    "mjx_fp32": {
+      "status": "pass",
+      "cached": true
+    },
+    "warp": {
+      "status": "pass",
+      "cached": true
+    },
+    "plot": {
+      "status": "pass",
+      "seconds": 6.87
+    },
+    "cpu_compile_double": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 3.42,
+      "cached": false
+    },
+    "cpu_compile_float": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 3.35,
+      "cached": false
+    }
+  },
+  "runs": {
+    "0": {
+      "double": {
+        "status": "pass",
+        "seconds": 5.5
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 3.5
+      }
+    },
+    "1": {
+      "double": {
+        "status": "pass",
+        "seconds": 5.5
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 3.6
+      }
+    },
+    "2": {
+      "double": {
+        "status": "pass",
+        "seconds": 5.5
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 3.5
+      }
+    },
+    "3": {
+      "double": {
+        "status": "pass",
+        "seconds": 5.5
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 3.5
+      }
+    },
+    "4": {
+      "double": {
+        "status": "pass",
+        "seconds": 5.5
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 3.5
+      }
+    }
+  },
+  "complete": true,
+  "n_runs": 5,
+  "finished_at": "2026-09-15 19:24:51",
+  "cpu_runs": {
+    "0": {
+      "double": {
+        "status": "pass",
+        "seconds": 23.8
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 20.37
+      }
+    },
+    "1": {
+      "double": {
+        "status": "pass",
+        "seconds": 23.87
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 20.38
+      }
+    },
+    "2": {
+      "double": {
+        "status": "pass",
+        "seconds": 23.85
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 20.37
+      }
+    },
+    "3": {
+      "double": {
+        "status": "pass",
+        "seconds": 23.77
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 20.23
+      }
+    },
+    "4": {
+      "double": {
+        "status": "pass",
+        "seconds": 23.79
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 20.39
+      }
+    }
+  }
+}

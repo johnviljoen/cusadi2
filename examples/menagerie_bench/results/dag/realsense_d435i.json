@@ -1,0 +1,5 @@
+{
+ "robot": "realsense_d435i",
+ "status": "skip",
+ "reason": "manifest: zero_dof_camera"
+}

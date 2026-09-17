@@ -1,0 +1,55 @@
+{
+  "robot": "ms_human_700",
+  "backend": "mujoco_warp",
+  "dtype": "fp32",
+  "n_stages": 8,
+  "nq": 85,
+  "nv": 85,
+  "n_bodies": 80,
+  "batches": [
+    1,
+    4,
+    16,
+    64,
+    256,
+    1024,
+    4096,
+    16384
+  ],
+  "runs": 5,
+  "compile_once_s": 0.9455519579350948,
+  "compile_jac_once_s": 0.06547798204701394,
+  "warp": "1.17.0",
+  "actuators_stripped": null,
+  "run": 1,
+  "results": {
+    "fk": {
+      "1": 0.00014918844681233168,
+      "4": 0.00015570147661492229,
+      "16": 0.00018053303938359022,
+      "64": 0.0002768365084193647,
+      "256": 0.0007933980086818337,
+      "1024": 0.0027269545244053006,
+      "4096": null,
+      "16384": null
+    },
+    "jac": {
+      "1": 0.003833769529592246,
+      "4": 0.003823424514848739,
+      "16": 0.0037710199831053615,
+      "64": 0.003884761536028236,
+      "256": 0.003814332536421716,
+      "1024": 0.00536257098428905,
+      "4096": null,
+      "16384": null
+    }
+  },
+  "compile": {},
+  "failed": {
+    "fk:4096": "RuntimeError: Failed to allocate 31850496 bytes on device 'cuda:0'",
+    "jac:4096": "RuntimeError: Failed to allocate 31850496 bytes on device 'cuda:0'",
+    "fk:16384": "process died on this shape (earlyoom kill or hung on VRAM): skipped",
+    "jac:16384": "process died on this shape (earlyoom kill or hung on VRAM): skipped"
+  },
+  "complete": true
+}

@@ -1,0 +1,178 @@
+{
+  "robot": "robotiq_2f85_v4",
+  "xml": "robotiq_2f85_v4/2f85.xml",
+  "menagerie_commit": "8161bba264d7fa7c99ca301e91e7fb44737676ad",
+  "manifest_commit": "8161bba264d7fa7c99ca301e91e7fb44737676ad",
+  "gate": {
+    "status": "pass",
+    "reason": null,
+    "nq": 6,
+    "nv": 6,
+    "n_bodies": 11,
+    "n_bodies_unnamed": 0,
+    "floating": false,
+    "fk_max_err": 2.220446049250313e-15,
+    "root_corr": false,
+    "preproc": {
+      "includes_flattened": false,
+      "multitree_wrapped": false,
+      "anchors_fixed": 0
+    }
+  },
+  "stages": {
+    "gate": {
+      "status": "pass",
+      "cached": true,
+      "seconds": 0
+    },
+    "compile_double": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 0.55,
+      "cached": true
+    },
+    "compile_float": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 0.54,
+      "cached": true
+    },
+    "mjx_fp64": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 1364.39,
+      "attempts": 1
+    },
+    "mjx_fp32": {
+      "status": "pass",
+      "cached": true
+    },
+    "warp": {
+      "status": "pass",
+      "cached": true
+    },
+    "plot": {
+      "status": "pass",
+      "seconds": 6.86
+    },
+    "cpu_compile_double": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 2.34,
+      "cached": false
+    },
+    "cpu_compile_float": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 2.33,
+      "cached": false
+    }
+  },
+  "runs": {
+    "0": {
+      "double": {
+        "status": "pass",
+        "seconds": 1.8
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 1.6
+      }
+    },
+    "1": {
+      "double": {
+        "status": "pass",
+        "seconds": 1.8
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 1.6
+      }
+    },
+    "2": {
+      "double": {
+        "status": "pass",
+        "seconds": 1.8
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 1.5
+      }
+    },
+    "3": {
+      "double": {
+        "status": "pass",
+        "seconds": 1.8
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 1.6
+      }
+    },
+    "4": {
+      "double": {
+        "status": "pass",
+        "seconds": 1.8
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 1.5
+      }
+    }
+  },
+  "complete": true,
+  "n_runs": 5,
+  "finished_at": "2026-09-15 19:27:28",
+  "cpu_runs": {
+    "0": {
+      "double": {
+        "status": "pass",
+        "seconds": 20.38
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 18.18
+      }
+    },
+    "1": {
+      "double": {
+        "status": "pass",
+        "seconds": 20.32
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 18.1
+      }
+    },
+    "2": {
+      "double": {
+        "status": "pass",
+        "seconds": 20.29
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 18.01
+      }
+    },
+    "3": {
+      "double": {
+        "status": "pass",
+        "seconds": 20.25
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 17.96
+      }
+    },
+    "4": {
+      "double": {
+        "status": "pass",
+        "seconds": 20.4
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 18.12
+      }
+    }
+  }
+}

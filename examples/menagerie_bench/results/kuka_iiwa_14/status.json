@@ -1,0 +1,176 @@
+{
+  "robot": "kuka_iiwa_14",
+  "xml": "kuka_iiwa_14/iiwa14.xml",
+  "menagerie_commit": "8161bba264d7fa7c99ca301e91e7fb44737676ad",
+  "manifest_commit": "8161bba264d7fa7c99ca301e91e7fb44737676ad",
+  "gate": {
+    "status": "pass",
+    "reason": null,
+    "nq": 7,
+    "nv": 7,
+    "n_bodies": 8,
+    "n_bodies_unnamed": 0,
+    "floating": false,
+    "fk_max_err": 1.887379141862766e-14,
+    "root_corr": false,
+    "preproc": {
+      "includes_flattened": false,
+      "multitree_wrapped": false,
+      "anchors_fixed": 0
+    }
+  },
+  "stages": {
+    "gate": {
+      "status": "pass",
+      "cached": true,
+      "seconds": 0
+    },
+    "compile_double": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 0.81,
+      "cached": true
+    },
+    "compile_float": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 0.81,
+      "cached": true
+    },
+    "mjx_fp64": {
+      "status": "pass",
+      "cached": true
+    },
+    "mjx_fp32": {
+      "status": "pass",
+      "cached": true
+    },
+    "warp": {
+      "status": "pass",
+      "cached": true
+    },
+    "plot": {
+      "status": "pass",
+      "seconds": 6.73
+    },
+    "cpu_compile_double": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 3.4,
+      "cached": false
+    },
+    "cpu_compile_float": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 3.35,
+      "cached": false
+    }
+  },
+  "runs": {
+    "0": {
+      "double": {
+        "status": "pass",
+        "seconds": 5.8
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 3.8
+      }
+    },
+    "1": {
+      "double": {
+        "status": "pass",
+        "seconds": 5.8
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 3.8
+      }
+    },
+    "2": {
+      "double": {
+        "status": "pass",
+        "seconds": 5.8
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 3.8
+      }
+    },
+    "3": {
+      "double": {
+        "status": "pass",
+        "seconds": 5.9
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 3.8
+      }
+    },
+    "4": {
+      "double": {
+        "status": "pass",
+        "seconds": 5.9
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 3.8
+      }
+    }
+  },
+  "complete": true,
+  "n_runs": 5,
+  "finished_at": "2026-09-15 19:25:59",
+  "cpu_runs": {
+    "0": {
+      "double": {
+        "status": "pass",
+        "seconds": 23.58
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 20.44
+      }
+    },
+    "1": {
+      "double": {
+        "status": "pass",
+        "seconds": 23.66
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 20.35
+      }
+    },
+    "2": {
+      "double": {
+        "status": "pass",
+        "seconds": 23.64
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 20.27
+      }
+    },
+    "3": {
+      "double": {
+        "status": "pass",
+        "seconds": 23.54
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 20.35
+      }
+    },
+    "4": {
+      "double": {
+        "status": "pass",
+        "seconds": 23.68
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 20.19
+      }
+    }
+  }
+}
