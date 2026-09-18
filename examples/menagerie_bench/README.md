@@ -179,14 +179,17 @@ An alternate manifest can be supplied with `--manifest PATH` or
 
 ## Orchestration, resumability, timeouts
 
-Robots run **sequentially**; each robot's stages run as **subprocesses** so a
-segfault/OOM in one stage is a recorded failure, not a campaign abort:
+The campaign runs in **phases** over all robots (gate, nvcc compile, CPU
+compile, GPU sweeps, CPU runs, baselines, plots): compiles go through a pool of
+`--jobs` subprocesses, everything that times the GPU runs **sequentially**.
+Stages run as **subprocesses** so a segfault/OOM in one stage is a recorded
+failure, not a campaign abort:
 
 | stage             | subprocess                                   | writes |
 |-------------------|----------------------------------------------|--------|
 | `gate`            | `run.py --gate --robot R`                    | `build/<R>/gate.json` → `status.json` |
-| `cusadi_<dtype>`  | `run.py --cusadi --robot R --dtype D`        | plans + `latency` binary in `build/<R>/<D>/`, `latency_<D>.csv`, `compile_cusadi2_<D>.json` |
-| `pylib_<dtype>`   | `run.py --pylib --dtype fpXX --lib ... `     | `latency_py_<D>.csv` (ctypes-hosted twin sweep) |
+| `compile_<dtype>` | `run.py --compile --robot R --dtype D`       | plans + `latency` binary in `build/<R>/<D>/`, `compile_cusadi2_<D>.json` |
+| sweep, per run k  | in-process `latency` binary, then `run.py --pylib --dtype fpXX --lib ... ` | `runs/<k>/latency_<D>.csv`, `runs/<k>/latency_py_<D>.csv` (ctypes-hosted twin sweep) |
 | `cpu_compile_<dtype>` | `run.py --cpu-compile --robot R --dtype D` | CasADi C codegen + gcc of the paper's CPU driver (`<stem>`, `<stem>_transfer`) in `build/<R>/<D>/cpu/`, `cpu_compile_<D>.json` |
 | `cpu_runs`        | in-process, sequential, per run k            | `runs/<k>/cpu_<D>.json` (paper_results' `run_cpu` schema) |
 | `mjx_<fpXX>`      | `run.py --mjx --robot R --dtype fpXX --runs K` | `runs/<k>/mjx_<fpXX>.json` (K files, one per timing pass) |
@@ -305,7 +308,7 @@ with `--summarize`), in `results/`:
   plan at this GPU's shared-memory limit), one subprocess per robot, cached in
   `results/dag/<robot>.json`; `paper_results/dag_shape.py` draws it.
 - `run.py` — orchestrator + all subprocess stage entrypoints
-  (`--gate/--cusadi/--pylib/--mjx/--warp/--summarize`). The MJX / warp / pylib
+  (`--gate/--compile/--cpu-compile/--pylib/--mjx/--warp/--summarize`). The MJX / warp / pylib
   benchmark bodies are verbatim from paper_results, parameterized by robot.
 - `model.py` — MJCF loading for both backends, qpos index map, root-placement
   correction, CasADi FK / frame-Jacobian / frame-Hessian builders, horizon

@@ -9,8 +9,9 @@ op(a, b) expressions; the interpreter loop does those moves.
 
 Coverage is every scalar op an SX instruction stream can carry: CasADi's ids
 0..43 and the five later scalar additions (ERFINV, LOG1P, EXPM1, HYPOT,
-REMAINDER; ids above OP_OUTPUT). The rest of calculus.hpp is MX-level
-(matrix ops, calls, PRINTME) and never reaches a stream; ``dag._instructions``
+REMAINDER; ids above OP_OUTPUT). The rest of calculus.hpp is MX-level (matrix
+ops, calls) and never reaches a stream, except PRINTME, which an SX stream can
+carry and the kernel has no case for; ``dag._check_op`` (both extractors)
 rejects anything outside SUPPORTED_OPS at extraction, since the kernel cannot
 check op ids at runtime.
 

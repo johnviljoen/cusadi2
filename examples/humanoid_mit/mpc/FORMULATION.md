@@ -244,8 +244,9 @@ instance (the original CusADi execution model):
 | `ADMM_step` | $(\tilde x, \nu, x, y, z, l_s, u_s, \alpha, \bar\rho) \to (x, y, z)$ | 16,725 |
 
 In the results table the "cusadi" column keeps the first, second, fourth and
-sixth of these (working sets 542 KB, 330 KB, 35 KB, 53 KB) and replaces the
-two LDL functions by cuDSS; the symbolic-LDL variant is also measured
+sixth of these (working sets 542 KB, 330 KB, 35 KB, 53 KB; the first two ran
+in cusadi2's serial kernel, the last two fit shared memory and ran in its level
+kernel) and replaces the two LDL functions by cuDSS; the symbolic-LDL variant is also measured
 (872 ms at $B=1$) and kept in the raw CSVs.
 
 ## 10. The staged realisation (cusadi2 + cuDSS)

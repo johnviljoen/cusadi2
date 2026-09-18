@@ -73,4 +73,6 @@ pytest                    # host: plan verification + file round-trip; GPU: nvcc
 - `cusadi2/plan.py` — plan / reference file writers (format documented there)
 - `cusadi2/unrolled.py` — original-cusadi-style unrolled kernel emitter (baseline)
 - `cusadi2/cusadi2.h` — loader and `Program` runtime
-- `examples/paper_results/` — A1/H1 kinematics, Jacobian and Hessian latency benchmark (`bench.py`, `latency.cu`; results committed)
+- `examples/paper_results/` — A1/H1 kinematics, Jacobian and Hessian latency benchmark (`bench.py`, `latency.cu`; results committed), and the CusADi paper's KKT solves (`bench_orig.py`)
+- `examples/menagerie_bench/` — the same benchmark once per MuJoCo Menagerie robot (`run.py`; needs the Menagerie checkout at `examples/mujoco_menagerie/`)
+- `examples/humanoid_mit/` — MIT humanoid dynamics functions, and in `mpc/` a staged MPC QP solve with cuDSS in one CUDA graph

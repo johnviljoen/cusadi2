@@ -9,7 +9,7 @@ file the kernel interprets. File references are to `cusadi2/`.
 
 | axis | original cusadi | cusadi2 |
 |---|---|---|
-| NVCC compile | one `.cu` per function and horizon, minutes to hours | once per project, function-independent, about a second |
+| NVCC compile | one `.cu` per function and horizon, growing with instruction count: 1 s to 4.5 min in the benchmark (section 7) | once per project, function-independent, seconds (3.6 s with the benchmark driver and link) |
 | setup | that compile | plan extraction in Python, linear in instruction count, offline |
 | per-block shared memory | none (thread per instance, global work vector) | `peak_live_slots * sizeof(scalar)`, bounded by slot recycling and windowing |
 
@@ -114,14 +114,17 @@ levels:
 
 `max_live` (`write_plan(..., max_live=device_max_live(dtype))`) therefore
 keeps the plain plan if it fits, else takes the largest power-of-two window
-that does; it is a plan-time choice, since the footprint depends on the
-runtime scalar type. Measured on the RTX 4080 (99 KB per block, 100 KB per SM): a level costs
+that does, and raises `ValueError` if even a window of 64 does not; it is a
+plan-time choice, since the footprint depends on the runtime scalar type (a
+plan written without `max_live` is dtype-independent). Measured on the RTX 4080
+(99 KB per block, 100 KB per SM): a level costs
 0.25 to 0.4 us at batch 1, where one block runs alone; at large batch the
 footprint sets residency instead, and a window that takes the H1 Hessian from
 52 KB (one block per SM) to 22 KB (two) halves its time, while one that leaves
 residency unchanged costs 15%. The unrolled Hessians, previously unrunnable in
-level mode, fit at 77 and 57 KB and run 10x faster than the original kernel at
-batch 1, 1.3x at 16384.
+level mode, fit at 83 and 58 KB (H1 in 115 levels, A1 in 74, against 23 and 17
+unwindowed) and run 23 to 24x faster than the original-style unrolled kernel
+at batch 1, 2.6 to 3.0x at 16384 (fp64, mean of the five committed runs).
 
 ### 3.3 Block size
 
@@ -146,11 +149,12 @@ the power of two at or above the median level width, got the middle regime
 wrong: a deep, narrow plan with a large live set, the shape of a dense
 elimination, got 32 to 128 threads and 3 to 4 warps per SM.
 
-Measuring every `b` for all 15 benchmark plans (six Pinocchio functions per
-stage and unrolled, the CusADi paper's five KKT solves) on the RTX 4080: the
-rule picks the fastest block at saturation for 14 and is within 4% for the
-other; halving the barrier weight changes one pick (10% slower), doubling it
-two (3%, 1%). Against the median heuristic at 16384 to 32768 instances: 2.5x on
+The benchmark has 17 plans (six Pinocchio functions, each per stage and
+unrolled, and the CusADi paper's five KKT solves). The sweep over every `b` on
+the RTX 4080 is recorded as covering 15 of them (which two were left out is not
+recorded): the rule picks the fastest block at saturation for 14 and is within
+4% for the other; halving the barrier weight changes one pick (10% slower),
+doubling it two (3%, 1%). Against the median heuristic at 16384 to 32768 instances: 2.5x on
 the 1e4 solve, 1.3x on 1e5, 1.5x on the H1 Hessian, 1.2x on the unrolled H1
 Jacobian, nothing slower beyond noise; at batch 1 six plans gain 1.2 to 1.5x
 and two lose 3 to 4 us, where passes were traded for residency a single block
@@ -175,11 +179,17 @@ per instruction, literal constants, nonzero counts in `__constant__` memory and
 its split rule (one body up to 250k instructions, 200k chunks beyond). Against
 the original's own generator it agrees within 10% at every batch size and
 compiles in the same time (the constant-memory counts matter: as address
-literals they make ptxas 2.7x slower on 205k instructions). It pays the
+literals they make ptxas 2.7x slower on 205k instructions); that comparison was
+run outside this repo, which does not carry the original generator (figures in
+`examples/paper_results/results/orig_vs_unrolled_*.png`). It pays the
 per-function nvcc compile cusadi2 exists to avoid, and nvcc's multiply-add
 contraction moves its rounding an ulp from the interpreter's (`-fmad=false`
-restores identity). The benchmark's no-level-parallelism baseline is these
-unrolled kernels, the original cusadi itself, with its compile time measured.
+restores identity; the tests and benchmark build without it). The benchmark's
+no-level-parallelism baseline is these unrolled kernels, cusadi2's re-emission
+of the original cusadi's code, launched at 256 threads per block with their
+compile time measured; the interpreted serial mode is not benchmarked there
+(`examples/humanoid_mit/mpc` uses it for the monolithic functions that
+exceed shared memory).
 
 The level program cannot replace the stream here: level order keeps three to
 four times more values live than CasADi's (`peak_live_slots` 96 against `sz_w`
@@ -221,7 +231,12 @@ every argument, and a block size (0 unless overridden). `cusadi2.h:load_plan`
 reads it; `Program::upload` raises the shared-memory cap if the device can
 honour it and picks the block size (section 3.3); `evaluate` is one kernel
 launch with no host work, so it captures into a CUDA graph. A plan whose
-`peak_live_slots` exceeds the per-block opt-in limit still runs in serial mode.
+`peak_live_slots` exceeds the per-block opt-in limit still runs in serial mode,
+but the choice is the caller's: `upload` then leaves the cap and the block size
+(0) alone, and `evaluate` does not guard a level launch of such a plan, so
+compare `plan.shared_bytes()` with `cudaDevAttrMaxSharedMemoryPerBlockOptin`
+and call `use_serial` first (as `examples/humanoid_mit/mpc/*.cu` do), or plan
+with `max_live` so it fits.
 
 ## 6. Numerical behaviour
 
@@ -238,3 +253,35 @@ about 1e-11 near 0.5, where the CUDA library and the host verifier are exact. Ab
 magnitude, so compare relatively and sample inputs inside the function's
 domain (non-unit quaternions fed to a free-flyer Jacobian give outputs of 1e13
 and alarming absolute errors at relative 1e-14).
+
+The above is fp64. A float kernel (`write_kernel_source(dtype="float")`,
+`-DCUSADI2_SCALAR=float`) casts the plan's float64 constants at upload and uses
+the f-suffixed intrinsics throughout; the GPU self-check holds it to a relative
+1e-4 against CasADi's fp64 result (1e-9 for double). Whether that is enough is
+the function's conditioning, not the kernel: the humanoid MPC KKT, which mixes
+sigma = 1e-6 with rho = 1e2, lands 3e-2 to 9e-2 from the fp64 solution in fp32
+(`examples/humanoid_mit/mpc/README.md`).
+
+## 7. Measurements and examples
+
+Timings in this file are from an RTX 4080 (sm_89) with a Ryzen 7 5800X3D host.
+"The benchmark" is `examples/paper_results`: A1 and H1 forward kinematics, frame
+Jacobians and frame Hessians (Pinocchio), each as a per-stage plan at horizon 8
+and as a horizon-unrolled plan, plus the CusADi paper's five KKT solves
+(`bench_orig.py`), fp64 and fp32, batch 1 to 16384 (32768 for the solves),
+every plan written with `max_live=device_max_live(dtype)` and the runtime's
+block size. Its committed results (`results/runs/*`) back the compile times of
+section 1 and the unrolled-Hessian speedups of section 3.2. The other figures
+in sections 3.2 to 3.4 (op-order permutation, per-level cost, window and
+residency, the sweep over every `b`, the median-heuristic and barrier-weight
+comparisons, the comparison with the original generator) come from one-off
+experiments whose scripts and data are not in the repo.
+
+Two further examples use the same API and are not otherwise described here:
+`examples/menagerie_bench` runs the benchmark's matrix once per MuJoCo Menagerie
+robot (MJX, mujoco-warp and CasADi-C CPU baselines; timing from C++ and from
+Python through ctypes, which is a benchmark harness, not a cusadi2 Python
+runtime); `examples/humanoid_mit` times the MIT humanoid dynamics functions and,
+in `mpc/`, solves a 10-stage MPC QP with staged plans (`coupled` inputs up to
+span 2, `shared` parameters), cuDSS, and the whole solve captured in one CUDA
+graph.

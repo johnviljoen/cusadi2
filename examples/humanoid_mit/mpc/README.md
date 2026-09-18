@@ -48,10 +48,17 @@ one graph.
 
 "cusadi2" is the staged pipeline above. "cusadi" is the wip's monolithic
 whole-horizon `KKT_matrix`, `ruiz_scaling`, `KKT_vector` and `ADMM_step`
-functions run in cusadi2's serial (thread-per-instance) mode, i.e. the original
-CusADi execution model, with the same cuDSS uniform-batch factorization and
-solves (driver `mpc_mono_bench.cu`, mode `cudss`). The two columns therefore
-differ only in how the per-stage work is evaluated; the solver is identical.
+functions with the same cuDSS uniform-batch factorization and solves (driver
+`mpc_mono_bench.cu`, mode `cudss`). That mode runs a function in cusadi2's
+serial (thread-per-instance) kernel, i.e. the original CusADi execution model,
+only when its level plan does not fit shared memory: `KKT_matrix` and
+`ruiz_scaling` ran serial, `KKT_vector` and `ADMM_step` (35 and 53 KB) ran in
+the level kernel (the driver's `how` column read
+`serial/serial/cudss/level/cudss/level`). The column is therefore not a pure
+original-CusADi baseline: its assembly (97% of the B = 1 latency) is, its 25
+iterations are not. Mode `cudss_serial` runs all four serially; it has not
+been measured, as the wip functions were no longer at hand when it was added.
+The solver is identical in both columns.
 
 | B | cusadi2 latency | cusadi2 per QP | cusadi2 QP/s | cusadi latency | cusadi per QP | cusadi QP/s | ratio |
 |---|---|---|---|---|---|---|---|
@@ -102,9 +109,10 @@ Observations:
   equality rho = 1e2; the fp32 pipeline lands 3e-2 to 9e-2 from the fp64
   solution and the wip's own fp32 symbolic LDL is off by 0.47. The fp32 rows
   in the CSV are throughput-only (B = 4096: 465 ms, 113 us per QP).
-- The monolithic functions run in cusadi2's serial (thread-per-instance)
-  mode because their working sets (up to 542 KB for `KKT_matrix`) exceed
-  shared memory; the staged functions all fit (largest 64 KB).
+- The monolithic `KKT_matrix` and `ruiz_scaling` run in cusadi2's serial
+  (thread-per-instance) mode because their working sets (542 and 330 KB) exceed
+  shared memory; `KKT_vector` and `ADMM_step` fit and ran in the level kernel
+  (see above). The staged functions all fit (largest 64 KB).
 - cuDSS's default mode is not bitwise deterministic across batch members in
   its small-batch path (B < 16); every instance is therefore checked against
   the reference with a tolerance rather than for equality.
@@ -128,8 +136,8 @@ Observations:
   with `NV=$CONDA_PREFIX/lib/python3.12/site-packages/nvidia/cu13`
   (`pip install nvidia-cudss-cu13`). `CUDSS_ALLOC=pool|arena|default` picks
   the memory handler.
-- `mpc_mono_bench.cu`: the cusadi baseline driver (modes `cudss`, `c2` for
-  the symbolic LDL, `c2serial`, `orig`); same build line with
+- `mpc_mono_bench.cu`: the cusadi baseline driver (modes `cudss`,
+  `cudss_serial`, `c2` for the symbolic LDL, `c2serial`, `orig`); same build line with
   `-DNO_UNROLLED` and the plans of the wip's six functions.
 - `collect.py`: merges the driver CSVs into `results/mpc_latency.csv` and
   `results/mpc_latency.png`.
@@ -141,5 +149,6 @@ Observations:
   as fixed frames at the foot cylinder's ends (see `../README.md`).
 - The initial guess is x = 0 and the parameters are the wip defaults (nominal
   standing pose, all contacts active), the same point the wip references use.
-- The monolithic baseline's fp32 plans are the fp64 plans (plans are
-  dtype-independent), with the kernel compiled for float.
+- The monolithic baseline's fp32 plans are the fp64 plans (a plan written
+  without `max_live` is dtype-independent; one windowed to a device's shared
+  memory is not), with the kernel compiled for float.

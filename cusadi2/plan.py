@@ -40,7 +40,7 @@ only its own program.
 the kernel reads them, plus CasADi's outputs) for the GPU test; it is test data,
 not part of the plan contract:
 
-    magic "CS2R", i32 version = 1
+    magic "CS2R", i32 version = 3        (the plan VERSION; readers skip it)
     i32 n_in, n_out, n_stages
     per input  a: i32 len, f64 data[len]     (count * nnz, batch of one)
     per output a: i32 len, f64 data[len]     (n_stages * nnz)

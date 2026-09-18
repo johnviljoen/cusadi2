@@ -2,7 +2,9 @@
 
 usage: python collect.py <staged_dir> <mono_dir> [cpu_csv]
   staged_dir: holds sweep_double.csv, sweep_float.csv, probe_double.csv (mpc_cudss_bench output)
-  mono_dir:   holds mono_*.csv from mpc_mono_bench (mode cudss = the 'cusadi' baseline; KEEP_LDL=1 also lists mode c2)
+  mono_dir:   holds mono_*.csv from mpc_mono_bench (mode cudss_serial = the 'cusadi' baseline, every
+              function in the serial kernel; mode cudss, which runs the functions that fit shared memory
+              in the level kernel, is listed under its own name; KEEP_LDL=1 also lists mode c2)
 """
 import csv, glob, math, os, sys
 try:
@@ -29,8 +31,9 @@ for f in glob.glob(os.path.join(staged_dir, "*.csv")):
                          wall_us=r["wall_us"], max_abs_err=r["max_abs_err_ref"]))
 for f in glob.glob(os.path.join(mono_dir, "mpc_solve_c2_*.log")) + glob.glob(os.path.join(mono_dir, "mono_*.csv")):
     for r in read_csv(f):
-        if "kkt_us" not in r or r["mode"] not in ("cudss", "c2"): continue
-        name = "cusadi" if r["mode"] == "cudss" else "cusadi (symbolic LDL)"
+        if "kkt_us" not in r or r["mode"] not in ("cudss_serial", "cudss", "c2"): continue
+        name = {"cudss_serial": "cusadi", "cudss": "cusadi (level kernel where it fits)",
+                "c2": "cusadi (symbolic LDL)"}[r["mode"]]
         if r["mode"] == "c2" and not KEEP_LDL: continue
         for launch, tot in (("eager", r["eager_total_us"]), ("graph", r["graph_total_us"])):
             rows.append(dict(dtype=r["dtype"], system=name, launch=launch, batch=int(r["batch"]),

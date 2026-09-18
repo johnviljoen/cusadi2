@@ -21,13 +21,15 @@ What ``LevelPlan`` holds, and how the kernel consumes it:
     budget is ``peak_live_slots * sizeof(scalar)``.
 
 Two passes (``extract_level_plan``):
-  1. Longest-path level assignment on CasADi's own work slots, which preserves
-     the maximum available parallelism; optionally windowed (`window` /
+  1. SSA renaming and longest-path level assignment in one sweep of CasADi's
+     stream (``_extract_pass1``): every value gets a fresh SSA id and every
+     compute op the level one past its deepest operand, which preserves the
+     maximum available parallelism; optionally windowed (`window` /
      `max_live`) to trade levels for a smaller live set.
-  2. SSA renaming with slot recycling: every node writes a fresh slot; freed
-     slots are reused at level boundaries. This removes all write-write and
-     read-write conflicts *within* a level, so the only barrier needed is the
-     one between levels.
+  2. Slot allocation with recycling (``_compute_liveness``, ``_level_plan``):
+     SSA ids map to physical slots from a free list, a slot released one level
+     after its last read. No level both reads and writes a slot, so the only
+     barrier needed is the one between levels.
 
 ``verify_plan`` executes a plan on the host the way the kernel does (all reads
 of a level before all writes) and compares against CasADi. It is the guard for

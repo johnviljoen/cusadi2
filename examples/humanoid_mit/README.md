@@ -10,6 +10,7 @@ https://github.com/hojae-io/cusadi (branch dev_RAL2025, commit d39f08e, 2025-09-
 examples/paper_results/latency.cu. `humanoid_sweep.py` sweeps B in
 {1..16384} for `lp` (cusadi2 level kernel) vs `batch` (original cusadi
 kernel), then the CasADi-C-codegen CPU reference. Results: `humanoid_latency.csv`,
-`humanoid_cpu.json` (RTX 4080, 2026-09-07). `summarize.py` / `totals.py` print tables.
+`humanoid_cpu.json` (RTX 4080; GPU rows and `build_info/` re-measured 2026-09-17 with the
+runtime block-size rule and op-sorted levels, CPU reference from 2026-09-07). `summarize.py` / `totals.py` print tables.
 Scripts expect to run from a directory containing `humanoid_fns/`; paths to the
 cusadi2 repo are absolute (edit HERE/REPO to relocate).

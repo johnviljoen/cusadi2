@@ -28,7 +28,7 @@
 // latency_us is the cudaEvent kernel-only time; wall_us is host wall-clock around
 // launch + kernel + sync, symmetric with the MJX / mujoco-warp timing. 'nan' means
 // the case was skipped: a level-kernel plan exceeds the device per-block shared-
-// memory limit (unrolled plans without tiling) or buffers + work vectors exceed
+// memory limit (a plan written without max_live windowing) or buffers + work vectors exceed
 // ~90% of free GPU memory.
 //
 //   ./latency <plan_dir> <n_warmup> <n_timed> <B...>

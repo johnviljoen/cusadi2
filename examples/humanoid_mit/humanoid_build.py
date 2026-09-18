@@ -30,12 +30,12 @@ for dtype in ("double", "float"):
         src = cusadi2.write_unrolled_source(fn, os.path.join(unr_dir, f"{name}.cu"), dtype=dtype)
         t_unr = time.perf_counter() - t0
         p = cusadi2.read_plan(os.path.join(plan_dir, f"{name}.plan"))
-        info[name] = dict(n_instr=fn.n_instructions(), sz_w=fn.sz_w(), n_levels=p.get("n_levels"),
+        info[name] = dict(n_instr=fn.n_instructions(), sz_w=fn.sz_w(), n_levels=len(p["level_widths"]),
                           peak_live_slots=p["peak_live_slots"], block_size=p["block_size"],
                           codegen_plan_s=t_plan, codegen_unrolled_s=t_unr)
         unrolled.append((name, src))
-        print(f"[{dtype}] {name:40s} instr={fn.n_instructions():6d} levels={p.get('n_levels')} "
-              f"smem={p['peak_live_slots']*8/1024:.1f}KB block={p['block_size']} plan={t_plan:.2f}s", flush=True)
+        print(f"[{dtype}] {name:40s} instr={fn.n_instructions():6d} levels={len(p['level_widths'])} "
+              f"smem={p['peak_live_slots']*(8 if dtype == 'double' else 4)/1024:.1f}KB block={p['block_size']} plan={t_plan:.2f}s", flush=True)
     with open(os.path.join(out, "unrolled_table.h"), "w") as f:
         for n, _ in unrolled:
             f.write(f'extern "C" int {n}_unrolled_sz_w();\nextern "C" int {n}_unrolled_n_stages();\n'

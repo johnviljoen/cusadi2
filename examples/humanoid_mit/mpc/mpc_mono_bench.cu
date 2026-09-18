@@ -12,7 +12,9 @@
 // (like c2, but the symbolic LDL pair is replaced by cuDSS uniform-batch
 // factorization/solve on the Ruiz output, whose upper-triangle CCS is cuDSS's
 // lower CSR; default cuDSS pivoting/algorithms, pool memory handler so the
-// phases capture into the graph).
+// phases capture into the graph), cudss_serial (cudss with the serial kernel
+// for every function, as c2serial: the original CusADi execution model
+// throughout). The `how` column records what each function ran as.
 // Times one eager solve (sequential launches) and one CUDA-graph replay of the
 // same 79 launches; checks instance 0 against the CPU reference dx.
 //   mpc_solve_bench <plan_dir> <mode> <p_eval.f64> <dx_ref.f64> <n_warm> <n_timed> <B...>
@@ -104,7 +106,7 @@ int main(int argc, char** argv) {
         // serial scratch: sz_w * B per function is needed for one-thread-per-instance without looping
         size_t need = 0; for (int i = 0; i < 6; ++i) { Plan p = load_plan(dir + "/" + std::string(names[i]) + ".plan"); need += (size_t)p.sz_w * sizeof(S) * B; }
         if (mode != "orig" && need > 0.6 * (double)freeb) { printf("%s,%s,%d,nan,nan,nan,nan,nan,nan,oom\n", sizeof(S) == 8 ? "f64" : "f32", mode.c_str(), B); continue; }
-        const bool use_cudss = mode == "cudss";
+        const bool use_cudss = mode == "cudss" || mode == "cudss_serial";
         for (int i = 0; i < 6; ++i) {
             fn[i].name = names[i];
             if (use_cudss && (i == 2 || i == 4)) { fn[i].plan = load_plan(dir + "/" + std::string(names[i]) + ".plan"); fn[i].how = "cudss"; continue; }
