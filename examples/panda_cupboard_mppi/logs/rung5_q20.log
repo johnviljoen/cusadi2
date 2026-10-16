@@ -1,0 +1,23 @@
+<frozen importlib._bootstrap>:488: RuntimeWarning: to-Python converter for pinocchio::python::DeprecatedBool already registered; second conversion method ignored.
+cusadi2 plans safe_model (60795 nodes, 207 levels, 62016 B shared, block 1024) + safe_integrate (3204 nodes, 128 levels) | R=1 K=256 T=100 proj_iters=48 graph=1
+  start 0 t=  5.0s wall= 18.3s reach lat  5.1 cm ax 15.1 cm rot 53.3 deg x_tcp 0.596 h_min -0.0073 ours 69.99 ms
+  start 0 t= 10.0s wall= 36.7s reach lat  7.4 cm ax 13.1 cm rot 42.3 deg x_tcp 0.616 h_min -0.0073 ours 69.98 ms
+  start 0 t= 15.0s wall= 54.9s reach lat  2.9 cm ax  8.5 cm rot 23.5 deg x_tcp 0.662 h_min -0.0073 ours 69.97 ms
+start 0: NOT reached (final lat 2.9 cm, ax 8.5 cm, rot 23.5 deg, x_tcp 0.662); grasp no (contact 0.00 s, tilt 0.0 deg, moved 0.0 cm); h_min -0.0073 (slab row 125 at 2.30 s); filter active plant 100 % samples 98 %; tick 69.97 ms
+  start 1 t=  5.0s wall= 18.0s reach lat 27.1 cm ax 18.8 cm rot 27.4 deg x_tcp 0.559 h_min -0.0135 ours 69.08 ms
+  start 1 t= 10.0s wall= 36.3s reach lat 29.1 cm ax 21.5 cm rot 41.0 deg x_tcp 0.532 h_min -0.0135 ours 69.31 ms
+  start 1 t= 15.0s wall= 54.5s reach lat 29.2 cm ax 21.9 cm rot 43.5 deg x_tcp 0.528 h_min -0.0135 ours 69.63 ms
+start 1: NOT reached (final lat 29.2 cm, ax 21.9 cm, rot 43.5 deg, x_tcp 0.528); grasp no (contact 0.00 s, tilt 0.0 deg, moved 0.0 cm); h_min -0.0135 (slab row 132 at 0.98 s); filter active plant 100 % samples 86 %; tick 69.63 ms
+  start 2 t=  5.0s wall= 17.8s reach lat 41.0 cm ax 30.7 cm rot 70.5 deg x_tcp 0.440 h_min -0.0049 ours 69.39 ms
+  start 2 t= 10.0s wall= 35.6s reach lat 41.1 cm ax 29.4 cm rot 74.2 deg x_tcp 0.453 h_min -0.0049 ours 69.49 ms
+  start 2 t= 15.0s wall= 53.6s reach lat 37.4 cm ax 24.9 cm rot 68.5 deg x_tcp 0.498 h_min -0.0049 ours 69.64 ms
+start 2: NOT reached (final lat 37.4 cm, ax 24.9 cm, rot 68.5 deg, x_tcp 0.498); grasp no (contact 0.00 s, tilt 0.0 deg, moved 0.0 cm); h_min -0.0049 (slab row 139 at 1.60 s); filter active plant 100 % samples 82 %; tick 69.64 ms
+  start 3 t=  5.0s wall= 18.5s reach lat  5.3 cm ax 12.0 cm rot 34.2 deg x_tcp 0.627 h_min -0.0058 ours 71.29 ms
+  start 3 t= 10.0s wall= 37.7s reach lat  5.7 cm ax 13.8 cm rot 41.7 deg x_tcp 0.609 h_min -0.0058 ours 71.31 ms
+  start 3 t= 15.0s wall= 56.3s reach lat  4.5 cm ax 12.4 cm rot 37.9 deg x_tcp 0.623 h_min -0.0058 ours 70.85 ms
+start 3: NOT reached (final lat 4.5 cm, ax 12.4 cm, rot 37.9 deg, x_tcp 0.623); grasp no (contact 0.00 s, tilt 0.0 deg, moved 0.0 cm); h_min -0.0058 (slab row 122 at 2.74 s); filter active plant 100 % samples 95 %; tick 70.85 ms
+  start 4 t=  5.0s wall= 17.9s reach lat 30.5 cm ax 23.5 cm rot 40.3 deg x_tcp 0.512 h_min -0.0191 ours 70.00 ms
+  start 4 t= 10.0s wall= 35.8s reach lat 31.1 cm ax 23.7 cm rot 40.0 deg x_tcp 0.510 h_min -0.0191 ours 70.00 ms
+  start 4 t= 15.0s wall= 53.7s reach lat 30.6 cm ax 23.6 cm rot 39.2 deg x_tcp 0.511 h_min -0.0191 ours 70.00 ms
+start 4: NOT reached (final lat 30.6 cm, ax 23.6 cm, rot 39.2 deg, x_tcp 0.511); grasp no (contact 0.00 s, tilt 0.0 deg, moved 0.0 cm); h_min -0.0191 (slab row 122 at 0.78 s); filter active plant 100 % samples 97 %; tick 70.00 ms
+rung5_q20: reached 0/5, grasped 0/5, h_min -0.0191

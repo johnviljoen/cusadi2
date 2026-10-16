@@ -1,0 +1,122 @@
+== verify
+<frozen importlib._bootstrap>:488: RuntimeWarning: to-Python converter for pinocchio::python::DeprecatedBool already registered; second conversion method ignored.
+casadi step: {'T': 20, 'dt': 0.02, 'proj_rounds': 3, 'n_cbf': 64, 'sx_nodes': 48426} (0.6 s)
+Traceback (most recent call last):
+  File "/home/jovi/code/cusecmpc/cusadi2/examples/panda_safe_mppi/verify.py", line 33, in <module>
+    x1_f, u_f = [np.asarray(a) for a in step_j(X, Y, RP, PAR)]
+                                        ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jovi/code/cusecmpc/cusadi2/examples/panda_safe_mppi/frax_model.py", line 102, in step
+    u = self.project(u_nom, A, b)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jovi/code/cusecmpc/cusadi2/examples/panda_safe_mppi/frax_model.py", line 85, in project
+    uS, ok = cand(S)
+             ^^^^^^^
+  File "/home/jovi/code/cusecmpc/cusadi2/examples/panda_safe_mppi/frax_model.py", line 74, in cand
+    uS = u - lam @ a[S]
+                   ~^^^
+  File "/home/jovi/miniconda3/envs/cusadi2/lib/python3.12/site-packages/jax/_src/numpy/array_methods.py", line 1532, in op
+    return getattr(self.aval, f"_{name}")(self, *args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jovi/miniconda3/envs/cusadi2/lib/python3.12/site-packages/jax/_src/numpy/array_methods.py", line 1032, in _getitem
+    return indexing.rewriting_take(self, item)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jovi/miniconda3/envs/cusadi2/lib/python3.12/site-packages/jax/_src/numpy/indexing.py", line 1099, in rewriting_take
+    indexer = NDIndexer.from_raw_indices(idx, arr.shape)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jovi/miniconda3/envs/cusadi2/lib/python3.12/site-packages/jax/_src/numpy/indexing.py", line 197, in from_raw_indices
+    indices = eliminate_deprecated_list_indexing(indices)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jovi/miniconda3/envs/cusadi2/lib/python3.12/site-packages/jax/_src/numpy/indexing.py", line 1524, in eliminate_deprecated_list_indexing
+    raise TypeError(msg)
+TypeError: Using a non-tuple sequence for multidimensional indexing is not allowed; use `arr[array(seq)]` instead of `arr[seq]`. See https://github.com/jax-ml/jax/issues/4564 for more information.
+--------------------
+For simplicity, JAX has removed its internal frames from the traceback of the following exception. Set JAX_TRACEBACK_FILTERING=off to include these.
+== study
+rollout metric on 344 initially safe random states
+none {'kind0_inst_frac': 0.6035, 'kind1_inst_frac': 0.6855, 'kind2_inst_frac': 0.9844, 'kind0_mean_pos': 0.0864, 'kind1_mean_pos': 0.096, 'kind2_mean_pos': 0.2579, 'rollout_hmin_frac_below_-0.01': 0.1453, 'rollout_hmin_frac_below_0': 0.1919, 'rollout_hmin_min': -1.8309, 'rollout_hmin_p05': -0.0964}
+Traceback (most recent call last):
+  File "/home/jovi/code/cusecmpc/cusadi2/examples/panda_safe_mppi/projection_study2.py", line 54, in <module>
+    U = jax.jit(jax.vmap(lambda u, G, h: filt(u, G, h)))(U0, G, H)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jovi/code/cusecmpc/cusadi2/examples/panda_safe_mppi/projection_study2.py", line 54, in <lambda>
+    U = jax.jit(jax.vmap(lambda u, G, h: filt(u, G, h)))(U0, G, H)
+                                         ^^^^^^^^^^^^^
+  File "/home/jovi/code/cusecmpc/cusadi2/examples/panda_safe_mppi/projection_study2.py", line 35, in <lambda>
+    FILTERS = {"none": lambda u, G, h: jnp.clip(u, -u_max, u_max), "active_r1": lambda u, G, h: proj_active(u, G, h, 1),
+                                                                                                ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jovi/code/cusecmpc/cusadi2/examples/panda_safe_mppi/projection_study2.py", line 30, in proj_active
+    fr = FraxStep(T, rounds=rounds)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jovi/code/cusecmpc/cusadi2/examples/panda_safe_mppi/frax_model.py", line 34, in __init__
+    self.base = PandaProblem("qpax")
+                ^^^^^^^^^^^^^^^^^^^^
+  File "/home/jovi/code/cusecmpc/cusadi2/profiling/panda_problem.py", line 31, in __init__
+    robot = load_panda()
+            ^^^^^^^^^^^^
+  File "/home/jovi/code/cusecmpc/cusadi2/profiling/third_party/frax/frax/robots/franka_panda.py", line 45, in load_panda
+    ee_offset=np.block(
+              ^^^^^^^^^
+  File "/home/jovi/miniconda3/envs/cusadi2/lib/python3.12/site-packages/numpy/_core/shape_base.py", line 947, in block
+    return _block_concatenate(arrays, list_ndim, result_ndim)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jovi/miniconda3/envs/cusadi2/lib/python3.12/site-packages/numpy/_core/shape_base.py", line 989, in _block_concatenate
+    result = _block(arrays, list_ndim, result_ndim)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jovi/miniconda3/envs/cusadi2/lib/python3.12/site-packages/numpy/_core/shape_base.py", line 758, in _block
+    arrs = [_block(arr, max_depth, result_ndim, depth + 1)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jovi/miniconda3/envs/cusadi2/lib/python3.12/site-packages/numpy/_core/shape_base.py", line 758, in _block
+    arrs = [_block(arr, max_depth, result_ndim, depth + 1)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jovi/miniconda3/envs/cusadi2/lib/python3.12/site-packages/numpy/_core/shape_base.py", line 764, in _block
+    return _atleast_nd(arrays, result_ndim)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jovi/miniconda3/envs/cusadi2/lib/python3.12/site-packages/numpy/_core/shape_base.py", line 631, in _atleast_nd
+    return array(a, ndmin=ndim, copy=None, subok=True)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+jax.errors.TracerArrayConversionError: The numpy.ndarray conversion method __array__() was called on traced array with shape float64[3,3]
+The error occurred while tracing the function <lambda> at /home/jovi/code/cusecmpc/cusadi2/examples/panda_safe_mppi/projection_study2.py:54 for jit. This value became a tracer due to JAX operations on these lines:
+
+  operation a:i64[7,7] = add b 0:i64[]
+    from line /home/jovi/code/cusecmpc/cusadi2/examples/panda_safe_mppi/projection_study2.py:29:28 (proj_active)
+
+  operation a:i64[7,7] = add b 0:i64[]
+    from line /home/jovi/code/cusecmpc/cusadi2/examples/panda_safe_mppi/projection_study2.py:29:41 (proj_active)
+
+  operation a:f64[] = cos -0.7853981633974483:f64[]
+    from line /home/jovi/code/cusecmpc/cusadi2/profiling/third_party/frax/frax/utils/rotation_utils.py:63:13 (Rz)
+
+  operation a:f64[] = sin -0.7853981633974483:f64[]
+    from line /home/jovi/code/cusecmpc/cusadi2/profiling/third_party/frax/frax/utils/rotation_utils.py:63:30 (Rz)
+
+  operation a:f64[] = sin -0.7853981633974483:f64[]
+    from line /home/jovi/code/cusecmpc/cusadi2/profiling/third_party/frax/frax/utils/rotation_utils.py:64:13 (Rz)
+
+(Additional originating lines are not shown.)
+See https://docs.jax.dev/en/latest/errors.html#jax.errors.TracerArrayConversionError
+--------------------
+For simplicity, JAX has removed its internal frames from the traceback of the following exception. Set JAX_TRACEBACK_FILTERING=off to include these.
+== plans
+<frozen importlib._bootstrap>:488: RuntimeWarning: to-Python converter for pinocchio::python::DeprecatedBool already registered; second conversion method ignored.
+{"dtype": "float", "knot_dt": 0.13333333333333333, "n_levels": 486, "peak_live_slots": 4158, "shared_bytes": 16632, "casadi_build_s": 1.2590428510447964, "plan_write_s": 0.2750152299995534, "T": 20, "dt": 0.02, "proj_rounds": 3, "n_cbf": 64, "sx_nodes": 48426}
+{"dtype": "double", "knot_dt": 0.13333333333333333, "n_levels": 486, "peak_live_slots": 4158, "shared_bytes": 33264, "casadi_build_s": 1.2590428510447964, "plan_write_s": 0.2189387889811769, "T": 20, "dt": 0.02, "proj_rounds": 3, "n_cbf": 64, "sx_nodes": 48426}
+== time r3 float
+256,235.5,234.5,486,16632,256,0
+1024,698.4,697.3,486,16632,256,0
+2048,1378.3,1376.3,486,16632,256,0
+4096,2313.2,2309.8,486,16632,256,0
+8192,4589.6,4580.2,486,16632,256,0
+16384,9079.8,9075.3,486,16632,256,0
+== time r3 double
+256,500.0,499.4,486,33264,512,0
+1024,1740.8,1739.8,486,33264,512,0
+2048,3456.0,3453.6,486,33264,512,0
+4096,6777.2,6765.7,486,33264,512,0
+8192,13406.2,13401.9,486,33264,512,0
+16384,26731.5,26724.4,486,33264,512,0
+== frax f32 r3
+Traceback (most recent call last):
+  File "/home/jovi/code/cusecmpc/cusadi2/examples/panda_safe_mppi/time_frax_step.py", line 24, in <module>
+    fs = FraxStep(a.T, iters=a.iters)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: FraxStep.__init__() got an unexpected keyword argument 'iters'

@@ -1,0 +1,15 @@
+== verify
+<frozen importlib._bootstrap>:488: RuntimeWarning: to-Python converter for pinocchio::python::DeprecatedBool already registered; second conversion method ignored.
+casadi step: {'T': 20, 'dt': 0.02, 'proj_rounds': 3, 'n_cbf': 64, 'sx_nodes': 50318} (0.6 s)
+one step  rel err: x1 1.1e-10  u 5.9e-11
+projection residual: {'rows_violated_frac': 0.04132080078125, 'instances_violated_frac': 0.4462890625, 'max_rel_violation': 964.5433941400389}
+5-step rollout rel err: 6.3e-11
+GATE 1 PASS
+== study
+rollout metric on 344 initially safe random states
+none {'kind0_inst_frac': 0.6035, 'kind1_inst_frac': 0.6855, 'kind2_inst_frac': 0.9844, 'kind0_mean_pos': 0.0864, 'kind1_mean_pos': 0.096, 'kind2_mean_pos': 0.2579, 'rollout_hmin_frac_below_-0.01': 0.1453, 'rollout_hmin_frac_below_0': 0.1919, 'rollout_hmin_min': -1.8309, 'rollout_hmin_p05': -0.0964}
+active_r2 {'kind0_inst_frac': 0.2988, 'kind1_inst_frac': 0.4277, 'kind2_inst_frac': 0.873, 'kind0_mean_pos': 0.0269, 'kind1_mean_pos': 0.0454, 'kind2_mean_pos': 0.143, 'rollout_hmin_frac_below_-0.01': 0.0349, 'rollout_hmin_frac_below_0': 0.0436, 'rollout_hmin_min': -0.3765, 'rollout_hmin_p05': 0.0021}
+active_r3 {'kind0_inst_frac': 0.2734, 'kind1_inst_frac': 0.4004, 'kind2_inst_frac': 0.8379, 'kind0_mean_pos': 0.0285, 'kind1_mean_pos': 0.0617, 'kind2_mean_pos': 0.196, 'rollout_hmin_frac_below_-0.01': 0.0407, 'rollout_hmin_frac_below_0': 0.0494, 'rollout_hmin_min': -4.0639, 'rollout_hmin_p05': 0.0011}
+active_r4 {'kind0_inst_frac': 0.2441, 'kind1_inst_frac': 0.377, 'kind2_inst_frac': 0.8145, 'kind0_mean_pos': 0.0187, 'kind1_mean_pos': 0.0341, 'kind2_mean_pos': 0.1069, 'rollout_hmin_frac_below_-0.01': 0.0174, 'rollout_hmin_frac_below_0': 0.0262, 'rollout_hmin_min': -0.7453, 'rollout_hmin_p05': 0.0048}
+active_r6 {'kind0_inst_frac': 0.2246, 'kind1_inst_frac': 0.3438, 'kind2_inst_frac': 0.7871, 'kind0_mean_pos': 0.0133, 'kind1_mean_pos': 0.0315, 'kind2_mean_pos': 0.0923, 'rollout_hmin_frac_below_-0.01': 0.0145, 'rollout_hmin_frac_below_0': 0.0203, 'rollout_hmin_min': -0.3071, 'rollout_hmin_p05': 0.0065}
+qp {'kind0_inst_frac': 0.0293, 'kind1_inst_frac': 0.0742, 'kind2_inst_frac': 0.334, 'kind0_mean_pos': 0.0013, 'kind1_mean_pos': 0.0011, 'kind2_mean_pos': 0.0087, 'rollout_hmin_frac_below_-0.01': 0.0, 'rollout_hmin_frac_below_0': 0.0058, 'rollout_hmin_min': -0.0022, 'rollout_hmin_p05': 0.0079}

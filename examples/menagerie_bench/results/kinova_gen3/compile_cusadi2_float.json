@@ -2,30 +2,30 @@
   "robot": "kinova_gen3",
   "dtype": "float",
   "codegen_s": {
-    "fk": 0.032989838015055284,
-    "fkjac": 0.04674449798767455,
-    "fkhess": 0.1515971650078427
+    "fk": 0.031217036997986725,
+    "fkjac": 0.038603712997428374,
+    "fkhess": 0.14869909600020037
   },
-  "nvcc_s": 4.1207841930154245,
+  "nvcc_s": 3.820176753000851,
   "codegen_unrolled_s": {
-    "fk": 0.0008900839893613011,
-    "fk_unr": 0.005185587011510506,
-    "fkjac": 0.0015557599836029112,
-    "fkjac_unr": 0.010938291990896687,
-    "fkhess": 0.005019730975618586,
-    "fkhess_unr": 0.039140170003520325
+    "fk": 0.0008704960018803831,
+    "fk_unr": 0.005019070002163062,
+    "fkjac": 0.001273462999961339,
+    "fkjac_unr": 0.008324188998813042,
+    "fkhess": 0.005208891001529992,
+    "fkhess_unr": 0.03865626300103031
   },
   "nvcc_unrolled_s": {
-    "fk": 1.1158425309986342,
-    "fk_unr": 3.219335920002777,
-    "fkjac": 1.3163778299931437,
-    "fkjac_unr": 5.1722854700055905,
-    "fkhess": 2.317710678005824,
-    "fkhess_unr": 15.639814604015555
+    "fk": null,
+    "fk_unr": null,
+    "fkjac": 1.0657381259989052,
+    "fkjac_unr": 3.5191821419975895,
+    "fkhess": null,
+    "fkhess_unr": null
   },
   "unrolled_failed": {},
   "nvcc_jobs": 6,
-  "cached": true,
+  "cached": false,
   "nq": 7,
   "nv": 7,
   "n_bodies": 8,
@@ -44,13 +44,13 @@
       "windowed_unr": false
     },
     "fkjac": {
-      "nnz_out": 336,
-      "n_instr": 963,
-      "n_instr_unr": 7466,
-      "sz_w": 55,
-      "sz_w_unr": 84,
-      "smem_kb": 0.60546875,
-      "smem_unr_kb": 4.76171875,
+      "nnz_out": 145,
+      "n_instr": 771,
+      "n_instr_unr": 5937,
+      "sz_w": 54,
+      "sz_w_unr": 83,
+      "smem_kb": 0.6015625,
+      "smem_unr_kb": 4.7578125,
       "levels": 26,
       "levels_unr": 26,
       "windowed": false,

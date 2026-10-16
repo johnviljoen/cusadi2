@@ -1,0 +1,60 @@
+{
+  "robot": "umi_gripper",
+  "xml": "umi_gripper/umi_gripper.xml",
+  "menagerie_commit": "8161bba264d7fa7c99ca301e91e7fb44737676ad",
+  "manifest_commit": "8161bba264d7fa7c99ca301e91e7fb44737676ad",
+  "gate": {
+    "status": "pass",
+    "reason": null,
+    "nq": 8,
+    "nv": 8,
+    "n_bodies": 2,
+    "n_bodies_unnamed": 1,
+    "floating": false,
+    "fk_max_err": 7.438494264988549e-15,
+    "root_corr": false,
+    "preproc": {
+      "includes_flattened": false,
+      "multitree_wrapped": false,
+      "anchors_fixed": 0
+    }
+  },
+  "stages": {
+    "gate": {
+      "status": "pass",
+      "cached": true,
+      "seconds": 0
+    },
+    "frax_fp64": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 37.51,
+      "attempts": 1
+    },
+    "frax_fp32": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 24.3,
+      "attempts": 1
+    }
+  },
+  "runs": {},
+  "complete": false,
+  "frax_gate": {
+    "status": "pass",
+    "reason": null,
+    "n_joints": 8,
+    "n_bodies": 2,
+    "n_bodies_static": 0,
+    "expanded": {
+      "free": 0,
+      "ball": 0,
+      "composite": 1
+    },
+    "pure_chain": false,
+    "fk_max_err": 7.771561172376096e-16,
+    "jac_max_err": 2.220446049250313e-16,
+    "frax": "0.0.4",
+    "jax": "0.11.1"
+  }
+}

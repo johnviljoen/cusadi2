@@ -19,18 +19,26 @@ Stage k (N=10 stages, 60 primal x_k, 74 constraints g_k):
   ruiz_r5    scaled KKT block row (+sigma I, -1/rho), q_s, D, bounds, b0
   admm_iter  fused ADMM step + next RHS (+ dx = D x)
 
+Receding horizon (mpc_rollout.cu), one control step = one stage (dt_0):
+  advance    (p_shared, x_0)  -> p_shared with q_0 <- q_0 (+) dq_0, v_0 <- v_0 of the plan     (n_stages = 1)
+  shift      (x_k, x_{k+1}, has_next, w_k, dt_0, p_shared old/new) -> next SQP guess x'_k: the plan at old
+             time dt_0 + t_k (between old stages k and k+1, weight w_k = dt_0 / dt_{k+1}; the last stage
+             continues at constant velocity), with dq re-based onto the new q_0
+  fns/mpc_stage_g.casadi   g_k(x_{k-1}, x_k) for host-side residual diagnostics (all functions are saved to fns/)
+
 KKT rows are stage-interleaved ([x_0; g_0; x_1; g_1; ...]); csr.bin holds the
 lower-triangular CSR pattern and the gather map from ruiz_r5's per-stage output
 to the cuDSS values array.
 
 usage: python build_mpc_stage.py <build_dir> [double,float]
 Environment: CUSADI_WIP points at the directory holding wip_pkg/, stubs/,
-mit_humanoid_urdf/ and humanoid_mpc_fns/ (reference functions + p_eval/dx).
+mit_humanoid_urdf/ and humanoid_mpc_fns/ (reference functions + p_eval/dx);
+default vendor/ next to this file, created by vendor_setup.py.
 """
 import json, os, struct, sys, time
 import numpy as np, casadi as ca
 
-SCRATCH = os.environ.get("CUSADI_WIP", "/tmp/claude-1000/-home-jovi-code-cusecmpc-cusadi2/71234236-054e-4990-b81c-ea03e2ae3482/scratchpad")
+SCRATCH = os.environ.get("CUSADI_WIP", os.path.join(os.path.dirname(os.path.abspath(__file__)), "vendor"))
 sys.path[:0] = [os.path.join(SCRATCH, "wip_pkg"), os.path.join(SCRATCH, "stubs")]
 import cusadi2
 from cusadi.controllers import MITHumanoidModelPredictiveController
@@ -146,7 +154,7 @@ dist_toe = (p_lt[1] - p_rt[1] - c.collision_radius**2 - c.offset_lateral_stance)
 dist_heel = (p_lh[1] - p_rh[1] - c.collision_radius**2 - c.offset_lateral_stance)
 fwd_kin_hip = m.get_forward_kinematics(q=q_k, frames=['right_hip_yaw', 'left_hip_yaw'])
 d_right = 0.5 * (p_contact_k[c.right_toe_idx] + p_contact_k[c.right_heel_idx]) - fwd_kin_hip['p_right_hip_yaw']
-d_left = 0.5 * (p_contact_k[c.left_toe_idx] + p_contact_k[c.left_heel_idx]) - - fwd_kin_hip['p_left_hip_yaw']
+d_left = 0.5 * (p_contact_k[c.left_toe_idx] + p_contact_k[c.left_heel_idx]) - fwd_kin_hip['p_left_hip_yaw']   # wip has '- -' here; fixed in vendor_setup.py too
 l_leg_max = 0.58
 g_len = ca.vertcat(d_right.T @ d_right - l_leg_max ** 2, d_left.T @ d_left - l_leg_max ** 2)
 g_k = ca.vertcat(g_pos, g_dyn, g_swing, g_fric_x, g_fric_y, g_cvx, g_cvy, g_cF, dist_toe, dist_heel, g_len)
@@ -263,7 +271,23 @@ fn_it = ca.Function("mpc_admm_iter", [x_solve, xk, yk, zk, q_k_s, zlb_s, zub_s, 
                     [x_n, y_n, z_n, b_n, D_in * x_n],
                     ["x_solve", "x_k", "y_k", "z_k", "q_s", "z_lb_s", "z_ub_s", "D", "sigma", "rho_bar", "alpha"],
                     ["x_next", "y_next", "z_next", "b_next", "dx"], fn_opts)
-FNS = [fn_asm, fn_r1, fn_r2, fn_r3, fn_r4, fn_r5, fn_it]
+# ---------------------------------------------------------------- receding horizon: advance one stage, shift the plan
+ps_old, ps_new = ca.MX.sym("p_shared_old", n_pg), ca.MX.sym("p_shared_new", n_pg)
+x_a, x_b, w_shift, dt_adv = ca.MX.sym("x_a", NS), ca.MX.sym("x_b", NS), ca.MX.sym("w"), ca.MX.sym("dt_adv")
+fn_adv = ca.Function("mpc_advance", [ps_old, x_a],
+                     [ca.vertcat(m.get_integrated_states(ps_old[:NQ], x_a[c.dq_idx]), x_a[c.v_idx], ps_old[NQ+NV:])],
+                     ["p_shared", "x_0"], ["p_shared_next"], fn_opts)
+qa = m.get_integrated_states(ps_old[:NQ], x_a[c.dq_idx]); qb = m.get_integrated_states(ps_old[:NQ], x_b[c.dq_idx])
+q_interp = m.get_integrated_states(qa, w_shift * m.get_state_error(qa, qb))        # geodesic between old stages k, k+1
+q_extrap = m.get_integrated_states(qa, x_a[c.v_idx] * dt_adv)                      # past the old horizon: constant velocity
+q_shift = ca.if_else(has_next, q_interp, q_extrap)
+lerp = lambda idx: ca.if_else(has_next, (1 - w_shift) * x_a[idx] + w_shift * x_b[idx], x_a[idx])
+fn_shift = ca.Function("mpc_shift", [x_a, x_b, has_next, w_shift, dt_adv, ps_old, ps_new],
+                       [ca.vertcat(m.get_state_error(ps_new[:NQ], q_shift), lerp(c.v_idx), lerp(c.F_idx))],
+                       ["x_k", "x_next", "has_next", "w", "dt_adv", "p_shared_old", "p_shared_new"], ["x_shift"], fn_opts)
+fn_g = ca.Function("mpc_stage_g", [x_prev, x_cur, dt_cur, is_first, p_stage, p_shared], [g_k],
+                   ["x_prev", "x_cur", "dt_cur", "is_first", "p_stage", "p_shared"], ["g"], fn_opts)
+FNS = [fn_asm, fn_r1, fn_r2, fn_r3, fn_r4, fn_r5, fn_it, fn_shift]
 for f in FNS: log(f"  {f.name():16s} instr={f.n_instructions():7d} sz_w={f.sz_w():6d}")
 
 # ---------------------------------------------------------------- CSR (lower, stage-interleaved) + gather map
@@ -414,12 +438,15 @@ SPECS = {
     "mpc_ruiz_r4":   spec(X1(0), X1(1), X2(0), X2(1), X2(2), X2(0), X2(1), X2(2), SHARED, STAGE),
     "mpc_ruiz_r5":   spec(STAGE, X2(0), X2(1), X2(0), X2(1), SHARED, SHARED, STAGE, STAGE, STAGE, SHARED, SHARED),
     "mpc_admm_iter": spec(STAGE, STAGE, STAGE, STAGE, STAGE, STAGE, STAGE, STAGE, SHARED, SHARED, SHARED),
+    "mpc_shift":     spec(X2(1), X2(2), STAGE, STAGE, SHARED, SHARED, SHARED),       # x read from [pad, x_0..x_{N-1}, pad]
+    "mpc_advance":   spec(STAGE, (COUPLED, 1, N + 1)),                               # n_stages = 1: x_0 of the padded plan
 }
+N_STAGES = {"mpc_advance": 1}
 plan_dir = os.path.join(OUT, "plans"); os.makedirs(plan_dir, exist_ok=True)
 info = {}
-for f in FNS:
+for f in FNS + [fn_adv]:
     t0 = time.perf_counter()
-    cusadi2.write_plan(f, os.path.join(plan_dir, f.name() + ".plan"), n_stages=N, **SPECS[f.name()])
+    cusadi2.write_plan(f, os.path.join(plan_dir, f.name() + ".plan"), n_stages=N_STAGES.get(f.name(), N), **SPECS[f.name()])
     p = cusadi2.read_plan(os.path.join(plan_dir, f.name() + ".plan"))
     info[f.name()] = dict(n_instr=f.n_instructions(), sz_w=f.sz_w(), n_levels=len(p["level_widths"]),
                           peak_live_slots=p["peak_live_slots"], block_size=p["block_size"], plan_s=time.perf_counter() - t0)
@@ -432,9 +459,15 @@ with open(os.path.join(OUT, "csr.bin"), "wb") as fh:                   # i32 n, 
 inp = os.path.join(OUT, "inputs"); os.makedirs(inp, exist_ok=True)
 for name, arr in [("x_pad", x_pad), ("dt_pad", dt_pad), ("is_first", is_first_v), ("has_next", has_next_v),
                   ("p_stage", ps), ("p_shared", pg), ("scalars", np.array([SIGMA, RHO_BAR, ALPHA])), ("dx_ref", dx_ref),
-                  ("dx_cpu_staged", DX.reshape(-1))]:
+                  ("dx_cpu_staged", DX.reshape(-1)), ("shift_w", np.concatenate([dt[0] / dt[1:], [0.0]]))]:
     np.ascontiguousarray(arr, dtype=np.float64).tofile(os.path.join(inp, name + ".f64"))
-json.dump(dict(N=N, NS=NS, NG=NG, NB=NB, NBLK=NBLK, NKKT=NKKT, n_kkt=n_kkt, nnz=nnz, n_ps=n_ps, n_pg=n_pg,
+os.makedirs(os.path.join(OUT, "fns"), exist_ok=True)                       # for host-side diagnostics and prototyping
+for f in FNS + [fn_adv, fn_g]: f.save(os.path.join(OUT, "fns", f.name() + ".casadi"))
+pattern = {k: [list(map(int, rc)) for rc in zip(*ccs_entries(sp))] for k, sp in SP.items()}      # [rows, cols] per block, blk order
+json.dump(dict(pattern=pattern, contact_idx=dict(x=c.contact_x_idx, y=c.contact_y_idx, z=c.contact_z_idx), mu=mu, l_leg_max=l_leg_max,
+               collision_radius=c.collision_radius, offset_lateral_stance=c.offset_lateral_stance, armature=c.armature.tolist(),
+               bodyweight=float(m.bodyweight), eq_rows=np.flatnonzero(eq_s).tolist(), lbg=[float(v) for v in lbg_s], ubg=[float(v) for v in ubg_s],
+               p_stage=P_STAGE, p_shared=P_SHARED, q_nominal=c.q_nominal.tolist(), dt=dt.tolist(), N=N, NS=NS, NG=NG, NB=NB, NBLK=NBLK, NKKT=NKKT, n_kkt=n_kkt, nnz=nnz, n_ps=n_ps, n_pg=n_pg,
                sigma=SIGMA, rho_bar=RHO_BAR, alpha=ALPHA, max_iter=MAX_ITER,
                cpu_staged_vs_ref_max_abs=float(err_dx), cpu_staged_vs_ref_exact=bool(exact_dx), functions=info),
           open(os.path.join(OUT, "meta.json"), "w"), indent=2)

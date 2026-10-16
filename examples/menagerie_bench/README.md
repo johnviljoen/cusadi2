@@ -194,6 +194,8 @@ failure, not a campaign abort:
 | `cpu_runs`        | in-process, sequential, per run k            | `runs/<k>/cpu_<D>.json` (paper_results' `run_cpu` schema) |
 | `mjx_<fpXX>`      | `run.py --mjx --robot R --dtype fpXX --runs K` | `runs/<k>/mjx_<fpXX>.json` (K files, one per timing pass) |
 | `warp`            | `run.py --warp --robot R --runs K`           | `runs/<k>/warp.json` |
+| `frax_gate`       | `run.py --frax-gate --robot R` (CPU)         | `build/<R>/frax.urdf`, `build/<R>/frax_gate.json` → `status.json` |
+| `frax_<fpXX>`     | `run.py --frax --robot R --dtype fpXX --runs K` | `runs/<k>/frax_<fpXX>.json` |
 | `plot`            | in-process, best-effort                      | per-robot figures |
 
 - `results/<robot>/status.json` records per-stage `pass`/`fail`/`skip`/`timeout`
@@ -239,6 +241,35 @@ failure, not a campaign abort:
 > unconstrained smooth dynamics, deliberately, so that no baseline pays for
 > work the cusadi2 side never does.
 
+> **The frax baseline.** [frax](https://github.com/danielpmorton/frax) (JAX)
+> reads URDF only and has revolute and prismatic joints only, so
+> `frax_model.py` writes the Pinocchio model that passed the gate above as a
+> URDF with one revolute or prismatic joint per degree of freedom: a hinge or
+> slide as is, a free joint as x, y, z prismatic then x, y, z revolute (how
+> frax models its own floating base), a ball joint as three revolutes, a
+> composite joint as its sub-joints. A frax model therefore has
+> nq = nv = MuJoCo's nv, with base orientations as three angles instead of a
+> quaternion. The frame set is the campaign's; each body is a fixed offset on
+> the last joint that moves it, evaluated with frax's own
+> `Robot._frame_transform` and `Robot._frame_jacobian` (analytical), and the
+> Hessian is `jax.jacfwd` of that Jacobian, as for MJX. The frax gate
+> (`build/<robot>/frax_gate.json`) checks frax's forward kinematics against
+> MuJoCo at random configurations and its Jacobian against forward-mode AD of
+> its own kinematics, both to 1e-8; all 67 robots pass at about 1e-15. The
+> timed series are `{fk,jac,hess}_batched`, with MJX's shapes and timing
+> (vmap over B·N configurations, one jit, inputs on the device); frax has no
+> simulation step, so there is no rollout. `CUSADI2_FRAX_GPU_ONLY=1` adds the
+> `*_batched_gpu` series; it costs about 170 times the evaluations of the
+> batched one and is off by default. Because the base parametrization differs
+> from Pinocchio's and MuJoCo's, the Jacobian columns of free and ball joints
+> are not the same numbers as on the other backends; the output sizes are
+> 6·nv per body on every backend, and the Hessian has nv columns here against
+> nq elsewhere.
+>
+> `python run.py --frax-only --runs 5` runs the gates and the frax stages and
+> nothing else (no plots, no summary). With `CUSADI2_RESULTS=results_frax` the
+> frax files and their `status.json` stay out of `results/`.
+
 ## Knobs (identical to paper_results)
 
 `N_STAGES = 8`, `BATCHES = [1, 4, 16, 64, 256, 1024, 4096, 16384]`,
@@ -271,6 +302,11 @@ Per robot, `results/<robot>/` holds the same artifacts as paper_results'
   file), `failed` (shape → reason) and `complete` (or an `error` field).
 - `runs/<k>/warp.json` — run k's mujoco-warp medians, keys `fk` and `jac`
   (analytical, `mjw.jac`), + `compile_once_s` / `compile_jac_once_s`.
+- `runs/<k>/frax_<fpXX>.json` — run k's frax medians, keys
+  `{fk,jac,hess}_batched` (and `_batched_gpu` when enabled), with `compile`,
+  `failed` and `complete` as for MJX, plus `expanded` (free, ball and composite
+  joints rewritten as one-dof joints) and `pure_chain` (frax's scanned
+  forward kinematics was used).
 - `runs/<k>/cpu_<dtype>.json` — the CPU reference: `latency_us` (one problem),
   `seq_us[func][threads][B]` (idealized) and `seq_transfer_us[...]` (with the
   GPU→CPU→GPU copies), `compile_s` (codegen + gcc), `skipped` (RAM-guarded or
@@ -308,11 +344,14 @@ with `--summarize`), in `results/`:
   plan at this GPU's shared-memory limit), one subprocess per robot, cached in
   `results/dag/<robot>.json`; `paper_results/dag_shape.py` draws it.
 - `run.py` — orchestrator + all subprocess stage entrypoints
-  (`--gate/--compile/--cpu-compile/--pylib/--mjx/--warp/--summarize`). The MJX / warp / pylib
+  (`--gate/--compile/--cpu-compile/--pylib/--mjx/--warp/--frax-gate/--frax/--summarize`). The MJX / warp / pylib
   benchmark bodies are verbatim from paper_results, parameterized by robot.
 - `model.py` — MJCF loading for both backends, qpos index map, root-placement
   correction, CasADi FK / frame-Jacobian / frame-Hessian builders, horizon
   unroll, and the gate.
+- `frax_model.py` — the frax side: the gated Pinocchio model as a URDF of
+  one-dof joints, the coordinate maps to Pinocchio and MuJoCo, the frax
+  FK / frame-Jacobian / frame-Hessian functions, and the frax gate.
 - the driver is `paper_results/latency.cu` unchanged: each robot's build dir
   holds its `.plan` files, the original-cusadi unrolled kernels and the
   generated `unrolled_table.h` the driver takes its function list from.

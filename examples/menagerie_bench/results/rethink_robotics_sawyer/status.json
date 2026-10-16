@@ -28,14 +28,14 @@
     "compile_double": {
       "status": "pass",
       "rc": 0,
-      "seconds": 0.99,
-      "cached": true
+      "seconds": 12.44,
+      "cached": false
     },
     "compile_float": {
       "status": "pass",
       "rc": 0,
-      "seconds": 1.0,
-      "cached": true
+      "seconds": 12.57,
+      "cached": false
     },
     "mjx_fp64": {
       "status": "pass",
@@ -51,18 +51,18 @@
     },
     "plot": {
       "status": "pass",
-      "seconds": 6.8
+      "seconds": 6.45
     },
     "cpu_compile_double": {
       "status": "pass",
       "rc": 0,
-      "seconds": 3.67,
+      "seconds": 1.13,
       "cached": false
     },
     "cpu_compile_float": {
       "status": "pass",
       "rc": 0,
-      "seconds": 3.51,
+      "seconds": 1.13,
       "cached": false
     }
   },
@@ -70,107 +70,111 @@
     "0": {
       "double": {
         "status": "pass",
-        "seconds": 6.0
+        "seconds": 5.8
       },
       "float": {
         "status": "pass",
-        "seconds": 3.8
+        "seconds": 3.5
       }
     },
     "1": {
       "double": {
         "status": "pass",
-        "seconds": 6.0
+        "seconds": 5.7
       },
       "float": {
         "status": "pass",
-        "seconds": 3.8
+        "seconds": 3.5
       }
     },
     "2": {
       "double": {
         "status": "pass",
-        "seconds": 6.0
+        "seconds": 5.8
       },
       "float": {
         "status": "pass",
-        "seconds": 3.8
+        "seconds": 3.5
       }
     },
     "3": {
       "double": {
         "status": "pass",
-        "seconds": 6.0
+        "seconds": 5.7
       },
       "float": {
         "status": "pass",
-        "seconds": 3.7
+        "seconds": 3.5
       }
     },
     "4": {
       "double": {
         "status": "pass",
-        "seconds": 6.0
+        "seconds": 5.8
       },
       "float": {
         "status": "pass",
-        "seconds": 3.7
+        "seconds": 3.5
       }
     }
   },
   "complete": true,
   "n_runs": 5,
-  "finished_at": "2026-09-15 19:27:01",
+  "finished_at": "2026-10-05 16:47:01",
   "cpu_runs": {
     "0": {
       "double": {
         "status": "pass",
-        "seconds": 24.16
+        "seconds": 6.23
       },
       "float": {
         "status": "pass",
-        "seconds": 20.58
+        "seconds": 5.77
       }
     },
     "1": {
       "double": {
         "status": "pass",
-        "seconds": 24.17
+        "seconds": 6.22
       },
       "float": {
         "status": "pass",
-        "seconds": 20.74
+        "seconds": 5.78
       }
     },
     "2": {
       "double": {
         "status": "pass",
-        "seconds": 24.04
+        "seconds": 6.16
       },
       "float": {
         "status": "pass",
-        "seconds": 20.52
+        "seconds": 5.64
       }
     },
     "3": {
       "double": {
         "status": "pass",
-        "seconds": 23.99
+        "seconds": 6.21
       },
       "float": {
         "status": "pass",
-        "seconds": 20.58
+        "seconds": 5.74
       }
     },
     "4": {
       "double": {
         "status": "pass",
-        "seconds": 24.02
+        "seconds": 6.15
       },
       "float": {
         "status": "pass",
-        "seconds": 20.4
+        "seconds": 5.79
       }
     }
+  },
+  "resweep": {
+    "when": "2026-10-05 23:17:16",
+    "note": "cusadi2 sweeps re-measured with the sparse Jacobian and the split-dispatch kernel; CPU, MJX and warp as recorded"
   }
 }

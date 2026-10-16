@@ -1,0 +1,69 @@
+{
+  "robot": "sharpa_wave",
+  "xml": "sharpa_wave/left_hand.xml",
+  "menagerie_commit": "8161bba264d7fa7c99ca301e91e7fb44737676ad",
+  "manifest_commit": "8161bba264d7fa7c99ca301e91e7fb44737676ad",
+  "gate": {
+    "status": "pass",
+    "reason": null,
+    "nq": 22,
+    "nv": 22,
+    "n_bodies": 23,
+    "n_bodies_unnamed": 0,
+    "floating": false,
+    "fk_max_err": 1.3322676295501878e-14,
+    "root_corr": false,
+    "preproc": {
+      "includes_flattened": false,
+      "multitree_wrapped": false,
+      "anchors_fixed": 0
+    }
+  },
+  "stages": {
+    "gate": {
+      "status": "pass",
+      "cached": true,
+      "seconds": 0
+    },
+    "frax_fp64": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 112.84,
+      "attempts": 1,
+      "failed_shapes": {
+        "hess_batched:1024": "JaxRuntimeError: RESOURCE_EXHAUSTED: Out of memory while trying to allocate 4.08GiB with allocator GPU_0_bfc on device 0. [executable_name='jit_hess'] [tf-allocator-allocation-error='']",
+        "hess_batched:4096": "JaxRuntimeError: RESOURCE_EXHAUSTED: Out of memory while trying to allocate 16.31GiB with allocator GPU_0_bfc on device 0. [tf-allocator-allocation-error=''] [executable_name='jit_hess']",
+        "hess_batched:16384": "JaxRuntimeError: RESOURCE_EXHAUSTED: Out of memory while trying to allocate 7.58GiB with allocator GPU_0_bfc on device 0. [tf-allocator-allocation-error='']"
+      }
+    },
+    "frax_fp32": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 99.0,
+      "attempts": 1,
+      "failed_shapes": {
+        "hess_batched:4096": "JaxRuntimeError: RESOURCE_EXHAUSTED: Out of memory while trying to allocate 8.15GiB with allocator GPU_0_bfc on device 0. [executable_name='jit_hess'] [tf-allocator-allocation-error='']",
+        "hess_batched:16384": "JaxRuntimeError: NOT_FOUND: All configs failed during profiling.\nFailures (10):\nEXECUTION FAILED: RESOURCE_EXHAUSTED: Out of memory while trying to allocate 3.80GiB with allocator GPU_0_bfc on device 0. [tf-allocator-allocation-error='']\nEXECUTION FAILED: RESOURCE_EXHAUSTED: Out of memory while tryi"
+      }
+    }
+  },
+  "runs": {},
+  "complete": false,
+  "frax_gate": {
+    "status": "pass",
+    "reason": null,
+    "n_joints": 22,
+    "n_bodies": 23,
+    "n_bodies_static": 1,
+    "expanded": {
+      "free": 0,
+      "ball": 0,
+      "composite": 0
+    },
+    "pure_chain": false,
+    "fk_max_err": 1.1102230246251565e-15,
+    "jac_max_err": 9.992007221626409e-16,
+    "frax": "0.0.4",
+    "jax": "0.11.1"
+  }
+}

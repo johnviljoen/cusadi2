@@ -1,0 +1,2 @@
+<frozen importlib._bootstrap>:488: RuntimeWarning: to-Python converter for pinocchio::python::DeprecatedBool already registered; second conversion method ignored.
+gcc libcpu_T100_double.so: 9.4 s

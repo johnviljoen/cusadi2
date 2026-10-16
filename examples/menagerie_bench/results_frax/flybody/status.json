@@ -1,0 +1,79 @@
+{
+  "robot": "flybody",
+  "xml": "flybody/fruitfly.xml",
+  "menagerie_commit": "8161bba264d7fa7c99ca301e91e7fb44737676ad",
+  "manifest_commit": "8161bba264d7fa7c99ca301e91e7fb44737676ad",
+  "gate": {
+    "status": "pass",
+    "reason": null,
+    "nq": 109,
+    "nv": 108,
+    "n_bodies": 67,
+    "n_bodies_unnamed": 0,
+    "floating": true,
+    "fk_max_err": 4.418687638008123e-14,
+    "root_corr": false,
+    "preproc": {
+      "includes_flattened": false,
+      "multitree_wrapped": false,
+      "anchors_fixed": 0
+    }
+  },
+  "stages": {
+    "gate": {
+      "status": "pass",
+      "cached": true,
+      "seconds": 0
+    },
+    "frax_fp64": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 358.44,
+      "attempts": 1,
+      "failed_shapes": {
+        "jac_batched:4096": "JaxRuntimeError: RESOURCE_EXHAUSTED: Out of memory while trying to allocate 10.60GiB with allocator GPU_0_bfc on device 0. [executable_name='jit_jac'] [tf-allocator-allocation-error='']",
+        "jac_batched:16384": "JaxRuntimeError: RESOURCE_EXHAUSTED: Out of memory while trying to allocate 42.40GiB with allocator GPU_0_bfc on device 0. [tf-allocator-allocation-error=''] [executable_name='jit_jac']",
+        "hess_batched:16": "JaxRuntimeError: RESOURCE_EXHAUSTED: Out of memory while trying to allocate 4.47GiB with allocator GPU_0_bfc on device 0. [executable_name='jit_hess'] [tf-allocator-allocation-error='']",
+        "hess_batched:64": "JaxRuntimeError: RESOURCE_EXHAUSTED: Out of memory while trying to allocate 17.89GiB with allocator GPU_0_bfc on device 0. [tf-allocator-allocation-error=''] [executable_name='jit_hess']",
+        "hess_batched:256": "JaxRuntimeError: RESOURCE_EXHAUSTED: Out of memory while trying to allocate 71.55GiB with allocator GPU_0_bfc on device 0. [tf-allocator-allocation-error=''] [executable_name='jit_hess']",
+        "hess_batched:1024": "JaxRuntimeError: RESOURCE_EXHAUSTED: Out of memory while trying to allocate 11.41GiB with allocator GPU_0_bfc on device 0. [tf-allocator-allocation-error='']",
+        "hess_batched:4096": "JaxRuntimeError: RESOURCE_EXHAUSTED: Failed to get configs for: 4 out of 682 instructions. See logs for all failures. Example failure: \nOut of memory while trying to allocate 45.58GiB with allocator GPU_0_bfc on device 0. [tf-allocator-allocation-error='']",
+        "hess_batched:16384": "JaxRuntimeError: RESOURCE_EXHAUSTED: Failed to get configs for: 18 out of 682 instructions. See logs for all failures. Example failure: \nOut of memory while trying to allocate 13.30GiB with allocator GPU_0_bfc on device 0. [tf-allocator-allocation-error='']"
+      }
+    },
+    "frax_fp32": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 498.18,
+      "attempts": 1,
+      "failed_shapes": {
+        "jac_batched:4096": "JaxRuntimeError: RESOURCE_EXHAUSTED: Out of memory while trying to allocate 5.30GiB with allocator GPU_0_bfc on device 0. [executable_name='jit_jac'] [tf-allocator-allocation-error='']",
+        "jac_batched:16384": "JaxRuntimeError: RESOURCE_EXHAUSTED: Out of memory while trying to allocate 21.20GiB with allocator GPU_0_bfc on device 0. [tf-allocator-allocation-error=''] [executable_name='jit_jac']",
+        "hess_batched:64": "JaxRuntimeError: RESOURCE_EXHAUSTED: Out of memory while trying to allocate 8.94GiB with allocator GPU_0_bfc on device 0. [executable_name='jit_hess'] [tf-allocator-allocation-error='']",
+        "hess_batched:256": "JaxRuntimeError: RESOURCE_EXHAUSTED: Out of memory while trying to allocate 35.77GiB with allocator GPU_0_bfc on device 0. [tf-allocator-allocation-error=''] [executable_name='jit_hess']",
+        "hess_batched:1024": "JaxRuntimeError: RESOURCE_EXHAUSTED: Out of memory while trying to allocate 5.71GiB with allocator GPU_0_bfc on device 0. [tf-allocator-allocation-error='']",
+        "hess_batched:4096": "JaxRuntimeError: RESOURCE_EXHAUSTED: Out of memory while trying to allocate 22.80GiB with allocator GPU_0_bfc on device 0. [tf-allocator-allocation-error='']",
+        "hess_batched:16384": "JaxRuntimeError: RESOURCE_EXHAUSTED: Failed to get configs for: 20 out of 833 instructions. See logs for all failures. Example failure: \nOut of memory while trying to allocate 4.13GiB with allocator GPU_0_bfc on device 0. [tf-allocator-allocation-error='']"
+      }
+    }
+  },
+  "runs": {},
+  "complete": false,
+  "frax_gate": {
+    "status": "pass",
+    "reason": null,
+    "n_joints": 108,
+    "n_bodies": 67,
+    "n_bodies_static": 0,
+    "expanded": {
+      "free": 1,
+      "ball": 0,
+      "composite": 25
+    },
+    "pure_chain": false,
+    "fk_max_err": 4.690692279041286e-15,
+    "jac_max_err": 1.1102230246251565e-15,
+    "frax": "0.0.4",
+    "jax": "0.11.1"
+  }
+}

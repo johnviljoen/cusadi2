@@ -1,0 +1,60 @@
+{
+  "robot": "dynamixel_2r",
+  "xml": "dynamixel_2r/dynamixel_2r.xml",
+  "menagerie_commit": "8161bba264d7fa7c99ca301e91e7fb44737676ad",
+  "manifest_commit": "8161bba264d7fa7c99ca301e91e7fb44737676ad",
+  "gate": {
+    "status": "pass",
+    "reason": null,
+    "nq": 2,
+    "nv": 2,
+    "n_bodies": 3,
+    "n_bodies_unnamed": 0,
+    "floating": false,
+    "fk_max_err": 7.771561172376096e-16,
+    "root_corr": false,
+    "preproc": {
+      "includes_flattened": false,
+      "multitree_wrapped": false,
+      "anchors_fixed": 0
+    }
+  },
+  "stages": {
+    "gate": {
+      "status": "pass",
+      "cached": true,
+      "seconds": 0
+    },
+    "frax_fp64": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 14.95,
+      "attempts": 1
+    },
+    "frax_fp32": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 12.29,
+      "attempts": 1
+    }
+  },
+  "runs": {},
+  "complete": false,
+  "frax_gate": {
+    "status": "pass",
+    "reason": null,
+    "n_joints": 2,
+    "n_bodies": 3,
+    "n_bodies_static": 1,
+    "expanded": {
+      "free": 0,
+      "ball": 0,
+      "composite": 0
+    },
+    "pure_chain": true,
+    "fk_max_err": 4.440892098500626e-16,
+    "jac_max_err": 3.3306690738754696e-16,
+    "frax": null,
+    "jax": "0.11.1"
+  }
+}

@@ -1,0 +1,14 @@
+== plans
+<frozen importlib._bootstrap>:488: RuntimeWarning: to-Python converter for pinocchio::python::DeprecatedBool already registered; second conversion method ignored.
+safe_integrate_double.plan {"dtype": "double", "n_levels": 128, "peak_live_slots": 498, "shared_bytes": 3984, "plan_write_s": 0.02460270602023229, "dt": 0.02, "sx_nodes": 3271}
+safe_model_T10_double.plan {"dtype": "double", "n_levels": 207, "peak_live_slots": 3649, "shared_bytes": 29192, "plan_write_s": 0.15664497500983998, "T": 10, "rows": "all", "n_cbf": 64, "sx_nodes": 30273, "knot_dt": 0.06666666666666667}
+safe_model_T15_double.plan {"dtype": "double", "n_levels": 207, "peak_live_slots": 3649, "shared_bytes": 29192, "plan_write_s": 0.13164021400734782, "T": 15, "rows": "all", "n_cbf": 64, "sx_nodes": 30273, "knot_dt": 0.09999999999999999}
+safe_model_T20_double.plan {"dtype": "double", "n_levels": 207, "peak_live_slots": 3649, "shared_bytes": 29192, "plan_write_s": 0.1324498250032775, "T": 20, "rows": "all", "n_cbf": 64, "sx_nodes": 30273, "knot_dt": 0.13333333333333333}
+safe_model_T25_double.plan {"dtype": "double", "n_levels": 207, "peak_live_slots": 3649, "shared_bytes": 29192, "plan_write_s": 0.13221213198266923, "T": 25, "rows": "all", "n_cbf": 64, "sx_nodes": 30273, "knot_dt": 0.16666666666666666}
+safe_model_T30_double.plan {"dtype": "double", "n_levels": 207, "peak_live_slots": 3649, "shared_bytes": 29192, "plan_write_s": 0.12951425602659583, "T": 30, "rows": "all", "n_cbf": 64, "sx_nodes": 30273, "knot_dt": 0.19999999999999998}
+== export
+exported T=10 double batches [1, 256, 512]: 6 programs (21.4 s)
+exported T=15 double batches [1, 256, 512]: 6 programs (3.9 s)
+exported T=20 double batches [1, 256, 512]: 6 programs (3.9 s)
+exported T=25 double batches [1, 256, 512]: 6 programs (3.8 s)
+exported T=30 double batches [1, 256, 512]: 6 programs (3.9 s)

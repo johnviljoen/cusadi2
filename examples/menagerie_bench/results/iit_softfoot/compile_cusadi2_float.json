@@ -2,25 +2,25 @@
   "robot": "iit_softfoot",
   "dtype": "float",
   "codegen_s": {
-    "fk": 0.7457120450271759,
-    "fkjac": 1.7172149330144748,
-    "fkhess": 11.813163270999212
+    "fk": 0.7085501379988273,
+    "fkjac": 0.935073584998463,
+    "fkhess": 11.207462558999396
   },
-  "nvcc_s": 3.5693342330050655,
+  "nvcc_s": 3.5192698930004553,
   "codegen_unrolled_s": {
-    "fk": 0.004233926010783762,
-    "fk_unr": 0.03189202901558019,
-    "fkjac": 0.042852312995819375,
-    "fkjac_unr": 0.35359694398357533,
-    "fkhess": 0.12156266300007701,
-    "fkhess_unr": 0.9718493690015748
+    "fk": 0.004297930998291122,
+    "fk_unr": 0.03213809199951356,
+    "fkjac": 0.012941613000293728,
+    "fkjac_unr": 0.09921311300058733,
+    "fkhess": 0.12185693400169839,
+    "fkhess_unr": 1.0014075799990678
   },
   "nvcc_unrolled_s": {
-    "fk": 3.2188009890087415,
-    "fk_unr": 38.42868501000339,
-    "fkjac": 49.94694161199732,
-    "fkjac_unr": 1233.0883700080158,
-    "fkhess": 74.63524217001395
+    "fk": null,
+    "fk_unr": null,
+    "fkjac": 5.572172271000454,
+    "fkjac_unr": 107.3323645140008,
+    "fkhess": null
   },
   "unrolled_failed": {
     "fkhess_unr": "exit code 143 (killed while compiling alone: exceeds this machine's memory)"
@@ -45,13 +45,13 @@
       "windowed_unr": false
     },
     "fkjac": {
-      "nnz_out": 27048,
-      "n_instr": 34193,
-      "n_instr_unr": 273299,
-      "sz_w": 90,
-      "sz_w_unr": 103,
-      "smem_kb": 7.97265625,
-      "smem_unr_kb": 63.6171875,
+      "nnz_out": 2389,
+      "n_instr": 9533,
+      "n_instr_unr": 76026,
+      "sz_w": 89,
+      "sz_w_unr": 102,
+      "smem_kb": 7.96875,
+      "smem_unr_kb": 63.61328125,
       "levels": 31,
       "levels_unr": 31,
       "windowed": false,

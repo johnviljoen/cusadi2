@@ -1,0 +1,5 @@
+exported mjx T=10 double batches [256]: 2 programs (62.4 s)
+exported mjx T=20 double batches [256]: 2 programs (16.8 s)
+exported mjx T=30 double batches [256]: 2 programs (17.8 s)
+exported mjx T=50 double batches [256]: 2 programs (17.0 s)
+exported mjx T=100 double batches [64, 128, 512]: 6 programs (86.0 s)

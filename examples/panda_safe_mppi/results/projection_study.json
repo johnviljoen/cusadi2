@@ -1,0 +1,62 @@
+{
+  "none (box only)": {
+    "kind0_inst_frac": 0.455078125,
+    "kind1_inst_frac": 0.55859375,
+    "kind2_inst_frac": 1.0,
+    "kind0_mean_pos": 0.04090428631913202,
+    "kind1_mean_pos": 0.04450222285198965,
+    "kind2_mean_pos": 0.17360396814551116,
+    "rollout_hmin_frac_below_-0.01": 0.0377906976744186,
+    "rollout_hmin_frac_below_0": 0.05813953488372093,
+    "rollout_hmin_min": -0.12374182721401272,
+    "rollout_hmin_p05": -0.0025990156675904296
+  },
+  "greedy 16": {
+    "kind0_inst_frac": 0.2158203125,
+    "kind1_inst_frac": 0.361328125,
+    "kind2_inst_frac": 0.88671875,
+    "kind0_mean_pos": 0.010372938109627253,
+    "kind1_mean_pos": 0.027636178193351006,
+    "kind2_mean_pos": 0.07042833129775453,
+    "rollout_hmin_frac_below_-0.01": 0.0029069767441860465,
+    "rollout_hmin_frac_below_0": 0.005813953488372093,
+    "rollout_hmin_min": -0.027668920507196937,
+    "rollout_hmin_p05": 0.009714524740483392
+  },
+  "greedy 32": {
+    "kind0_inst_frac": 0.16796875,
+    "kind1_inst_frac": 0.328125,
+    "kind2_inst_frac": 0.841796875,
+    "kind0_mean_pos": 0.006743636208645418,
+    "kind1_mean_pos": 0.01590024897206276,
+    "kind2_mean_pos": 0.05409570820348532,
+    "rollout_hmin_frac_below_-0.01": 0.0,
+    "rollout_hmin_frac_below_0": 0.0029069767441860465,
+    "rollout_hmin_min": -0.004513226504594847,
+    "rollout_hmin_p05": 0.009714524742891003
+  },
+  "greedy 48 (the kernel)": {
+    "kind0_inst_frac": 0.150390625,
+    "kind1_inst_frac": 0.30078125,
+    "kind2_inst_frac": 0.80078125,
+    "kind0_mean_pos": 0.00586529069616819,
+    "kind1_mean_pos": 0.019315257061027453,
+    "kind2_mean_pos": 0.04693527396562857,
+    "rollout_hmin_frac_below_-0.01": 0.0,
+    "rollout_hmin_frac_below_0": 0.0029069767441860465,
+    "rollout_hmin_min": -0.004513226504594847,
+    "rollout_hmin_p05": 0.009714524742891003
+  },
+  "elastic QP (cbfpy / qpax)": {
+    "kind0_inst_frac": 0.025390625,
+    "kind1_inst_frac": 0.0703125,
+    "kind2_inst_frac": 0.3125,
+    "kind0_mean_pos": 0.0012801832309569366,
+    "kind1_mean_pos": 0.0011221808617329528,
+    "kind2_mean_pos": 0.00861113431480302,
+    "rollout_hmin_frac_below_-0.01": 0.0,
+    "rollout_hmin_frac_below_0": 0.0029069767441860465,
+    "rollout_hmin_min": -0.004513224739803423,
+    "rollout_hmin_p05": 0.009467009335871829
+  }
+}

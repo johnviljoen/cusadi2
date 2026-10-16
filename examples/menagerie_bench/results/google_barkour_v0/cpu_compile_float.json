@@ -6,12 +6,12 @@
   "cc": "x86_64-conda-linux-gnu-cc -O3 -march=native -fopenmp",
   "compile_s": {
     "fk": 0.38819173304364085,
-    "fkjac": 1.0824883650057018,
+    "fkjac": 0.5270631270013837,
     "fkhess": 5.009571017988492
   },
   "gcc_s": {
     "fk": 0.3643989490228705,
-    "fkjac": 1.0654625649913214,
+    "fkjac": 0.5145314270012022,
     "fkhess": 4.971687416022178
   },
   "failed": {},
@@ -23,8 +23,8 @@
     },
     "fkjac": {
       "nnz_in": 19,
-      "nnz_out": 1404,
-      "n_instr": 3687
+      "nnz_out": 495,
+      "n_instr": 2777
     },
     "fkhess": {
       "nnz_in": 19,

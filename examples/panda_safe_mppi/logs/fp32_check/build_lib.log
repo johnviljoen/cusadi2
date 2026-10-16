@@ -1,0 +1,2 @@
+nvcc libsafe_mppi_f32.so: 6.8 s
+lib exit 0

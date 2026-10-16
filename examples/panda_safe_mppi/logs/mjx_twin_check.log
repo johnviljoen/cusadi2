@@ -1,0 +1,2 @@
+model  mjx vs frax: u_nom 2.0e-15  G 1.1e-14  h 1.1e-15
+integrate mjx vs frax: x1 6.7e-15   (90.6 s)

@@ -2,30 +2,30 @@
   "robot": "tetheria_aero_hand_open",
   "dtype": "double",
   "codegen_s": {
-    "fk": 0.08486702101072297,
-    "fkjac": 0.14116377400932834,
-    "fkhess": 0.17199721798533574
+    "fk": 0.07634113499807427,
+    "fkjac": 0.06706674000088242,
+    "fkhess": 0.1497026899996854
   },
-  "nvcc_s": 4.2716997419775,
+  "nvcc_s": 3.9200295730006474,
   "codegen_unrolled_s": {
-    "fk": 0.002543449023505673,
-    "fk_unr": 0.016601115989033133,
-    "fkjac": 0.005400996014941484,
-    "fkjac_unr": 0.039942536008311436,
-    "fkhess": 0.005626616009976715,
-    "fkhess_unr": 0.04040121898287907
+    "fk": 0.002204864998930134,
+    "fk_unr": 0.01395858699834207,
+    "fkjac": 0.002358327001275029,
+    "fkjac_unr": 0.015069880999362795,
+    "fkhess": 0.005022686000302201,
+    "fkhess_unr": 0.035334246000275016
   },
   "nvcc_unrolled_s": {
-    "fk": 1.4160136840073392,
-    "fk_unr": 6.574058164987946,
-    "fkjac": 3.1695529429998714,
-    "fkjac_unr": 31.313715739990585,
-    "fkhess": 1.916845635016216,
-    "fkhess_unr": 12.385693557007471
+    "fk": null,
+    "fk_unr": null,
+    "fkjac": 1.2157626830012305,
+    "fkjac_unr": 5.1219526559980295,
+    "fkhess": null,
+    "fkhess_unr": null
   },
   "unrolled_failed": {},
   "nvcc_jobs": 6,
-  "cached": true,
+  "cached": false,
   "nq": 16,
   "nv": 16,
   "n_bodies": 22,
@@ -44,13 +44,13 @@
       "windowed_unr": false
     },
     "fkjac": {
-      "nnz_out": 2112,
-      "n_instr": 3448,
-      "n_instr_unr": 26548,
-      "sz_w": 63,
-      "sz_w_unr": 186,
-      "smem_kb": 2.484375,
-      "smem_unr_kb": 17.515625,
+      "nnz_out": 186,
+      "n_instr": 1521,
+      "n_instr_unr": 11139,
+      "sz_w": 62,
+      "sz_w_unr": 185,
+      "smem_kb": 2.4765625,
+      "smem_unr_kb": 17.5078125,
       "levels": 18,
       "levels_unr": 18,
       "windowed": false,

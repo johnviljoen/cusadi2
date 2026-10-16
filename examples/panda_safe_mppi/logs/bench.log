@@ -1,0 +1,17 @@
+exported T=20 double batches [64, 128]: 4 programs (19.9 s)
+cusadi2  K= 256 T= 10  tick    4.13 ms (p99    4.22)  rollout    3.52  model  0.244  integrate  0.055  project  0.058
+cusadi2  K= 256 T= 15  tick    5.05 ms (p99    5.54)  rollout    5.24  model  0.244  integrate  0.055  project  0.054
+cusadi2  K= 256 T= 20  tick    6.43 ms (p99    7.34)  rollout    6.91  model  0.244  integrate  0.055  project  0.054
+cusadi2  K= 256 T= 25  tick    7.91 ms (p99    9.13)  rollout    8.52  model  0.244  integrate  0.055  project  0.054
+cusadi2  K= 256 T= 30  tick    9.35 ms (p99   10.91)  rollout   10.21  model  0.244  integrate  0.055  project  0.054
+cusadi2  K=  64 T= 20  tick    3.64 ms (p99    4.65)  rollout    4.30  model  0.116  integrate  0.052  project  0.054
+cusadi2  K= 128 T= 20  tick    3.86 ms (p99    4.81)  rollout    4.23  model  0.121  integrate  0.052  project  0.012
+cusadi2  K= 512 T= 20  tick    9.00 ms (p99   10.16)  rollout    9.60  model  0.367  integrate  0.059  project  0.060
+frax     K= 256 T= 10  tick   21.80 ms (p99   22.80)  rollout   20.03  model  1.753  integrate  0.220  project  0.005
+frax     K= 256 T= 15  tick   31.67 ms (p99   32.17)  rollout   30.02  model  1.744  integrate  0.218  project  0.005
+frax     K= 256 T= 20  tick   41.60 ms (p99   42.40)  rollout   40.08  model  1.730  integrate  0.218  project  0.005
+frax     K= 256 T= 25  tick   51.59 ms (p99   52.41)  rollout   49.46  model  1.724  integrate  0.215  project  0.005
+frax     K= 256 T= 30  tick   61.47 ms (p99   62.40)  rollout   59.92  model  1.744  integrate  0.223  project  0.005
+frax     K=  64 T= 20  tick   19.18 ms (p99   21.41)  rollout   18.26  model  0.729  integrate  0.172  project  0.005
+frax     K= 128 T= 20  tick   26.47 ms (p99   29.16)  rollout   25.02  model  1.050  integrate  0.187  project  0.005
+frax     K= 512 T= 20  tick   68.01 ms (p99   69.61)  rollout   64.71  model  2.925  integrate  0.268  project  0.006

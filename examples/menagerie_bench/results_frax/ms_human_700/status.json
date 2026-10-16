@@ -1,0 +1,78 @@
+{
+  "robot": "ms_human_700",
+  "xml": "ms_human_700/MS-Human-700.xml",
+  "menagerie_commit": "8161bba264d7fa7c99ca301e91e7fb44737676ad",
+  "manifest_commit": "8161bba264d7fa7c99ca301e91e7fb44737676ad",
+  "gate": {
+    "status": "pass",
+    "reason": null,
+    "nq": 85,
+    "nv": 85,
+    "n_bodies": 80,
+    "n_bodies_unnamed": 0,
+    "floating": false,
+    "fk_max_err": 2.6756374893466273e-14,
+    "root_corr": false,
+    "preproc": {
+      "includes_flattened": true,
+      "multitree_wrapped": false,
+      "anchors_fixed": 0
+    }
+  },
+  "stages": {
+    "gate": {
+      "status": "pass",
+      "cached": true,
+      "seconds": 0
+    },
+    "frax_fp64": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 333.88,
+      "attempts": 1,
+      "failed_shapes": {
+        "jac_batched:4096": "JaxRuntimeError: RESOURCE_EXHAUSTED: Out of memory while trying to allocate 9.96GiB with allocator GPU_0_bfc on device 0. [executable_name='jit_jac'] [tf-allocator-allocation-error='']",
+        "jac_batched:16384": "JaxRuntimeError: RESOURCE_EXHAUSTED: Out of memory while trying to allocate 39.84GiB with allocator GPU_0_bfc on device 0. [executable_name='jit_jac'] [tf-allocator-allocation-error='']",
+        "hess_batched:64": "JaxRuntimeError: RESOURCE_EXHAUSTED: Out of memory while trying to allocate 13.23GiB with allocator GPU_0_bfc on device 0. [tf-allocator-allocation-error=''] [executable_name='jit_hess']",
+        "hess_batched:256": "JaxRuntimeError: RESOURCE_EXHAUSTED: Out of memory while trying to allocate 52.92GiB with allocator GPU_0_bfc on device 0. [tf-allocator-allocation-error=''] [executable_name='jit_hess']",
+        "hess_batched:1024": "JaxRuntimeError: RESOURCE_EXHAUSTED: Out of memory while trying to allocate 7.07GiB with allocator GPU_0_bfc on device 0. [tf-allocator-allocation-error='']",
+        "hess_batched:4096": "JaxRuntimeError: RESOURCE_EXHAUSTED: Failed to get configs for: 9 out of 604 instructions. See logs for all failures. Example failure: \nOut of memory while trying to allocate 28.24GiB with allocator GPU_0_bfc on device 0. [tf-allocator-allocation-error='']",
+        "hess_batched:16384": "JaxRuntimeError: RESOURCE_EXHAUSTED: Failed to get configs for: 18 out of 586 instructions. See logs for all failures. Example failure: \nOut of memory while trying to allocate 10.47GiB with allocator GPU_0_bfc on device 0. [tf-allocator-allocation-error='']"
+      }
+    },
+    "frax_fp32": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 484.33,
+      "attempts": 1,
+      "failed_shapes": {
+        "jac_batched:4096": "JaxRuntimeError: RESOURCE_EXHAUSTED: Out of memory while trying to allocate 4.98GiB with allocator GPU_0_bfc on device 0. [executable_name='jit_jac'] [tf-allocator-allocation-error='']",
+        "jac_batched:16384": "JaxRuntimeError: RESOURCE_EXHAUSTED: Out of memory while trying to allocate 19.92GiB with allocator GPU_0_bfc on device 0. [executable_name='jit_jac'] [tf-allocator-allocation-error='']",
+        "hess_batched:64": "JaxRuntimeError: RESOURCE_EXHAUSTED: Out of memory while trying to allocate 6.61GiB with allocator GPU_0_bfc on device 0. [executable_name='jit_hess'] [tf-allocator-allocation-error='']",
+        "hess_batched:256": "JaxRuntimeError: RESOURCE_EXHAUSTED: Out of memory while trying to allocate 26.46GiB with allocator GPU_0_bfc on device 0. [tf-allocator-allocation-error=''] [executable_name='jit_hess']",
+        "hess_batched:1024": "JaxRuntimeError: RESOURCE_EXHAUSTED: Out of memory while trying to allocate 105.83GiB with allocator GPU_0_bfc on device 0. [tf-allocator-allocation-error=''] [executable_name='jit_hess']",
+        "hess_batched:4096": "JaxRuntimeError: RESOURCE_EXHAUSTED: Out of memory while trying to allocate 14.13GiB with allocator GPU_0_bfc on device 0. [tf-allocator-allocation-error='']",
+        "hess_batched:16384": "JaxRuntimeError: RESOURCE_EXHAUSTED: Failed to get configs for: 33 out of 751 instructions. See logs for all failures. Example failure: \nOut of memory while trying to allocate 10.47GiB with allocator GPU_0_bfc on device 0. [tf-allocator-allocation-error='']"
+      }
+    }
+  },
+  "runs": {},
+  "complete": false,
+  "frax_gate": {
+    "status": "pass",
+    "reason": null,
+    "n_joints": 85,
+    "n_bodies": 80,
+    "n_bodies_static": 0,
+    "expanded": {
+      "free": 0,
+      "ball": 0,
+      "composite": 24
+    },
+    "pure_chain": false,
+    "fk_max_err": 2.9976021664879227e-15,
+    "jac_max_err": 1.3322676295501878e-15,
+    "frax": "0.0.4",
+    "jax": "0.11.1"
+  }
+}

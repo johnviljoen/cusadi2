@@ -1,0 +1,26 @@
+{
+  "transfer": {
+    "model_ms": 0.18592000007629395,
+    "integrate_ms": 0.03251200169324875,
+    "rollout_ms": 24.031232833862305,
+    "info": "CasADi C codegen on the CPU (16 OpenMP threads, GPU -> CPU -> GPU transfer in every call): libcpu_T100_double.so (sz_w 0 / 0) | R=1 K=256 T=100 proj_iters=48 graph=0"
+  },
+  "compute_only": {
+    "model_ms": 0.12780800461769104,
+    "integrate_ms": 0.016095999628305435,
+    "rollout_ms": 15.175359725952148,
+    "info": "CasADi C codegen on the CPU (16 OpenMP threads, NO transfer: compute-only timing): libcpu_T100_double.so (sz_w 0 / 0) | R=1 K=256 T=100 proj_iters=48 graph=0"
+  },
+  "compute_only_1_thread": {
+    "model_ms": 1.0250240564346313,
+    "integrate_ms": 0.12905600666999817,
+    "rollout_ms": 113.5808334350586,
+    "info": "CasADi C codegen on the CPU (1 OpenMP threads, NO transfer: compute-only timing): libcpu_T100_double.so (sz_w 0 / 0) | R=1 K=256 T=100 proj_iters=48 graph=0"
+  },
+  "compute_only_8_threads": {
+    "model_ms": 0.24694399535655975,
+    "integrate_ms": 0.028672000393271446,
+    "rollout_ms": 15.825920104980469,
+    "info": "CasADi C codegen on the CPU (8 OpenMP threads, NO transfer: compute-only timing): libcpu_T100_double.so (sz_w 0 / 0) | R=1 K=256 T=100 proj_iters=48 graph=0"
+  }
+}

@@ -102,14 +102,16 @@ __global__ void cusadi2_kernel(CUSADI2_KERNEL_PARAMS) {
         int width = level_widths[lev];
         for (int idx = tid; idx < width; idx += block_sz) {
             const int g = offset + idx, op = node_ops[g], o = node_outs[g], a = node_in_a[g], b = node_in_b[g];
-            if (op == OP_INPUT) {
+            if (op < OP_CONST) {                  // the common case first: one compare, dense switch
+                w[o] = exec_op(op, w[a], w[b]);
+            } else if (op == OP_INPUT) {
                 int s = (in_stage_mode[a] == 1) ? 0 : (stage + in_stage_offset[a]);
                 w[o] = inputs[a][((long long)inst * in_stage_count[a] + s) * nnz_in[a] + b];
             } else if (op == OP_OUTPUT) {
                 int s = (out_stage_mode[a] == 1) ? 0 : stage;
                 outputs[a][((long long)inst * out_stage_count[a] + s) * nnz_out[a] + b] = w[o];
             } else {
-                w[o] = exec_op(op, w[a], w[b]);
+                w[o] = exec_op_late(op, w[a], w[b]);
             }
         }
         __syncthreads();
@@ -148,7 +150,9 @@ __global__ void cusadi2_kernel_serial(
         const int inst = (int)(g / n_stages), stage = (int)(g % n_stages);
         for (int i = 0; i < n_instr; i++) {
             const int op = s_ops[i], o = s_outs[i], a = s_in_a[i], b = s_in_b[i];
-            if (op == OP_CONST) {                 // a: index into s_const_vals
+            if (op < OP_CONST) {
+                W(o) = exec_op(op, W(a), W(b));
+            } else if (op == OP_CONST) {          // a: index into s_const_vals
                 W(o) = s_const_vals[a];
             } else if (op == OP_INPUT) {          // a: arg, b: element
                 int s = (in_stage_mode[a] == 1) ? 0 : (stage + in_stage_offset[a]);
@@ -156,7 +160,7 @@ __global__ void cusadi2_kernel_serial(
             } else if (op == OP_OUTPUT) {         // o read into arg a element b
                 outputs[a][((long long)inst * out_stage_count[a] + stage) * nnz_out[a] + b] = W(o);
             } else {
-                W(o) = exec_op(op, W(a), W(b));
+                W(o) = exec_op_late(op, W(a), W(b));
             }
         }
     }
@@ -228,19 +232,25 @@ int cusadi2_max_active_blocks(int block_size, int shared_bytes) {
 
 
 def _render(dtype: str) -> str:
-    """Fill {dtype} and build exec_op from the op tables so a float kernel uses
-    float intrinsics instead of promoting through double."""
+    """Fill {dtype} and build exec_op / exec_op_late from the op tables so a float
+    kernel uses float intrinsics instead of promoting through double. exec_op is
+    CasADi's contiguous ids below OP_CONST (a dense switch, the kernels' first
+    branch); exec_op_late the five scalar ops numbered above OP_OUTPUT. One
+    switch over all of them (ids up to 97) measured 1% slower on functions that
+    never use the five, so the split stays until the ids can be made contiguous."""
     import casadi as ca
     from cusadi2.ops import OP_EXPR_DOUBLE, OP_EXPR_FLOAT
     names = {getattr(ca, n): n for n in dir(ca) if n.startswith("OP_")}
     exprs = OP_EXPR_FLOAT if dtype == "float" else OP_EXPR_DOUBLE
     zero = "0.f" if dtype == "float" else "0.0"
-    cases = "\n".join(
-        "        case %s: return %s;" % (names[op], e.replace("{0}", "a").replace("{1}", "b"))
-        for op, e in exprs.items())
-    exec_op = ("__device__ __forceinline__ %s exec_op(int op, %s a, %s b) {\n"
-               "    switch (op) {\n%s\n        default: return %s;\n    }\n}"
-               % (dtype, dtype, dtype, cases, zero))
+    def switch(fn_name, late):
+        cases = "\n".join(
+            "        case %s: return %s;" % (names[op], e.replace("{0}", "a").replace("{1}", "b"))
+            for op, e in exprs.items() if (op > ca.OP_OUTPUT) == late)
+        return ("__device__ __forceinline__ %s %s(int op, %s a, %s b) {\n"
+                "    switch (op) {\n%s\n        default: return %s;\n    }\n}"
+                % (dtype, fn_name, dtype, dtype, cases, zero))
+    exec_op = switch("exec_op", False) + "\n\n" + switch("exec_op_late", True)
     return _TEMPLATE.replace("{dtype}", dtype).replace("__EXEC_OP__", exec_op)
 
 

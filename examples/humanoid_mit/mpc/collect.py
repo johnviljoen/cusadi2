@@ -1,7 +1,8 @@
 """Merge the MPC benchmark CSVs into results/mpc_latency.csv and results/mpc_latency.png.
 
 usage: python collect.py <staged_dir> <mono_dir> [cpu_csv]
-  staged_dir: holds sweep_double.csv, sweep_float.csv, probe_double.csv (mpc_cudss_bench output)
+  staged_dir: holds sweep_double.csv, sweep_float.csv, probe_double.csv (mpc_cudss_bench output) and
+              bridge_*.csv (bridge_bench.py: the cusadi2 or MJX assembly + the same solver through the bridge)
   mono_dir:   holds mono_*.csv from mpc_mono_bench (mode cudss_serial = the 'cusadi' baseline, every
               function in the serial kernel; mode cudss, which runs the functions that fit shared memory
               in the level kernel, is listed under its own name; KEEP_LDL=1 also lists mode c2)
@@ -25,6 +26,10 @@ staged_dir, mono_dir = sys.argv[1], sys.argv[2]
 rows = []
 for f in glob.glob(os.path.join(staged_dir, "*.csv")):
     for r in read_csv(f):
+        if "solver_us" in r:                                # assembly in another framework, Ruiz inside the solver time
+            rows.append(dict(dtype=r["dtype"], system={"mjx": "MJX assembly + bridged solver", "cusadi2": "cusadi2 assembly + bridged solver"}[r["system"]], launch="xla+graph", batch=int(r["batch"]),
+                             assembly_us=r["assembly_us"], factor_us=float("nan"), iters_us=r["solver_us"], total_us=r["total_us"],
+                             wall_us=r["total_us"], max_abs_err=r["max_abs_err_ref"]))
         if "asm_ruiz_us" not in r: continue
         rows.append(dict(dtype=r["dtype"], system="cusadi2", launch=r["mode"], batch=int(r["batch"]),
                          assembly_us=r["asm_ruiz_us"], factor_us=r["factor_us"], iters_us=r["iters_us"], total_us=r["total_us"],
@@ -56,14 +61,13 @@ print(" ".join(f"{c:>12s}" if c not in ("system",) else f"{c:34s}" for c in cols
 for r in rows: print(" ".join(f"{fmt(r[c]):>12s}" if c != "system" else f"{r[c]:34s}" for c in cols))
 
 if plt is None: sys.exit(0)
+colors = {name: f"C{i}" for i, name in enumerate(sorted(set(r["system"] for r in rows)))}      # one colour per system in both panels
 fig, axes = plt.subplots(1, 2, figsize=(11, 4.2), sharey=True)
 for ax, dt in zip(axes, ("f64", "f32")):
-    sub = [r for r in rows if r["dtype"] == dt and r["launch"] == "graph" and not math.isnan(r["total_us"])]
+    sub = [r for r in rows if r["dtype"] == dt and r["launch"] in ("graph", "xla+graph") and not math.isnan(r["total_us"])]
     for name in sorted(set(r["system"] for r in sub)):
         g = sorted([r for r in sub if r["system"] == name], key=lambda r: r["batch"])
-        ax.plot([r["batch"] for r in g], [r["total_us"] / 1e3 for r in g], "o-", label=name)
-    per = sorted([r for r in sub if r["system"] == "cusadi2"], key=lambda r: r["batch"])
-    ax.plot([r["batch"] for r in per], [r["total_us"] / 1e3 / r["batch"] for r in per], "s--", color="gray", label="cusadi2, per QP")
+        ax.plot([r["batch"] for r in g], [r["total_us"] / 1e3 for r in g], "o-", label=name, color=colors[name])
     ax.set_xscale("log", base=2); ax.set_yscale("log"); ax.set_xlabel("batch size B (QPs)"); ax.set_title(f"MIT humanoid MPC QP solve, {dt}, CUDA graph")
     ax.grid(True, which="both", alpha=0.3)
 axes[0].set_ylabel("latency per batch [ms]"); axes[0].legend(fontsize=8)

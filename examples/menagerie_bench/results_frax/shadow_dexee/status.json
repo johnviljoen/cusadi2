@@ -1,0 +1,67 @@
+{
+  "robot": "shadow_dexee",
+  "xml": "shadow_dexee/shadow_dexee.xml",
+  "menagerie_commit": "8161bba264d7fa7c99ca301e91e7fb44737676ad",
+  "manifest_commit": "8161bba264d7fa7c99ca301e91e7fb44737676ad",
+  "gate": {
+    "status": "pass",
+    "reason": null,
+    "nq": 12,
+    "nv": 12,
+    "n_bodies": 19,
+    "n_bodies_unnamed": 0,
+    "floating": false,
+    "fk_max_err": 1.6653345369377348e-15,
+    "root_corr": false,
+    "preproc": {
+      "includes_flattened": false,
+      "multitree_wrapped": true,
+      "anchors_fixed": 0
+    }
+  },
+  "stages": {
+    "gate": {
+      "status": "pass",
+      "cached": true,
+      "seconds": 0
+    },
+    "frax_fp64": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 53.01,
+      "attempts": 1,
+      "failed_shapes": {
+        "hess_batched:4096": "JaxRuntimeError: RESOURCE_EXHAUSTED: Out of memory while trying to allocate 3.49GiB with allocator GPU_0_bfc on device 0. [executable_name='jit_hess'] [tf-allocator-allocation-error='']",
+        "hess_batched:16384": "JaxRuntimeError: NOT_FOUND: All configs failed during profiling.\nFailures (10):\nEXECUTION FAILED: RESOURCE_EXHAUSTED: Out of memory while trying to allocate 2.27GiB with allocator GPU_0_bfc on device 0. [tf-allocator-allocation-error='']\nEXECUTION FAILED: RESOURCE_EXHAUSTED: Out of memory while tryi"
+      }
+    },
+    "frax_fp32": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 50.95,
+      "attempts": 1,
+      "failed_shapes": {
+        "hess_batched:16384": "JaxRuntimeError: RESOURCE_EXHAUSTED: Out of memory while trying to allocate 8.02GiB with allocator GPU_0_bfc on device 0. [tf-allocator-allocation-error=''] [executable_name='jit_hess']"
+      }
+    }
+  },
+  "runs": {},
+  "complete": false,
+  "frax_gate": {
+    "status": "pass",
+    "reason": null,
+    "n_joints": 12,
+    "n_bodies": 19,
+    "n_bodies_static": 7,
+    "expanded": {
+      "free": 0,
+      "ball": 0,
+      "composite": 0
+    },
+    "pure_chain": false,
+    "fk_max_err": 9.992007221626409e-16,
+    "jac_max_err": 4.440892098500626e-16,
+    "frax": "0.0.4",
+    "jax": "0.11.1"
+  }
+}

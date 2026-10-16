@@ -1,0 +1,15 @@
+<frozen importlib._bootstrap>:488: RuntimeWarning: to-Python converter for pinocchio::python::DeprecatedBool already registered; second conversion method ignored.
+casadi step: {'T': 20, 'dt': 0.02, 'proj_iters': 32, 'n_cbf': 64, 'sx_nodes': 120290} (0.5 s)
+E1008 13:34:58.872934 3759004 slow_operation_alarm.cc:73] 
+********************************
+[Compiling module jit_step for GPU] Very slow compile? If you want to file a bug, run with envvar XLA_FLAGS=--xla_dump_to=/tmp/foo and attach the results.
+********************************
+E1008 13:36:45.583788 3758969 slow_operation_alarm.cc:140] The operation took 3m46.710924104s
+
+********************************
+[Compiling module jit_step for GPU] Very slow compile? If you want to file a bug, run with envvar XLA_FLAGS=--xla_dump_to=/tmp/foo and attach the results.
+********************************
+one step  rel err: x1 9.8e-11  u 3.6e-11
+projection residual: {'rows_violated_frac': 0.03066253662109375, 'instances_violated_frac': 0.45263671875, 'max_rel_violation': 435.6904046357046}
+5-step rollout rel err: 2.6e-10
+GATE 1 PASS

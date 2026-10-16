@@ -1,0 +1,44 @@
+== plans
+<frozen importlib._bootstrap>:488: RuntimeWarning: to-Python converter for pinocchio::python::DeprecatedBool already registered; second conversion method ignored.
+{"dtype": "float", "knot_dt": 0.06666666666666667, "n_levels": 504, "peak_live_slots": 4249, "shared_bytes": 16996, "casadi_build_s": 1.4509125670301728, "plan_write_s": 0.32515035301912576, "T": 10, "dt": 0.02, "proj_rounds": 3, "n_cbf": 64, "sx_nodes": 50318}
+{"dtype": "double", "knot_dt": 0.06666666666666667, "n_levels": 504, "peak_live_slots": 4249, "shared_bytes": 33992, "casadi_build_s": 1.4509125670301728, "plan_write_s": 0.4701124579878524, "T": 10, "dt": 0.02, "proj_rounds": 3, "n_cbf": 64, "sx_nodes": 50318}
+{"dtype": "float", "knot_dt": 0.13333333333333333, "n_levels": 504, "peak_live_slots": 4249, "shared_bytes": 16996, "casadi_build_s": 0.4677929740282707, "plan_write_s": 0.3904709230409935, "T": 20, "dt": 0.02, "proj_rounds": 3, "n_cbf": 64, "sx_nodes": 50318}
+{"dtype": "double", "knot_dt": 0.13333333333333333, "n_levels": 504, "peak_live_slots": 4249, "shared_bytes": 33992, "casadi_build_s": 0.4677929740282707, "plan_write_s": 0.2370756880263798, "T": 20, "dt": 0.02, "proj_rounds": 3, "n_cbf": 64, "sx_nodes": 50318}
+== debug driver
+<frozen importlib._bootstrap>:488: RuntimeWarning: to-Python converter for pinocchio::python::DeprecatedBool already registered; second conversion method ignored.
+stat [2.11056304e+00 2.11056304e+00 9.99999997e-07 2.00000000e+00]
+u [27.646 -2.614 32.876 32.8   -0.15   6.498 -7.639]
+xT[0] [ 0.0107 -0.4097  0.1739 -2.2205  0.0779  1.7951 -0.1292 -0.0688  0.39
+  0.7493  0.5196  0.3766  0.0516 -0.6155  0.2     2.1106]
+plant after [ 0.0036 -0.5149  0.0108 -2.3466  0.0051  1.751  -0.0046  0.1793  0.4357
+  0.5395  0.4802  0.2548  0.2856 -0.2282  0.02    0.2379]
+casadi xT [ 0.0107 -0.4097  0.1739 -2.2205  0.0779  1.7951 -0.1292 -0.0688  0.39
+  0.7493  0.5196  0.3766  0.0516 -0.6155  0.2     2.1106]
+casadi plant step x1 [ 0.0036 -0.5149  0.0108 -2.3466  0.0051  1.751  -0.0046  0.1793  0.4357
+  0.5395  0.4802  0.2548  0.2856 -0.2282  0.02    0.2379]
+casadi u [27.646 -2.614 32.876 32.8   -0.15   6.498 -7.639]
+== smoke
+cusadi2 plan safe_step: 49988 nodes, 504 levels, 16996 B shared, block 256 | R=256 K=8 T=10 graph=1
+ee start [ 3.7490329e-01 -5.6947754e-12  4.0935349e-01]
+tick   0: gpu  30.94 ms wall  30.95 | cost min    2.153 mean    2.404 ess   1.3 | |u|   87.0 finite True | ee dist mean 0.451 min 0.439 | |v| max 3.93
+tick  10: gpu  15.62 ms wall  15.81 | cost min    1.558 mean    1.796 ess   1.2 | |u|   87.0 finite True | ee dist mean 0.344 min 0.298 | |v| max 3.57
+tick  20: gpu  13.57 ms wall  13.58 | cost min    1.434 mean    1.671 ess   1.3 | |u|   87.0 finite True | ee dist mean 0.301 min 0.214 | |v| max 5.30
+tick  30: gpu  13.81 ms wall  13.82 | cost min    1.393 mean 147125223425.737 ess   1.4 | |u|   87.0 finite True | ee dist mean 0.288 min 0.171 | |v| max 5.90
+tick  40: gpu  13.59 ms wall  13.59 | cost min    1.389 mean    1.687 ess   1.4 | |u|   87.0 finite True | ee dist mean 0.284 min 0.125 | |v| max 6.50
+tick  50: gpu  14.34 ms wall  14.35 | cost min    1.378 mean    1.718 ess   1.4 | |u|   87.0 finite True | ee dist mean 0.280 min 0.091 | |v| max 12.63
+tick  60: gpu  13.60 ms wall  13.61 | cost min    1.353 mean    1.691 ess   1.4 | |u|   87.0 finite True | ee dist mean 0.274 min 0.092 | |v| max 8.99
+tick  70: gpu  15.57 ms wall  15.69 | cost min    1.317 mean    1.631 ess   1.4 | |u|   87.0 finite True | ee dist mean 0.265 min 0.068 | |v| max 15.37
+tick  80: gpu  14.86 ms wall  14.87 | cost min    1.248 mean    1.557 ess   1.4 | |u|   87.0 finite True | ee dist mean 0.261 min 0.108 | |v| max 9.13
+tick  90: gpu  14.15 ms wall  14.16 | cost min    1.222 mean    1.533 ess   1.4 | |u|   87.0 finite True | ee dist mean 0.253 min 0.100 | |v| max 8.75
+tick  99: gpu  13.59 ms wall  13.59 | cost min    1.182 mean 2276.138 ess   1.5 | |u|   87.0 finite True | ee dist mean 0.250 min 0.078 | |v| max 9.91
+gpu ms median 13.93 p99 15.79 | wall median 13.94
+== export
+safe_rollout_scan_T10_B256_float.mlir {'export_s': 1.8892390319961123, 'bytes': 228104}
+safe_rollout_unrolled_T10_B256_float.mlir {'export_s': 14.841977285046596, 'bytes': 1661683}
+safe_step_B256_float.mlir {'export_s': 1.3996415080036968, 'bytes': 227491}
+safe_rollout_scan_T10_B2048_float.mlir {'export_s': 1.954473924008198, 'bytes': 228104}
+safe_rollout_unrolled_T10_B2048_float.mlir {'export_s': 14.758516962989233, 'bytes': 1661683}
+safe_step_B2048_float.mlir {'export_s': 1.6914300280041061, 'bytes': 227491}
+safe_rollout_scan_T10_B4096_float.mlir {'export_s': 1.8807827520067804, 'bytes': 228104}
+safe_rollout_unrolled_T10_B4096_float.mlir {'export_s': 13.961253551999107, 'bytes': 1661683}
+safe_step_B4096_float.mlir {'export_s': 1.2257340970099904, 'bytes': 227491}

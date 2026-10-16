@@ -1,0 +1,670 @@
+
+==== run_all 2026-10-07 21:41:35 args={'force': False, 'only': None, 'problems': ['panda', 'g1'], 'seconds': 10.0}
+
+$ /home/jovi/miniconda3/envs/cusadi2/bin/python /home/jovi/code/cusecmpc/cusadi2/profiling/bench.py --problem panda --backend qpax --platform gpu --dtype f64 --batches 1 16 128 1024 4096   [21:41:35]
+[panda/qpax/gpu/f64] nv=7 rows=78 num_cbf=64 sc_pairs=7 backend=gpu x64=True
+  dataset: 4096 states, v_rms=0.508; solver converged 100.0%, iters mean 14.61 max 19; dataset+stats pass 28.4s
+  active CBF row in 93.1% of instances (mean 2.34 rows; random 89%, joint-limit 96%, collision 99%); filter changed u in 97.2%; u_des beyond torque bound in 73.3%
+  solve_qp_elastic_primal vs solve_qp_elastic max|dx| = 5.41e-09
+  B=    1 nominal     median      251.8 us  p99      261.2 us  compile   0.64 s  (n=1000)
+  B=    1 qp_data     median     1331.1 us  p99     1497.5 us  compile   3.92 s  (n=1000)
+  B=    1 dyn_terms   median      178.3 us  p99      190.4 us  compile   0.47 s  (n=1000)
+  B=    1 barriers    median     1293.6 us  p99     1449.8 us  compile   3.14 s  (n=1000)
+  B=    1 h2_only     median     1018.1 us  p99     1178.6 us  compile   0.31 s  (n=1000)
+  B=    1 solve       median     2143.8 us  p99     2436.6 us  compile   0.55 s  (n=1000)
+  B=    1 end_to_end  median     3395.1 us  p99     3881.6 us  compile   3.79 s  (n=1000)
+  B=   16 nominal     median      177.0 us  p99      209.4 us  compile   0.85 s  (n=1000)
+  B=   16 qp_data     median      705.5 us  p99      824.3 us  compile   3.85 s  (n=1000)
+  B=   16 dyn_terms   median      170.9 us  p99      196.0 us  compile   0.53 s  (n=1000)
+  B=   16 barriers    median      662.6 us  p99      780.9 us  compile   2.54 s  (n=1000)
+  B=   16 h2_only     median      430.8 us  p99      488.4 us  compile   0.40 s  (n=1000)
+  B=   16 solve       median     1873.8 us  p99     2143.7 us  compile   0.53 s  (n=1000)
+  B=   16 end_to_end  median     2644.8 us  p99     3033.7 us  compile   2.94 s  (n=1000)
+  B=  128 nominal     median      219.6 us  p99      245.3 us  compile   1.09 s  (n=1000)
+  B=  128 qp_data     median     1141.3 us  p99     1292.0 us  compile   4.03 s  (n=1000)
+  B=  128 dyn_terms   median      211.9 us  p99      242.3 us  compile   0.57 s  (n=1000)
+  B=  128 barriers    median     1103.2 us  p99     1239.6 us  compile   2.73 s  (n=1000)
+  B=  128 h2_only     median      687.0 us  p99      728.6 us  compile   0.47 s  (n=1000)
+  B=  128 solve       median     2500.5 us  p99     2814.1 us  compile   0.53 s  (n=1000)
+  B=  128 end_to_end  median     3620.6 us  p99     4190.2 us  compile   3.03 s  (n=1000)
+  B= 1024 nominal     median      454.6 us  p99      475.3 us  compile   1.07 s  (n=200)
+  B= 1024 qp_data     median     5521.3 us  p99     6081.0 us  compile   4.05 s  (n=200)
+  B= 1024 dyn_terms   median      401.4 us  p99      408.9 us  compile   0.55 s  (n=200)
+  B= 1024 barriers    median     5515.9 us  p99     6112.6 us  compile   2.88 s  (n=200)
+  B= 1024 h2_only     median     3818.1 us  p99     4002.1 us  compile   0.46 s  (n=200)
+  B= 1024 solve       median     4488.5 us  p99     4748.5 us  compile   0.52 s  (n=200)
+  B= 1024 end_to_end  median     9901.9 us  p99    10184.2 us  compile   3.09 s  (n=200)
+  B= 4096 nominal     median     1191.0 us  p99     1231.9 us  compile   1.06 s  (n=200)
+  B= 4096 qp_data     median    21066.3 us  p99    21452.8 us  compile   4.27 s  (n=200)
+  B= 4096 dyn_terms   median     1018.8 us  p99     1065.0 us  compile   0.59 s  (n=200)
+  B= 4096 barriers    median    20863.3 us  p99    21247.0 us  compile   2.88 s  (n=200)
+  B= 4096 h2_only     median    14392.0 us  p99    14570.9 us  compile   0.49 s  (n=200)
+  B= 4096 solve       median    12815.9 us  p99    12971.7 us  compile   0.83 s  (n=200)
+  B= 4096 end_to_end  median    33725.0 us  p99    33836.3 us  compile   3.31 s  (n=200)
+  done in 149.4s
+  -> exit 0 after 151s
+
+$ /home/jovi/miniconda3/envs/cusadi2/bin/python /home/jovi/code/cusecmpc/cusadi2/profiling/bench.py --problem panda --backend qpax --platform gpu --dtype f32 --batches 1 16 128 1024 4096   [21:44:06]
+[panda/qpax/gpu/f32] nv=7 rows=78 num_cbf=64 sc_pairs=7 backend=gpu x64=False
+  dataset: 4096 states, v_rms=0.508; solver converged 0.0%, iters mean 30.00 max 30; dataset+stats pass 25.7s
+  active CBF row in 67.2% of instances (mean 1.57 rows; random 58%, joint-limit 68%, collision 84%); filter changed u in 82.6%; u_des beyond torque bound in 73.1%
+  solve_qp_elastic_primal vs solve_qp_elastic max|dx| = nan
+  B=    1 nominal     median      165.5 us  p99      192.4 us  compile   0.52 s  (n=1000)
+  B=    1 qp_data     median      596.9 us  p99      654.1 us  compile   4.35 s  (n=1000)
+  B=    1 dyn_terms   median      148.6 us  p99      170.4 us  compile   0.48 s  (n=1000)
+  B=    1 barriers    median      546.2 us  p99      606.8 us  compile   3.59 s  (n=1000)
+  B=    1 h2_only     median      312.7 us  p99      353.4 us  compile   0.31 s  (n=1000)
+  B=    1 solve       median     2618.4 us  p99     2990.8 us  compile   0.60 s  (n=1000)
+  B=    1 end_to_end  median     3346.5 us  p99     3835.6 us  compile   4.17 s  (n=1000)
+  B=   16 nominal     median      157.8 us  p99      184.8 us  compile   0.72 s  (n=1000)
+  B=   16 qp_data     median      440.3 us  p99      531.4 us  compile   3.75 s  (n=1000)
+  B=   16 dyn_terms   median      143.0 us  p99      154.2 us  compile   0.54 s  (n=1000)
+  B=   16 barriers    median      389.1 us  p99      421.2 us  compile   2.80 s  (n=1000)
+  B=   16 h2_only     median      170.3 us  p99      193.4 us  compile   0.34 s  (n=1000)
+  B=   16 solve       median     2574.9 us  p99     2808.1 us  compile   0.57 s  (n=1000)
+  B=   16 end_to_end  median     2691.6 us  p99     2998.7 us  compile   3.07 s  (n=1000)
+  B=  128 nominal     median      173.2 us  p99      186.6 us  compile   0.86 s  (n=1000)
+  B=  128 qp_data     median      541.6 us  p99      593.8 us  compile   4.07 s  (n=1000)
+  B=  128 dyn_terms   median      146.9 us  p99      166.9 us  compile   0.54 s  (n=1000)
+  B=  128 barriers    median      460.9 us  p99      518.3 us  compile   3.58 s  (n=1000)
+  B=  128 h2_only     median      202.5 us  p99      215.3 us  compile   0.44 s  (n=1000)
+  B=  128 solve       median     2795.9 us  p99     3121.4 us  compile   0.64 s  (n=1000)
+  B=  128 end_to_end  median     2996.9 us  p99     3572.1 us  compile   3.42 s  (n=1000)
+  B= 1024 nominal     median      193.4 us  p99      224.6 us  compile   0.94 s  (n=200)
+  B= 1024 qp_data     median     1218.1 us  p99     1331.2 us  compile   3.85 s  (n=200)
+  B= 1024 dyn_terms   median      191.2 us  p99      200.3 us  compile   0.54 s  (n=200)
+  B= 1024 barriers    median     1189.7 us  p99     1225.6 us  compile   3.13 s  (n=200)
+  B= 1024 h2_only     median      656.9 us  p99      680.0 us  compile   0.38 s  (n=200)
+  B= 1024 solve       median     3099.0 us  p99     3452.0 us  compile   0.63 s  (n=200)
+  B= 1024 end_to_end  median     4088.4 us  p99     4530.6 us  compile   3.21 s  (n=200)
+  B= 4096 nominal     median      261.9 us  p99      276.8 us  compile   0.91 s  (n=200)
+  B= 4096 qp_data     median     3567.0 us  p99     3920.0 us  compile   3.89 s  (n=200)
+  B= 4096 dyn_terms   median      241.9 us  p99      272.8 us  compile   0.54 s  (n=200)
+  B= 4096 barriers    median     3497.1 us  p99     3831.7 us  compile   3.00 s  (n=200)
+  B= 4096 h2_only     median     2147.0 us  p99     2380.4 us  compile   0.39 s  (n=200)
+  B= 4096 solve       median     5263.6 us  p99     5313.1 us  compile   0.74 s  (n=200)
+  B= 4096 end_to_end  median     8746.4 us  p99     9654.1 us  compile   3.44 s  (n=200)
+  done in 123.3s
+  -> exit 0 after 125s
+
+$ /home/jovi/miniconda3/envs/cusadi2/bin/python /home/jovi/code/cusecmpc/cusadi2/profiling/bench.py --problem g1 --backend qpax --platform gpu --dtype f64 --batches 1 16 128 1024 4096   [21:46:10]
+[g1/qpax/gpu/f64] nv=29 rows=213 num_cbf=155 sc_pairs=97 backend=gpu x64=True
+  dataset: 4096 states, v_rms=0.509; solver converged 99.5%, iters mean 17.53 max 30; dataset+stats pass 31.9s
+  active CBF row in 100.0% of instances (mean 5.85 rows; random 100%, joint-limit 100%, collision 100%); filter changed u in 100.0%; u_des beyond torque bound in 36.5%
+  solve_qp_elastic_primal vs solve_qp_elastic max|dx| = 1.60e-03
+  B=    1 nominal     median      469.2 us  p99      544.9 us  compile   1.22 s  (n=1000)
+  B=    1 qp_data     median      927.3 us  p99     1162.9 us  compile   5.23 s  (n=1000)
+  B=    1 dyn_terms   median      440.3 us  p99      454.0 us  compile   0.84 s  (n=1000)
+  B=    1 barriers    median      904.6 us  p99     1018.1 us  compile   3.62 s  (n=1000)
+  B=    1 h2_only     median      223.2 us  p99      249.6 us  compile   0.40 s  (n=1000)
+  B=    1 solve       median     6146.7 us  p99     7194.7 us  compile   1.63 s  (n=1000)
+  B=    1 end_to_end  median     7133.2 us  p99     8288.6 us  compile   5.75 s  (n=1000)
+  B=   16 nominal     median      525.3 us  p99      566.9 us  compile   2.20 s  (n=1000)
+  B=   16 qp_data     median     1203.6 us  p99     1330.4 us  compile   6.53 s  (n=1000)
+  B=   16 dyn_terms   median      499.8 us  p99      530.5 us  compile   1.52 s  (n=1000)
+  B=   16 barriers    median     1095.1 us  p99     1176.1 us  compile   4.19 s  (n=1000)
+  B=   16 h2_only     median      228.4 us  p99      240.1 us  compile   0.56 s  (n=1000)
+  B=   16 solve       median    13720.3 us  p99    20295.5 us  compile   1.19 s  (n=1000)
+  B=   16 end_to_end  median    14869.7 us  p99    21476.0 us  compile   5.76 s  (n=1000)
+  B=  128 nominal     median      600.5 us  p99      674.7 us  compile   2.39 s  (n=1000)
+  B=  128 qp_data     median     2556.5 us  p99     3002.5 us  compile   6.54 s  (n=1000)
+  B=  128 dyn_terms   median      628.7 us  p99      678.4 us  compile   1.59 s  (n=1000)
+  B=  128 barriers    median     2474.1 us  p99     2861.7 us  compile   4.03 s  (n=1000)
+  B=  128 h2_only     median      264.4 us  p99      300.3 us  compile   0.67 s  (n=1000)
+  B=  128 solve       median    19399.3 us  p99    25396.3 us  compile   1.14 s  (n=1000)
+  B=  128 end_to_end  median    21346.6 us  p99    28022.3 us  compile   5.53 s  (n=1000)
+  B= 1024 nominal     median     2621.4 us  p99     2874.3 us  compile   2.48 s  (n=200)
+  B= 1024 qp_data     median    12091.5 us  p99    12859.2 us  compile   7.30 s  (n=200)
+  B= 1024 dyn_terms   median     1863.5 us  p99     2110.6 us  compile   1.64 s  (n=200)
+  B= 1024 barriers    median    11270.5 us  p99    12092.9 us  compile   4.59 s  (n=200)
+  B= 1024 h2_only     median      430.2 us  p99      467.8 us  compile   0.77 s  (n=200)
+  B= 1024 solve       median    87823.5 us  p99    88131.0 us  compile   1.35 s  (n=200)
+  B= 1024 end_to_end  median   101967.5 us  p99   102378.5 us  compile   6.13 s  (n=200)
+  B= 4096 nominal     median     8268.5 us  p99     9187.3 us  compile   3.49 s  (n=200)
+  B= 4096 qp_data     median    50501.6 us  p99    50941.4 us  compile   8.21 s  (n=200)
+  B= 4096 dyn_terms   median     5886.3 us  p99     6509.6 us  compile   2.37 s  (n=200)
+  B= 4096 barriers    median    46783.9 us  p99    47520.1 us  compile   4.79 s  (n=200)
+  B= 4096 h2_only     median     1023.1 us  p99     1090.1 us  compile   0.80 s  (n=200)
+  B= 4096 solve       median   362643.8 us  p99   363842.1 us  compile   2.02 s  (n=200)
+  B= 4096 end_to_end  median   424417.6 us  p99   424808.0 us  compile   7.09 s  (n=200)
+  done in 489.3s
+  -> exit 0 after 491s
+
+$ /home/jovi/miniconda3/envs/cusadi2/bin/python /home/jovi/code/cusecmpc/cusadi2/profiling/bench.py --problem g1 --backend qpax --platform gpu --dtype f32 --batches 1 16 128 1024 4096   [21:54:21]
+Traceback (most recent call last):
+  File "/home/jovi/code/cusecmpc/cusadi2/profiling/bench.py", line 251, in <module>
+    main()
+  File "/home/jovi/code/cusecmpc/cusadi2/profiling/bench.py", line 128, in main
+    prob = make_problem()
+           ^^^^^^^^^^^^^^
+  File "/home/jovi/code/cusecmpc/cusadi2/profiling/bench.py", line 99, in make_problem
+    return G1Problem(ARGS.backend)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jovi/code/cusecmpc/cusadi2/profiling/g1_problem.py", line 146, in __init__
+    cfg = G1OSCBFTorqueConfig(robot, backend=backend)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jovi/code/cusecmpc/cusadi2/profiling/g1_problem.py", line 60, in __init__
+    super().__init__(
+  File "/home/jovi/miniconda3/envs/cusadi2/lib/python3.12/site-packages/cbfpy/config/cbf_config.py", line 256, in __init__
+    raise ValueError("P matrix must be symmetric positive semi-definite")
+ValueError: P matrix must be symmetric positive semi-definite
+  -> exit 1 after 7s
+
+$ /home/jovi/miniconda3/envs/cusadi2/bin/python /home/jovi/code/cusecmpc/cusadi2/profiling/bench.py --problem panda --backend elastiqp --platform cpu --dtype f64 --batches 1   [21:54:28]
+[panda/elastiqp/cpu/f64] nv=7 rows=78 num_cbf=64 sc_pairs=7 backend=cpu x64=True
+  dataset: 4096 states, v_rms=0.508; solver converged 100.0%, iters mean 6.79 max 68; dataset+stats pass 14.3s
+  active CBF row in 93.2% of instances (mean 2.35 rows; random 89%, joint-limit 96%, collision 99%); filter changed u in 97.1%; u_des beyond torque bound in 73.3%
+  B=    1 nominal     median       23.9 us  p99       30.8 us  compile   0.32 s  (n=1000)
+  B=    1 qp_data     median      113.4 us  p99      153.2 us  compile   1.43 s  (n=1000)
+  B=    1 dyn_terms   median       20.9 us  p99       29.3 us  compile   0.26 s  (n=1000)
+  B=    1 barriers    median      102.2 us  p99      122.4 us  compile   1.37 s  (n=1000)
+  B=    1 h2_only     median       19.1 us  p99       25.1 us  compile   0.15 s  (n=1000)
+  B=    1 solve       median       33.8 us  p99       44.9 us  compile   0.01 s  (n=1000)
+  B=    1 end_to_end  median      141.5 us  p99      158.7 us  compile   1.67 s  (n=1000)
+  done in 20.9s
+  -> exit 0 after 22s
+
+$ /home/jovi/miniconda3/envs/cusadi2/bin/python /home/jovi/code/cusecmpc/cusadi2/profiling/bench.py --problem panda --backend qpax --platform cpu --dtype f64 --batches 1   [21:54:50]
+[panda/qpax/cpu/f64] nv=7 rows=78 num_cbf=64 sc_pairs=7 backend=cpu x64=True
+  dataset: 4096 states, v_rms=0.508; solver converged 100.0%, iters mean 14.61 max 19; dataset+stats pass 14.7s
+  active CBF row in 93.1% of instances (mean 2.34 rows; random 89%, joint-limit 96%, collision 99%); filter changed u in 97.2%; u_des beyond torque bound in 73.3%
+  solve_qp_elastic_primal vs solve_qp_elastic max|dx| = 0.00e+00
+  B=    1 nominal     median       24.4 us  p99       37.5 us  compile   0.26 s  (n=1000)
+  B=    1 qp_data     median      110.7 us  p99      118.9 us  compile   1.44 s  (n=1000)
+  B=    1 dyn_terms   median       21.7 us  p99       29.6 us  compile   0.32 s  (n=1000)
+  B=    1 barriers    median      113.5 us  p99      131.4 us  compile   1.33 s  (n=1000)
+  B=    1 h2_only     median       18.8 us  p99       26.3 us  compile   0.14 s  (n=1000)
+  B=    1 solve       median      175.7 us  p99      197.1 us  compile   0.19 s  (n=1000)
+  B=    1 end_to_end  median      283.7 us  p99      324.8 us  compile   1.82 s  (n=1000)
+  done in 22.3s
+  -> exit 0 after 23s
+
+$ /home/jovi/miniconda3/envs/cusadi2/bin/python /home/jovi/code/cusecmpc/cusadi2/profiling/bench.py --problem panda --backend qpax --platform cpu --dtype f32 --batches 1   [21:55:14]
+- JAX_ENABLE_X64 not detected. Recommendation: set JAX_ENABLE_X64=1
+- JAX_ENABLE_X64 not detected. Recommendation: set JAX_ENABLE_X64=1
+[panda/qpax/cpu/f32] nv=7 rows=78 num_cbf=64 sc_pairs=7 backend=cpu x64=False
+  dataset: 4096 states, v_rms=0.508; solver converged 24.7%, iters mean 28.01 max 30; dataset+stats pass 15.5s
+  active CBF row in 65.6% of instances (mean 1.89 rows; random 55%, joint-limit 72%, collision 81%); filter changed u in 71.9%; u_des beyond torque bound in 73.3%
+  solve_qp_elastic_primal vs solve_qp_elastic max|dx| = nan
+  B=    1 nominal     median       24.4 us  p99       30.2 us  compile   0.26 s  (n=1000)
+  B=    1 qp_data     median      107.8 us  p99      117.6 us  compile   1.50 s  (n=1000)
+  B=    1 dyn_terms   median       21.6 us  p99       28.7 us  compile   0.26 s  (n=1000)
+  B=    1 barriers    median       96.7 us  p99      117.7 us  compile   1.32 s  (n=1000)
+  B=    1 h2_only     median       18.3 us  p99       21.6 us  compile   0.14 s  (n=1000)
+  B=    1 solve       median      297.2 us  p99      311.1 us  compile   0.19 s  (n=1000)
+  B=    1 end_to_end  median      402.2 us  p99      452.7 us  compile   1.83 s  (n=1000)
+  done in 23.3s
+  -> exit 0 after 24s
+
+$ /home/jovi/miniconda3/envs/cusadi2/bin/python /home/jovi/code/cusecmpc/cusadi2/profiling/bench.py --problem g1 --backend elastiqp --platform cpu --dtype f64 --batches 1   [21:55:38]
+[g1/elastiqp/cpu/f64] nv=29 rows=213 num_cbf=155 sc_pairs=97 backend=cpu x64=True
+  dataset: 4096 states, v_rms=0.509; solver converged 100.0%, iters mean 13.09 max 62; dataset+stats pass 15.0s
+  active CBF row in 100.0% of instances (mean 5.86 rows; random 100%, joint-limit 100%, collision 100%); filter changed u in 100.0%; u_des beyond torque bound in 36.5%
+  B=    1 nominal     median       54.5 us  p99       89.7 us  compile   0.45 s  (n=1000)
+  B=    1 qp_data     median      599.0 us  p99      742.6 us  compile   2.31 s  (n=1000)
+  B=    1 dyn_terms   median       48.1 us  p99       59.5 us  compile   0.54 s  (n=1000)
+  B=    1 barriers    median      543.6 us  p99      634.6 us  compile   2.04 s  (n=1000)
+  B=    1 h2_only     median       18.3 us  p99       25.1 us  compile   0.20 s  (n=1000)
+  B=    1 solve       median      147.9 us  p99      182.9 us  compile   0.01 s  (n=1000)
+  B=    1 end_to_end  median      752.6 us  p99      904.4 us  compile   2.51 s  (n=1000)
+  done in 26.4s
+  -> exit 0 after 27s
+
+$ /home/jovi/miniconda3/envs/cusadi2/bin/python /home/jovi/code/cusecmpc/cusadi2/profiling/bench.py --problem g1 --backend qpax --platform cpu --dtype f64 --batches 1   [21:56:05]
+[g1/qpax/cpu/f64] nv=29 rows=213 num_cbf=155 sc_pairs=97 backend=cpu x64=True
+  dataset: 4096 states, v_rms=0.509; solver converged 99.4%, iters mean 17.53 max 30; dataset+stats pass 19.1s
+  active CBF row in 100.0% of instances (mean 5.85 rows; random 100%, joint-limit 100%, collision 100%); filter changed u in 100.0%; u_des beyond torque bound in 36.5%
+  solve_qp_elastic_primal vs solve_qp_elastic max|dx| = 0.00e+00
+  B=    1 nominal     median       54.9 us  p99       61.3 us  compile   0.39 s  (n=1000)
+  B=    1 qp_data     median      595.2 us  p99      707.2 us  compile   2.28 s  (n=1000)
+  B=    1 dyn_terms   median       49.7 us  p99       82.4 us  compile   0.54 s  (n=1000)
+  B=    1 barriers    median      558.4 us  p99      747.2 us  compile   2.01 s  (n=1000)
+  B=    1 h2_only     median       18.1 us  p99       25.5 us  compile   0.20 s  (n=1000)
+  B=    1 solve       median      998.9 us  p99     1204.3 us  compile   0.22 s  (n=1000)
+  B=    1 end_to_end  median     1688.8 us  p99     2289.9 us  compile   2.75 s  (n=1000)
+  done in 33.1s
+  -> exit 0 after 34s
+
+$ /home/jovi/miniconda3/envs/cusadi2/bin/python /home/jovi/code/cusecmpc/cusadi2/profiling/bench.py --problem g1 --backend qpax --platform cpu --dtype f32 --batches 1   [21:56:40]
+- JAX_ENABLE_X64 not detected. Recommendation: set JAX_ENABLE_X64=1
+- JAX_ENABLE_X64 not detected. Recommendation: set JAX_ENABLE_X64=1
+[g1/qpax/cpu/f32] nv=29 rows=213 num_cbf=155 sc_pairs=97 backend=cpu x64=False
+  dataset: 4096 states, v_rms=0.509; solver converged 14.4%, iters mean 28.99 max 30; dataset+stats pass 17.4s
+  active CBF row in 83.8% of instances (mean 4.50 rows; random 89%, joint-limit 67%, collision 91%); filter changed u in 84.8%; u_des beyond torque bound in 36.5%
+  solve_qp_elastic_primal vs solve_qp_elastic max|dx| = nan
+  B=    1 nominal     median       48.8 us  p99       60.6 us  compile   0.45 s  (n=1000)
+  B=    1 qp_data     median      460.2 us  p99      573.6 us  compile   2.34 s  (n=1000)
+  B=    1 dyn_terms   median       40.9 us  p99       57.0 us  compile   0.54 s  (n=1000)
+  B=    1 barriers    median      414.8 us  p99      507.1 us  compile   2.03 s  (n=1000)
+  B=    1 h2_only     median       17.5 us  p99       23.8 us  compile   0.19 s  (n=1000)
+  B=    1 solve       median     1284.5 us  p99     1372.6 us  compile   0.25 s  (n=1000)
+  B=    1 end_to_end  median     1906.6 us  p99     2295.7 us  compile   2.77 s  (n=1000)
+  done in 31.9s
+  -> exit 0 after 33s
+
+$ /home/jovi/miniconda3/envs/cusadi2/bin/python /home/jovi/code/cusecmpc/cusadi2/profiling/cpu_throughput.py --problem panda --backend elastiqp --dtype f64 --seconds 10.0   [21:57:13]
+[panda/elastiqp/f64] end_to_end  8 procs:   40923.5 calls/s (per proc mean   5115.9, min   4821.5); setup+run 50s
+[panda/elastiqp/f64] solve       8 procs:  217945.3 calls/s (per proc mean  27243.9, min  26071.4); setup+run 50s
+  -> exit 0 after 50s
+
+$ /home/jovi/miniconda3/envs/cusadi2/bin/python /home/jovi/code/cusecmpc/cusadi2/profiling/cpu_throughput.py --problem panda --backend qpax --dtype f64 --seconds 10.0   [21:58:02]
+[panda/qpax/f64] end_to_end  8 procs:   23568.1 calls/s (per proc mean   2946.6, min   2801.7); setup+run 52s
+[panda/qpax/f64] solve       8 procs:   38720.6 calls/s (per proc mean   4840.7, min   4435.9); setup+run 52s
+  -> exit 0 after 52s
+
+$ /home/jovi/miniconda3/envs/cusadi2/bin/python /home/jovi/code/cusecmpc/cusadi2/profiling/cpu_throughput.py --problem panda --backend qpax --dtype f32 --seconds 10.0   [21:58:54]
+- JAX_ENABLE_X64 not detected. Recommendation: set JAX_ENABLE_X64=1
+- JAX_ENABLE_X64 not detected. Recommendation: set JAX_ENABLE_X64=1
+- JAX_ENABLE_X64 not detected. Recommendation: set JAX_ENABLE_X64=1
+- JAX_ENABLE_X64 not detected. Recommendation: set JAX_ENABLE_X64=1
+- JAX_ENABLE_X64 not detected. Recommendation: set JAX_ENABLE_X64=1
+- JAX_ENABLE_X64 not detected. Recommendation: set JAX_ENABLE_X64=1
+- JAX_ENABLE_X64 not detected. Recommendation: set JAX_ENABLE_X64=1
+- JAX_ENABLE_X64 not detected. Recommendation: set JAX_ENABLE_X64=1
+- JAX_ENABLE_X64 not detected. Recommendation: set JAX_ENABLE_X64=1
+- JAX_ENABLE_X64 not detected. Recommendation: set JAX_ENABLE_X64=1
+- JAX_ENABLE_X64 not detected. Recommendation: set JAX_ENABLE_X64=1
+- JAX_ENABLE_X64 not detected. Recommendation: set JAX_ENABLE_X64=1
+- JAX_ENABLE_X64 not detected. Recommendation: set JAX_ENABLE_X64=1
+- JAX_ENABLE_X64 not detected. Recommendation: set JAX_ENABLE_X64=1
+- JAX_ENABLE_X64 not detected. Recommendation: set JAX_ENABLE_X64=1
+- JAX_ENABLE_X64 not detected. Recommendation: set JAX_ENABLE_X64=1
+[panda/qpax/f32] end_to_end  8 procs:   16688.9 calls/s (per proc mean   2086.9, min   1899.4); setup+run 52s
+[panda/qpax/f32] solve       8 procs:   23008.5 calls/s (per proc mean   2876.7, min   2663.0); setup+run 52s
+  -> exit 0 after 52s
+
+$ /home/jovi/miniconda3/envs/cusadi2/bin/python /home/jovi/code/cusecmpc/cusadi2/profiling/cpu_throughput.py --problem g1 --backend elastiqp --dtype f64 --seconds 10.0   [21:59:47]
+[g1/elastiqp/f64] end_to_end  8 procs:   10352.3 calls/s (per proc mean   1294.8, min   1288.1); setup+run 54s
+[g1/elastiqp/f64] solve       8 procs:   50680.5 calls/s (per proc mean   6335.8, min   6207.9); setup+run 54s
+  -> exit 0 after 54s
+
+$ /home/jovi/miniconda3/envs/cusadi2/bin/python /home/jovi/code/cusecmpc/cusadi2/profiling/cpu_throughput.py --problem g1 --backend qpax --dtype f64 --seconds 10.0   [22:00:40]
+[g1/qpax/f64] end_to_end  8 procs:    4766.6 calls/s (per proc mean    596.4, min    589.9); setup+run 57s
+[g1/qpax/f64] solve       8 procs:    7372.2 calls/s (per proc mean    922.7, min    899.2); setup+run 57s
+  -> exit 0 after 57s
+
+$ /home/jovi/miniconda3/envs/cusadi2/bin/python /home/jovi/code/cusecmpc/cusadi2/profiling/cpu_throughput.py --problem g1 --backend qpax --dtype f32 --seconds 10.0   [22:01:37]
+- JAX_ENABLE_X64 not detected. Recommendation: set JAX_ENABLE_X64=1
+- JAX_ENABLE_X64 not detected. Recommendation: set JAX_ENABLE_X64=1
+- JAX_ENABLE_X64 not detected. Recommendation: set JAX_ENABLE_X64=1
+- JAX_ENABLE_X64 not detected. Recommendation: set JAX_ENABLE_X64=1
+- JAX_ENABLE_X64 not detected. Recommendation: set JAX_ENABLE_X64=1
+- JAX_ENABLE_X64 not detected. Recommendation: set JAX_ENABLE_X64=1
+- JAX_ENABLE_X64 not detected. Recommendation: set JAX_ENABLE_X64=1
+- JAX_ENABLE_X64 not detected. Recommendation: set JAX_ENABLE_X64=1
+- JAX_ENABLE_X64 not detected. Recommendation: set JAX_ENABLE_X64=1
+- JAX_ENABLE_X64 not detected. Recommendation: set JAX_ENABLE_X64=1
+- JAX_ENABLE_X64 not detected. Recommendation: set JAX_ENABLE_X64=1
+- JAX_ENABLE_X64 not detected. Recommendation: set JAX_ENABLE_X64=1
+- JAX_ENABLE_X64 not detected. Recommendation: set JAX_ENABLE_X64=1
+- JAX_ENABLE_X64 not detected. Recommendation: set JAX_ENABLE_X64=1
+- JAX_ENABLE_X64 not detected. Recommendation: set JAX_ENABLE_X64=1
+- JAX_ENABLE_X64 not detected. Recommendation: set JAX_ENABLE_X64=1
+[g1/qpax/f32] end_to_end  8 procs:    4241.3 calls/s (per proc mean    530.9, min    522.1); setup+run 57s
+[g1/qpax/f32] solve       8 procs:    5627.2 calls/s (per proc mean    704.1, min    680.5); setup+run 57s
+  -> exit 0 after 57s
+
+$ /home/jovi/miniconda3/envs/cusadi2/bin/python /home/jovi/code/cusecmpc/cusadi2/profiling/trace_g1.py --batch 1024 --calls 5   [22:02:35]
+{
+ "per_call": [
+  {
+   "n_device_events": 2080,
+   "n_kernels": 1831,
+   "n_memcpy": 249,
+   "n_memcpy_d2h": 31,
+   "n_while_cond_events": 31,
+   "device_busy_ms": 109.981523,
+   "device_span_ms": 111.07214499999999,
+   "busy_pre_loop_ms": 16.642304,
+   "busy_loop_ms": 93.339219,
+   "busy_post_loop_ms": 0.0,
+   "span_loop_ms": 94.31499099999999,
+   "kernels_pre_loop": 789,
+   "kernels_loop": 1291,
+   "kernels_post_loop": 0,
+   "loop_share_of_busy": 0.8486809097924567,
+   "loop_share_of_span": 0.8491327055941883
+  },
+  {
+   "n_device_events": 2080,
+   "n_kernels": 1831,
+   "n_memcpy": 249,
+   "n_memcpy_d2h": 31,
+   "n_while_cond_events": 31,
+   "device_busy_ms": 101.914698,
+   "device_span_ms": 102.90896200000002,
+   "busy_pre_loop_ms": 15.832359,
+   "busy_loop_ms": 86.082339,
+   "busy_post_loop_ms": 0.0,
+   "span_loop_ms": 86.95440800000003,
+   "kernels_pre_loop": 789,
+   "kernels_loop": 1291,
+   "kernels_post_loop": 0,
+   "loop_share_of_busy": 0.8446508765595322,
+   "loop_share_of_span": 0.8449643870666971
+  },
+  {
+   "n_device_events": 2080,
+   "n_kernels": 1831,
+   "n_memcpy": 249,
+   "n_memcpy_d2h": 31,
+   "n_while_cond_events": 31,
+   "device_busy_ms": 101.32252,
+   "device_span_ms": 102.364188,
+   "busy_pre_loop_ms": 15.221821,
+   "busy_loop_ms": 86.10069899999999,
+   "busy_post_loop_ms": 0.0,
+   "span_loop_ms": 87.03120799999998,
+   "kernels_pre_loop": 789,
+   "kernels_loop": 1291,
+   "kernels_post_loop": 0,
+   "loop_share_of_busy": 0.8497686299156396,
+   "loop_share_of_span": 0.8502114821640551
+  },
+  {
+   "n_device_events": 2080,
+   "n_kernels": 1831,
+   "n_memcpy": 249,
+   "n_memcpy_d2h": 31,
+   "n_while_cond_events": 31,
+   "device_busy_ms": 101.362391,
+   "device_span_ms": 102.37538900000003,
+   "busy_pre_loop_ms": 15.2189,
+   "busy_loop_ms": 86.143491,
+   "busy_post_loop_ms": 0.0,
+   "span_loop_ms": 87.04551300000004,
+   "kernels_pre_loop": 789,
+   "kernels_loop": 1291,
+   "kernels_post_loop": 0,
+   "loop_share_of_busy": 0.8498565409728742,
+   "loop_share_of_span": 0.8502581904719309
+  },
+  {
+   "n_device_events": 2080,
+   "n_kernels": 1831,
+   "n_memcpy": 249,
+   "n_memcpy_d2h": 31,
+   "n_while_cond_events": 31,
+   "device_busy_ms": 101.305902,
+   "device_span_ms": 102.27657199999999,
+   "busy_pre_loop_ms": 15.209651,
+   "busy_loop_ms": 86.09625100000001,
+   "busy_post_loop_ms": 0.0,
+   "span_loop_ms": 86.956424,
+   "kernels_pre_loop": 789,
+   "kernels_loop": 1291,
+   "kernels_post_loop": 0,
+   "loop_share_of_busy": 0.8498641174923847,
+   "loop_share_of_span": 0.8502086284237216
+  }
+ ],
+ "mean_per_call": {
+  "n_device_events": 2080.0,
+  "n_kernels": 1831.0,
+  "n_memcpy": 249.0,
+  "n_memcpy_d2h": 31.0,
+  "n_while_cond_events": 31.0,
+  "device_busy_ms": 103.17740680000001,
+  "device_span_ms": 104.19945120000003,
+  "busy_pre_loop_ms": 15.625007,
+  "busy_loop_ms": 87.55239979999999,
+  "busy_post_loop_ms": 0.0,
+  "span_loop_ms": 88.4605088,
+  "kernels_pre_loop": 789.0,
+  "kernels_loop": 1291.0,
+  "kernels_post_loop": 0.0,
+  "loop_share_of_busy": 0.8485642149465775,
+  "loop_share_of_span": 0.8489550787441186
+ },
+ "device_total_busy_ms": 515.887034,
+ "n_device_events_total": 10400,
+ "top_hlo_ops_by_time": [
+  {
+   "hlo_op": "gemm_fusion_dot.453",
+   "count_per_call": 30.0,
+   "us_per_call": 18047.815800000004,
+   "frac_in_loop": 1.0
+  },
+  {
+   "hlo_op": "geqrf.0",
+   "count_per_call": 90.0,
+   "us_per_call": 13581.116800000013,
+   "frac_in_loop": 1.0
+  },
+  {
+   "hlo_op": "householder_product.0",
+   "count_per_call": 60.0,
+   "us_per_call": 12940.579200000002,
+   "frac_in_loop": 1.0
+  },
+  {
+   "hlo_op": "command_buffer_264",
+   "count_per_call": 476.0,
+   "us_per_call": 10601.599400000025,
+   "frac_in_loop": 0.0
+  },
+  {
+   "hlo_op": "loop_divide_fusion.1",
+   "count_per_call": 30.0,
+   "us_per_call": 6551.134599999995,
+   "frac_in_loop": 1.0
+  },
+  {
+   "hlo_op": "loop_add_divide_subtract_fusion",
+   "count_per_call": 30.0,
+   "us_per_call": 6291.546799999998,
+   "frac_in_loop": 1.0
+  },
+  {
+   "hlo_op": "triangular-solve.1",
+   "count_per_call": 120.0,
+   "us_per_call": 4354.617400000005,
+   "frac_in_loop": 1.0
+  },
+  {
+   "hlo_op": "triangular-solve",
+   "count_per_call": 120.0,
+   "us_per_call": 4312.407400000009,
+   "frac_in_loop": 1.0
+  },
+  {
+   "hlo_op": "loop_divide_fusion",
+   "count_per_call": 30.0,
+   "us_per_call": 4124.461199999998,
+   "frac_in_loop": 1.0
+  },
+  {
+   "hlo_op": "input_multiply_reduce_fusion",
+   "count_per_call": 30.0,
+   "us_per_call": 3663.0434000000023,
+   "frac_in_loop": 1.0
+  },
+  {
+   "hlo_op": "input_reduce_fusion.2",
+   "count_per_call": 30.0,
+   "us_per_call": 2988.483,
+   "frac_in_loop": 1.0
+  },
+  {
+   "hlo_op": "input_reduce_fusion.1",
+   "count_per_call": 30.0,
+   "us_per_call": 2578.795800000001,
+   "frac_in_loop": 1.0
+  },
+  {
+   "hlo_op": "command_buffer_1",
+   "count_per_call": 200.0,
+   "us_per_call": 1091.3239999999964,
+   "frac_in_loop": 0.0
+  },
+  {
+   "hlo_op": "loop_divide_subtract_fusion",
+   "count_per_call": 30.0,
+   "us_per_call": 864.6918000000007,
+   "frac_in_loop": 1.0
+  },
+  {
+   "hlo_op": "input_reduce_fusion.3",
+   "count_per_call": 30.0,
+   "us_per_call": 796.4892000000008,
+   "frac_in_loop": 1.0
+  },
+  {
+   "hlo_op": "input_reduce_fusion.5",
+   "count_per_call": 30.0,
+   "us_per_call": 681.8135999999992,
+   "frac_in_loop": 1.0
+  },
+  {
+   "hlo_op": "input_reduce_fusion.6",
+   "count_per_call": 30.0,
+   "us_per_call": 678.2589999999998,
+   "frac_in_loop": 1.0
+  },
+  {
+   "hlo_op": "input_concatenate_reduce_fusion.1",
+   "count_per_call": 30.0,
+   "us_per_call": 673.7421999999999,
+   "frac_in_loop": 1.0
+  },
+  {
+   "hlo_op": "loop_reduce_fusion",
+   "count_per_call": 30.0,
+   "us_per_call": 654.7152,
+   "frac_in_loop": 1.0
+  },
+  {
+   "hlo_op": "input_concatenate_reduce_fusion",
+   "count_per_call": 30.0,
+   "us_per_call": 650.7460000000003,
+   "frac_in_loop": 1.0
+  },
+  {
+   "hlo_op": "loop_add_subtract_fusion",
+   "count_per_call": 30.0,
+   "us_per_call": 555.3084,
+   "frac_in_loop": 1.0
+  },
+  {
+   "hlo_op": "loop_add_fusion",
+   "count_per_call": 30.0,
+   "us_per_call": 517.0546000000002,
+   "frac_in_loop": 1.0
+  },
+  {
+   "hlo_op": "triangular-solve.2",
+   "count_per_call": 4.0,
+   "us_per_call": 473.63,
+   "frac_in_loop": 0.0
+  },
+  {
+   "hlo_op": "loop_select_fusion",
+   "count_per_call": 30.0,
+   "us_per_call": 471.9857999999999,
+   "frac_in_loop": 1.0
+  },
+  {
+   "hlo_op": "geqrf.12",
+   "count_per_call": 3.0,
+   "us_per_call": 453.0796,
+   "frac_in_loop": 0.0
+  }
+ ],
+ "device_name": [
+  "/device:GPU:0"
+ ],
+ "problem": "g1",
+ "batch": 1024,
+ "dtype": "f64",
+ "n_calls_traced": 5,
+ "wall_ms_per_call": [
+  117.42533298092894,
+  103.8700650096871,
+  102.82412500237115,
+  102.84737800247967,
+  102.75360901141539
+ ],
+ "qpax_iters_batch_max": 30,
+ "qpax_iters_mean": 17.578125,
+ "qpax_converged_frac": 0.9912109375,
+ "trace_file": "/home/jovi/code/cusecmpc/cusadi2/profiling/results/trace/g1_qpax_gpu_f64_B1024/plugins/profile/2026_10_07_22_03_15/t1.trace.json.gz"
+}
+  -> exit 0 after 41s
+
+$ /home/jovi/miniconda3/envs/cusadi2/bin/python /home/jovi/code/cusecmpc/cusadi2/profiling/sysinfo_dump.py   [22:03:16]
+{'cpu': 'AMD Ryzen 7 5800X3D 8-Core Processor', 'gpu': 'NVIDIA GeForce RTX 4080, 610.43.02', 'nvcc': "<[Errno 2] No such file or directory: 'nvcc'>", 'jax_cuda_versions': {'cuda_runtime': 13030, 'cuda_driver': 13000, 'cudnn': 92501}, 'versions': {'jax': '0.11.1', 'jaxlib': '0.11.1', 'jax-cuda13-plugin': '0.11.1', 'jax-cuda13-pjrt': '0.11.1', 'frax': '0.0.4', 'cbfpy': '0.1.0', 'qpax': '0.1.4', 'elastiqp': '0.1.0', 'numpy': '2.5.2'}}
+  -> exit 0 after 1s
+
+$ /home/jovi/miniconda3/envs/cusadi2/bin/python /home/jovi/code/cusecmpc/cusadi2/profiling/make_results.py   [22:03:17]
+wrote /home/jovi/code/cusecmpc/cusadi2/profiling/results.md (152 lines)
+  -> exit 0 after 0s
+==== finished 2026-10-07 22:03:17
+
+==== run_all 2026-10-07 22:03:28 args={'force': False, 'only': 'gpu', 'problems': ['panda', 'g1'], 'seconds': 10.0}
+
+$ /home/jovi/miniconda3/envs/cusadi2/bin/python /home/jovi/code/cusecmpc/cusadi2/profiling/bench.py --problem g1 --backend qpax --platform gpu --dtype f32 --batches 1 16 128 1024 4096   [22:03:28]
+Traceback (most recent call last):
+  File "/home/jovi/code/cusecmpc/cusadi2/profiling/bench.py", line 251, in <module>
+    main()
+  File "/home/jovi/code/cusecmpc/cusadi2/profiling/bench.py", line 128, in main
+    prob = make_problem()
+           ^^^^^^^^^^^^^^
+  File "/home/jovi/code/cusecmpc/cusadi2/profiling/bench.py", line 99, in make_problem
+    return G1Problem(ARGS.backend)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jovi/code/cusecmpc/cusadi2/profiling/g1_problem.py", line 166, in __init__
+    cfg = G1OSCBFTorqueConfig(robot, backend=backend)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jovi/code/cusecmpc/cusadi2/profiling/g1_problem.py", line 60, in __init__
+    super().__init__(
+  File "/home/jovi/miniconda3/envs/cusadi2/lib/python3.12/site-packages/cbfpy/config/cbf_config.py", line 256, in __init__
+    raise ValueError("P matrix must be symmetric positive semi-definite")
+ValueError: P matrix must be symmetric positive semi-definite
+  -> exit 1 after 7s
+==== finished 2026-10-07 22:03:35
+
+==== run_all 2026-10-07 22:04:20 args={'force': False, 'only': 'gpu', 'problems': ['panda', 'g1'], 'seconds': 10.0}
+
+$ /home/jovi/miniconda3/envs/cusadi2/bin/python /home/jovi/code/cusecmpc/cusadi2/profiling/bench.py --problem g1 --backend qpax --platform gpu --dtype f32 --batches 1 16 128 1024 4096   [22:04:20]
+[g1/qpax/gpu/f32] nv=29 rows=213 num_cbf=155 sc_pairs=97 backend=gpu x64=False
+  dataset: 4096 states, v_rms=0.509; solver converged 0.0%, iters mean 30.00 max 30; dataset+stats pass 28.6s
+  active CBF row in 83.8% of instances (mean 3.10 rows; random 80%, joint-limit 81%, collision 95%); filter changed u in 94.5%; u_des beyond torque bound in 36.4%
+  solve_qp_elastic_primal vs solve_qp_elastic max|dx| = nan
+  B=    1 nominal     median      281.2 us  p99      313.9 us  compile   0.95 s  (n=1000)
+  B=    1 qp_data     median      878.9 us  p99     1011.6 us  compile   5.06 s  (n=1000)
+  B=    1 dyn_terms   median      372.4 us  p99      393.7 us  compile   0.91 s  (n=1000)
+  B=    1 barriers    median      896.1 us  p99      997.6 us  compile   3.74 s  (n=1000)
+  B=    1 h2_only     median      207.9 us  p99      230.6 us  compile   0.37 s  (n=1000)
+  B=    1 solve       median     3749.3 us  p99     4125.3 us  compile   1.14 s  (n=1000)
+  B=    1 end_to_end  median     4393.0 us  p99     4797.7 us  compile   5.57 s  (n=1000)
+  B=   16 nominal     median      386.4 us  p99      411.6 us  compile   2.33 s  (n=1000)
+  B=   16 qp_data     median     1042.8 us  p99     1234.9 us  compile   6.33 s  (n=1000)
+  B=   16 dyn_terms   median      420.2 us  p99      474.0 us  compile   1.87 s  (n=1000)
+  B=   16 barriers    median     1005.6 us  p99     1137.7 us  compile   4.14 s  (n=1000)
+  B=   16 h2_only     median      206.8 us  p99      238.8 us  compile   0.69 s  (n=1000)
+  B=   16 solve       median     9993.8 us  p99    10241.2 us  compile   1.24 s  (n=1000)
+  B=   16 end_to_end  median    10781.0 us  p99    11034.3 us  compile   5.84 s  (n=1000)
+  B=  128 nominal     median      406.3 us  p99      462.7 us  compile   2.42 s  (n=1000)
+  B=  128 qp_data     median     1202.7 us  p99     1501.2 us  compile   6.39 s  (n=1000)
+  B=  128 dyn_terms   median      424.7 us  p99      481.9 us  compile   1.87 s  (n=1000)
+  B=  128 barriers    median     1152.4 us  p99     1273.3 us  compile   4.42 s  (n=1000)
+  B=  128 h2_only     median      214.1 us  p99      266.4 us  compile   0.73 s  (n=1000)
+  B=  128 solve       median    10867.8 us  p99    11992.4 us  compile   1.35 s  (n=1000)
+  B=  128 end_to_end  median    11907.1 us  p99    12879.7 us  compile   5.96 s  (n=1000)
+  B= 1024 nominal     median      527.7 us  p99      536.3 us  compile   2.52 s  (n=200)
+  B= 1024 qp_data     median     3547.0 us  p99     3837.8 us  compile   6.87 s  (n=200)
+  B= 1024 dyn_terms   median      616.3 us  p99      635.5 us  compile   2.12 s  (n=200)
+  B= 1024 barriers    median     3147.2 us  p99     3547.5 us  compile   4.52 s  (n=200)
+  B= 1024 h2_only     median      236.1 us  p99      271.0 us  compile   0.82 s  (n=200)
+  B= 1024 solve       median    25605.5 us  p99    25899.4 us  compile   1.33 s  (n=200)
+  B= 1024 end_to_end  median    29055.1 us  p99    29176.0 us  compile   6.29 s  (n=200)
+  B= 4096 nominal     median     1420.9 us  p99     1461.0 us  compile   3.37 s  (n=200)
+  B= 4096 qp_data     median    14462.5 us  p99    14873.2 us  compile   7.50 s  (n=200)
+  B= 4096 dyn_terms   median     1289.8 us  p99     1352.5 us  compile   2.64 s  (n=200)
+  B= 4096 barriers    median    12827.7 us  p99    14115.1 us  compile   4.62 s  (n=200)
+  B= 4096 h2_only     median      290.9 us  p99      332.9 us  compile   0.86 s  (n=200)
+  B= 4096 solve       median   132929.6 us  p99   133110.7 us  compile   1.57 s  (n=200)
+  B= 4096 end_to_end  median   148531.2 us  p99   148887.3 us  compile   6.92 s  (n=200)
+  done in 289.1s
+  -> exit 0 after 291s
+==== finished 2026-10-07 22:09:11

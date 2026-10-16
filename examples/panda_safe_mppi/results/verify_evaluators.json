@@ -1,0 +1,40 @@
+{
+  "T": 100,
+  "K": 256,
+  "ticks": 3,
+  "cusadi2": "cusadi2 plans safe_model (30530 nodes, 207 levels, 29192 B shared, block 256) + safe_integrate (3149 nodes, 128 levels) | R=1 K=256 T=100 proj_iters=48 graph=0",
+  "evaluators": {
+    "frax": {
+      "info": "JAX/XLA program via PJRT (xla_cuda_plugin.so, api 0.114): safe_model_T100_B256_double.mlir + safe_integrate_B256_double.mlir, compile 3.536478 s | R=1 K=256 T=100 proj_iters=48 graph=0",
+      "Y": 0.19962341607983172,
+      "u": 5.000166633720055e-15,
+      "traj": 2.834375799278956e-15,
+      "w": 3.1530333899354446e-14,
+      "plant": 3.1793043545938287e-15
+    },
+    "mjx": {
+      "info": "JAX/XLA program via PJRT (xla_cuda_plugin.so, api 0.114): mjx_model_T100_B256_double.mlir + mjx_integrate_B256_double.mlir, compile 21.360519 s | R=1 K=256 T=100 proj_iters=48 graph=0",
+      "Y": 0.1996234160798321,
+      "u": 5.296073179152691e-15,
+      "traj": 1.5521522433040593e-15,
+      "w": 2.503552920529728e-14,
+      "plant": 2.798082212075402e-15
+    },
+    "cusadi": {
+      "info": "original CusADi unrolled kernels (one thread per instance, block 256): libunrolled_model_T100_double.so (sz_w 713) + libunrolled_integrate_double.so (sz_w 222) | R=1 K=256 T=100 proj_iters=48 graph=0",
+      "Y": 1.2749636106973957e-15,
+      "u": 1.1622008932430397e-14,
+      "traj": 1.954741930537211e-15,
+      "w": 2.375877272697835e-14,
+      "plant": 2.449241873168579e-15
+    },
+    "cpu": {
+      "info": "CasADi C codegen on the CPU (16 OpenMP threads, GPU -> CPU -> GPU transfer in every call): libcpu_T100_double.so (sz_w 0 / 0) | R=1 K=256 T=100 proj_iters=48 graph=0",
+      "Y": 0.19962341607983222,
+      "u": 6.752493303419681e-15,
+      "traj": 1.5637935444297688e-15,
+      "w": 1.6542323066914832e-14,
+      "plant": 1.8545942068464e-15
+    }
+  }
+}

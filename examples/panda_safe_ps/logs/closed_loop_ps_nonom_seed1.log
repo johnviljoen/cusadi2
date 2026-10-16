@@ -1,0 +1,9 @@
+cusadi2 plans safe_model (30530 nodes, 207 levels, 14596 B shared, block 256) + safe_integrate (3149 nodes, 128 levels) | R=1 K=256 T=100 proj_iters=48 graph=1 keep_nominal=0
+t=  0.0s wall=  0.6s wp 0 dist 0.230 reached 0 ours 35.55 ms h_min 0.0794
+t=  5.0s wall=  4.9s wp 2 dist 0.052 reached 2 ours 15.28 ms h_min 0.0010
+t= 10.0s wall=  9.2s wp 0 dist 0.044 reached 4 ours 15.14 ms h_min -0.0056
+t= 15.0s wall= 13.5s wp 2 dist 0.074 reached 6 ours 15.15 ms h_min -0.0056
+t= 20.0s wall= 17.9s wp 1 dist 0.082 reached 9 ours 15.16 ms h_min -0.0128
+t= 25.0s wall= 22.2s wp 3 dist 0.072 reached 11 ours 15.17 ms h_min -0.0128
+{'controller': 'ps', 'K': 256, 'T': 100, 'seconds': 30.0, 'dtype': 'float', 'seed': 1, 'sigma': 0.1, 'keep_nominal': False, 'waypoints_reached': 11, 'waypoints_timed_out': 1, 'time_to_reach_mean_s': 2.023636363636364, 'time_to_reach_max_s': 3.360000000000001, 'h_min_all': -0.012776663873921124, 'ours_ms_median': 15.194799900054932, 'ours_ms_p99': 17.428139533996582, 'ours_ms_max': 35.546878814697266, 'frax_ms_median': None, 'frax_ms_p99': None, 'ctrl_wall_ms_median': 15.23303899966777, 'sim_ms_median': 1.45571499979269, 'v_max': 2.8475414057649475, 'plan_kept_frac': 0.0026666666666666666, 'cost_min_mean': 6.2263901396989825, 'n_ticks': 1500, 'frames': 0}
+h_min per group: {'joint_limits': 0.20361092889664434, 'singularity': 0.003230411197637808, 'obstacle': -0.012776663873921124, 'self_collision': 0.054877394885209874, 'floor': 0.05623372208693209}

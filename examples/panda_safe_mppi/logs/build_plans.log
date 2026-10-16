@@ -1,0 +1,11 @@
+<frozen importlib._bootstrap>:488: RuntimeWarning: to-Python converter for pinocchio::python::DeprecatedBool already registered; second conversion method ignored.
+{"dtype": "double", "knot_dt": 0.13333333333333333, "n_levels": 2851, "peak_live_slots": 4065, "shared_bytes": 32520, "casadi_build_s": 1.212441751966253, "plan_write_s": 0.5650145070394501, "T": 20, "dt": 0.02, "proj_iters": 32, "n_cbf": 64, "sx_nodes": 120290}
+<frozen importlib._bootstrap>:488: RuntimeWarning: to-Python converter for pinocchio::python::DeprecatedBool already registered; second conversion method ignored.
+{"dtype": "float", "knot_dt": 0.13333333333333333, "n_levels": 1555, "peak_live_slots": 4065, "shared_bytes": 16260, "casadi_build_s": 1.116551310988143, "plan_write_s": 0.3607497320044786, "T": 20, "dt": 0.02, "proj_iters": 16, "n_cbf": 64, "sx_nodes": 75618}
+{"dtype": "double", "knot_dt": 0.13333333333333333, "n_levels": 1555, "peak_live_slots": 4065, "shared_bytes": 32520, "casadi_build_s": 1.116551310988143, "plan_write_s": 0.3365084420074709, "T": 20, "dt": 0.02, "proj_iters": 16, "n_cbf": 64, "sx_nodes": 75618}
+<frozen importlib._bootstrap>:488: RuntimeWarning: to-Python converter for pinocchio::python::DeprecatedBool already registered; second conversion method ignored.
+{"dtype": "float", "knot_dt": 0.13333333333333333, "n_levels": 134, "peak_live_slots": 512, "shared_bytes": 2048, "casadi_build_s": 0.9564081159769557, "plan_write_s": 0.019303370965644717, "T": 20, "dt": 0.02, "proj_iters": 0, "n_cbf": 64, "sx_nodes": 3516}
+{"dtype": "double", "knot_dt": 0.13333333333333333, "n_levels": 134, "peak_live_slots": 512, "shared_bytes": 4096, "casadi_build_s": 0.9564081159769557, "plan_write_s": 0.017460712988395244, "T": 20, "dt": 0.02, "proj_iters": 0, "n_cbf": 64, "sx_nodes": 3516}
+nvcc time_step_f32: 3.2 s
+nvcc time_step_f64: 3.4 s
+wrote /home/jovi/code/cusecmpc/cusadi2/examples/panda_safe_mppi/build/bench (4096, 16)

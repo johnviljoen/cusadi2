@@ -1,0 +1,29 @@
+== verify
+<frozen importlib._bootstrap>:488: RuntimeWarning: to-Python converter for pinocchio::python::DeprecatedBool already registered; second conversion method ignored.
+casadi step: {'T': 20, 'dt': 0.02, 'proj_rounds': 3, 'n_cbf': 64, 'sx_nodes': 48426} (0.6 s)
+one step  rel err: x1 1.1e-01  u 2.4e-01
+projection residual: {'rows_violated_frac': 0.04076385498046875, 'instances_violated_frac': 0.43505859375, 'max_rel_violation': 1058.023696611954}
+5-step rollout rel err: 1.1e-01
+GATE 1 FAIL
+== frax f32 r3
+step               f32 B=   256  median     0.65 ms  min     0.64  compile   5.9 s  nonfinite 0
+step               f32 B=  2048  median     2.06 ms  min     2.04  compile   5.2 s  nonfinite 0
+step               f32 B=  4096  median     3.96 ms  min     3.94  compile   5.2 s  nonfinite 0
+step               f32 B=  8192  median     8.43 ms  min     7.98  compile   5.2 s  nonfinite 0
+== frax f64 r3
+step               f64 B=   256  median     2.13 ms  min     2.08  compile   5.0 s  nonfinite 0
+step               f64 B=  2048  median    11.91 ms  min    10.78  compile   5.5 s  nonfinite 0
+step               f64 B=  4096  median    21.62 ms  min    21.57  compile   5.6 s  nonfinite 0
+== study
+rollout metric on 344 initially safe random states
+none {'kind0_inst_frac': 0.6035, 'kind1_inst_frac': 0.6855, 'kind2_inst_frac': 0.9844, 'kind0_mean_pos': 0.0864, 'kind1_mean_pos': 0.096, 'kind2_mean_pos': 0.2579, 'rollout_hmin_frac_below_-0.01': 0.1453, 'rollout_hmin_frac_below_0': 0.1919, 'rollout_hmin_min': -1.8309, 'rollout_hmin_p05': -0.0964}
+active_r1 {'kind0_inst_frac': 0.4258, 'kind1_inst_frac': 0.5527, 'kind2_inst_frac': 0.9414, 'kind0_mean_pos': 0.0493, 'kind1_mean_pos': 0.0907, 'kind2_mean_pos': 0.2407, 'rollout_hmin_frac_below_-0.01': 0.0698, 'rollout_hmin_frac_below_0': 0.0814, 'rollout_hmin_min': -3.810459491887408e+66, 'rollout_hmin_p05': -0.0602}
+active_r2 {'kind0_inst_frac': 0.2891, 'kind1_inst_frac': 0.4102, 'kind2_inst_frac': 0.873, 'kind0_mean_pos': 0.0275, 'kind1_mean_pos': 0.0445, 'kind2_mean_pos': 0.1741, 'rollout_hmin_frac_below_-0.01': 0.0349, 'rollout_hmin_frac_below_0': 0.0436, 'rollout_hmin_min': -0.4279, 'rollout_hmin_p05': 0.0028}
+active_r3 {'kind0_inst_frac': 0.2627, 'kind1_inst_frac': 0.375, 'kind2_inst_frac': 0.8457, 'kind0_mean_pos': 0.0284, 'kind1_mean_pos': 0.0623, 'kind2_mean_pos': 0.1957, 'rollout_hmin_frac_below_-0.01': 0.0436, 'rollout_hmin_frac_below_0': 0.0494, 'rollout_hmin_min': -555009104.1382, 'rollout_hmin_p05': 0.0012}
+active_r4 {'kind0_inst_frac': 0.21, 'kind1_inst_frac': 0.3203, 'kind2_inst_frac': 0.791, 'kind0_mean_pos': 0.0188, 'kind1_mean_pos': 0.0339, 'kind2_mean_pos': 0.105, 'rollout_hmin_frac_below_-0.01': 0.0174, 'rollout_hmin_frac_below_0': 0.0262, 'rollout_hmin_min': -1.957, 'rollout_hmin_p05': 0.005}
+qp {'kind0_inst_frac': 0.0293, 'kind1_inst_frac': 0.0742, 'kind2_inst_frac': 0.334, 'kind0_mean_pos': 0.0013, 'kind1_mean_pos': 0.0011, 'kind2_mean_pos': 0.0087, 'rollout_hmin_frac_below_-0.01': 0.0, 'rollout_hmin_frac_below_0': 0.0058, 'rollout_hmin_min': -0.0022, 'rollout_hmin_p05': 0.0079}
+== export
+safe_rollout_scan_T10_B256_float.mlir {'export_s': 1.78186300303787, 'bytes': 220413}
+safe_rollout_unrolled_T10_B256_float.mlir {'export_s': 11.844814010022674, 'bytes': 1587404}
+safe_step_B256_float.mlir {'export_s': 1.425979491963517, 'bytes': 219954}
+safe_rollout_scan_T10_B2048_float.mlir {'export_s': 1.7676141979754902, 'bytes': 220413}

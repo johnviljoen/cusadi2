@@ -1,0 +1,137 @@
+<frozen importlib._bootstrap>:488: RuntimeWarning: to-Python converter for pinocchio::python::DeprecatedBool already registered; second conversion method ignored.
+E1013 11:26:56.053650 2507661 cuda_executor.cc:1348] [0] Failed to allocate device memory of 11.70GiB (12559843328 bytes): RESOURCE_EXHAUSTED: : CUDA_ERROR_OUT_OF_MEMORY: out of memory
+=== Source Location Trace: === 
+external/xla+/xla/stream_executor/cuda/cuda_status.cc:45
+external/xla+/xla/stream_executor/cuda/cuda_device_allocator.cc:226
+external/xla+/xla/stream_executor/cuda/cuda_device_allocator.cc:389
+
+E1013 11:26:56.053768 2507661 cuda_executor.cc:1348] [0] Failed to allocate device memory of 10.53GiB (11303859200 bytes): RESOURCE_EXHAUSTED: : CUDA_ERROR_OUT_OF_MEMORY: out of memory
+=== Source Location Trace: === 
+external/xla+/xla/stream_executor/cuda/cuda_status.cc:45
+external/xla+/xla/stream_executor/cuda/cuda_device_allocator.cc:226
+external/xla+/xla/stream_executor/cuda/cuda_device_allocator.cc:389
+
+E1013 11:26:56.053871 2507661 cuda_executor.cc:1348] [0] Failed to allocate device memory of 9.47GiB (10173472768 bytes): RESOURCE_EXHAUSTED: : CUDA_ERROR_OUT_OF_MEMORY: out of memory
+=== Source Location Trace: === 
+external/xla+/xla/stream_executor/cuda/cuda_status.cc:45
+external/xla+/xla/stream_executor/cuda/cuda_device_allocator.cc:226
+external/xla+/xla/stream_executor/cuda/cuda_device_allocator.cc:389
+
+E1013 11:26:56.053944 2507661 cuda_executor.cc:1348] [0] Failed to allocate device memory of 8.53GiB (9156125696 bytes): RESOURCE_EXHAUSTED: : CUDA_ERROR_OUT_OF_MEMORY: out of memory
+=== Source Location Trace: === 
+external/xla+/xla/stream_executor/cuda/cuda_status.cc:45
+external/xla+/xla/stream_executor/cuda/cuda_device_allocator.cc:226
+external/xla+/xla/stream_executor/cuda/cuda_device_allocator.cc:389
+
+E1013 11:26:56.054000 2507661 cuda_executor.cc:1348] [0] Failed to allocate device memory of 7.67GiB (8240513024 bytes): RESOURCE_EXHAUSTED: : CUDA_ERROR_OUT_OF_MEMORY: out of memory
+=== Source Location Trace: === 
+external/xla+/xla/stream_executor/cuda/cuda_status.cc:45
+external/xla+/xla/stream_executor/cuda/cuda_device_allocator.cc:226
+external/xla+/xla/stream_executor/cuda/cuda_device_allocator.cc:389
+
+E1013 11:26:56.054051 2507661 cuda_executor.cc:1348] [0] Failed to allocate device memory of 6.91GiB (7416461312 bytes): RESOURCE_EXHAUSTED: : CUDA_ERROR_OUT_OF_MEMORY: out of memory
+=== Source Location Trace: === 
+external/xla+/xla/stream_executor/cuda/cuda_status.cc:45
+external/xla+/xla/stream_executor/cuda/cuda_device_allocator.cc:226
+external/xla+/xla/stream_executor/cuda/cuda_device_allocator.cc:389
+
+E1013 11:26:56.054099 2507661 cuda_executor.cc:1348] [0] Failed to allocate device memory of 6.22GiB (6674814976 bytes): RESOURCE_EXHAUSTED: : CUDA_ERROR_OUT_OF_MEMORY: out of memory
+=== Source Location Trace: === 
+external/xla+/xla/stream_executor/cuda/cuda_status.cc:45
+external/xla+/xla/stream_executor/cuda/cuda_device_allocator.cc:226
+external/xla+/xla/stream_executor/cuda/cuda_device_allocator.cc:389
+
+E1013 11:26:56.054147 2507661 cuda_executor.cc:1348] [0] Failed to allocate device memory of 5.59GiB (6007333376 bytes): RESOURCE_EXHAUSTED: : CUDA_ERROR_OUT_OF_MEMORY: out of memory
+=== Source Location Trace: === 
+external/xla+/xla/stream_executor/cuda/cuda_status.cc:45
+external/xla+/xla/stream_executor/cuda/cuda_device_allocator.cc:226
+external/xla+/xla/stream_executor/cuda/cuda_device_allocator.cc:389
+
+E1013 11:26:56.054197 2507661 cuda_executor.cc:1348] [0] Failed to allocate device memory of 5.04GiB (5406599680 bytes): RESOURCE_EXHAUSTED: : CUDA_ERROR_OUT_OF_MEMORY: out of memory
+=== Source Location Trace: === 
+external/xla+/xla/stream_executor/cuda/cuda_status.cc:45
+external/xla+/xla/stream_executor/cuda/cuda_device_allocator.cc:226
+external/xla+/xla/stream_executor/cuda/cuda_device_allocator.cc:389
+
+E1013 11:26:56.054253 2507661 cuda_executor.cc:1348] [0] Failed to allocate device memory of 4.53GiB (4865939456 bytes): RESOURCE_EXHAUSTED: : CUDA_ERROR_OUT_OF_MEMORY: out of memory
+=== Source Location Trace: === 
+external/xla+/xla/stream_executor/cuda/cuda_status.cc:45
+external/xla+/xla/stream_executor/cuda/cuda_device_allocator.cc:226
+external/xla+/xla/stream_executor/cuda/cuda_device_allocator.cc:389
+
+E1013 11:26:56.054311 2507661 cuda_executor.cc:1348] [0] Failed to allocate device memory of 4.08GiB (4379345408 bytes): RESOURCE_EXHAUSTED: : CUDA_ERROR_OUT_OF_MEMORY: out of memory
+=== Source Location Trace: === 
+external/xla+/xla/stream_executor/cuda/cuda_status.cc:45
+external/xla+/xla/stream_executor/cuda/cuda_device_allocator.cc:226
+external/xla+/xla/stream_executor/cuda/cuda_device_allocator.cc:389
+
+E1013 11:26:56.054363 2507661 cuda_executor.cc:1348] [0] Failed to allocate device memory of 3.67GiB (3941410816 bytes): RESOURCE_EXHAUSTED: : CUDA_ERROR_OUT_OF_MEMORY: out of memory
+=== Source Location Trace: === 
+external/xla+/xla/stream_executor/cuda/cuda_status.cc:45
+external/xla+/xla/stream_executor/cuda/cuda_device_allocator.cc:226
+external/xla+/xla/stream_executor/cuda/cuda_device_allocator.cc:389
+
+E1013 11:26:56.054411 2507661 cuda_executor.cc:1348] [0] Failed to allocate device memory of 3.30GiB (3547269632 bytes): RESOURCE_EXHAUSTED: : CUDA_ERROR_OUT_OF_MEMORY: out of memory
+=== Source Location Trace: === 
+external/xla+/xla/stream_executor/cuda/cuda_status.cc:45
+external/xla+/xla/stream_executor/cuda/cuda_device_allocator.cc:226
+external/xla+/xla/stream_executor/cuda/cuda_device_allocator.cc:389
+
+E1013 11:26:56.054459 2507661 cuda_executor.cc:1348] [0] Failed to allocate device memory of 2.97GiB (3192542464 bytes): RESOURCE_EXHAUSTED: : CUDA_ERROR_OUT_OF_MEMORY: out of memory
+=== Source Location Trace: === 
+external/xla+/xla/stream_executor/cuda/cuda_status.cc:45
+external/xla+/xla/stream_executor/cuda/cuda_device_allocator.cc:226
+external/xla+/xla/stream_executor/cuda/cuda_device_allocator.cc:389
+
+E1013 11:26:56.054506 2507661 cuda_executor.cc:1348] [0] Failed to allocate device memory of 2.68GiB (2873288192 bytes): RESOURCE_EXHAUSTED: : CUDA_ERROR_OUT_OF_MEMORY: out of memory
+=== Source Location Trace: === 
+external/xla+/xla/stream_executor/cuda/cuda_status.cc:45
+external/xla+/xla/stream_executor/cuda/cuda_device_allocator.cc:226
+external/xla+/xla/stream_executor/cuda/cuda_device_allocator.cc:389
+
+
+******************************************************************************
+This program contains Ipopt, a library for large-scale nonlinear optimization.
+ Ipopt is released as open source code under the Eclipse Public License (EPL).
+         For more information visit https://github.com/coin-or/Ipopt
+******************************************************************************
+
+  seed  0: s* =   0.63 cm (Solve_Succeeded)
+  seed  2: s* =  -1.46 cm (Solve_Succeeded)
+  seed  3: s* =  -0.83 cm (Solve_Succeeded)
+  seed  4: s* =   0.63 cm (Solve_Succeeded)
+  seed  5: s* =  -1.46 cm (Solve_Succeeded)
+  seed  6: s* =   0.63 cm (Solve_Succeeded)
+  seed  7: s* =  -0.27 cm (Solve_Succeeded)
+  seed  8: s* =  -0.27 cm (Solve_Succeeded)
+  seed  9: s* =  -0.27 cm (Solve_Succeeded)
+  seed 10: s* =   1.23 cm (Solve_Succeeded)
+  seed 11: s* =   0.63 cm (Solve_Succeeded)
+  seed 12: s* =  -1.46 cm (Solve_Succeeded)
+  seed 13: s* =  -1.46 cm (Solve_Succeeded)
+  seed 15: s* =   0.63 cm (Solve_Succeeded)
+  seed 16: s* =  -0.27 cm (Solve_Succeeded)
+  seed 17: s* =   0.63 cm (Solve_Succeeded)
+  seed 19: s* =   0.63 cm (Solve_Succeeded)
+  seed 20: s* =   1.23 cm (Solve_Succeeded)
+  seed 23: s* =   1.23 cm (Solve_Succeeded)
+pre-grasp: s* = 1.23 cm  (Solve_Succeeded, pos err 1.8e-16, rot err 0.0e+00, joint margin 0.545, sing 0.0173)
+  tight: [('cup:s20', 0.0123), ('floor:s15', 0.0123)]
+  q: [0.889, 0.347, -0.963, -1.398, 2.352, 3.08, -1.285]
+  x = 0.747: s* =   1.23 cm  Solve_Succeeded      tight [('cup:s20', 0.0123), ('floor:s15', 0.0123)]
+  x = 0.715: s* =   1.31 cm  Solve_Succeeded      tight [('floor:s15', 0.0131), ('ceiling:s13', 0.0131)]
+  x = 0.683: s* =   1.30 cm  Solve_Succeeded      tight [('floor:s15', 0.013), ('ceiling:s13', 0.013)]
+  x = 0.652: s* =   1.30 cm  Solve_Succeeded      tight [('floor:s15', 0.013), ('ceiling:s13', 0.013)]
+  x = 0.620: s* =   1.50 cm  Solve_Succeeded      tight [('floor:s15', 0.015), ('ceiling:s13', 0.015)]
+  x = 0.588: s* =   2.63 cm  Solve_Succeeded      tight [('floor:s15', 0.0263), ('ceiling:s13', 0.0263)]
+  x = 0.556: s* =   3.20 cm  Solve_Succeeded      tight [('floor:s18', 0.032)]
+  x = 0.524: s* =   3.30 cm  Solve_Succeeded      tight [('floor:s20', 0.033)]
+  x = 0.493: s* =   3.34 cm  Solve_Succeeded      tight [('floor:s20', 0.0334)]
+  x = 0.461: s* =   4.17 cm  Solve_Succeeded      tight [('floor:s20', 0.0417)]
+  x = 0.429: s* =   5.17 cm  Solve_Succeeded      tight [('floor:s19', 0.0517)]
+  x = 0.397: s* =   6.31 cm  Solve_Succeeded      tight [('floor:s19', 0.0631)]
+  x = 0.365: s* =   8.19 cm  Solve_Succeeded      tight [('floor:s19', 0.0819)]
+  x = 0.334: s* =  10.54 cm  Solve_Succeeded      tight [('floor:s19', 0.1054)]
+  x = 0.302: s* =  10.66 cm  Solve_Succeeded      tight [('ground:s0', 0.1066)]
+  x = 0.270: s* =  10.66 cm  Solve_Succeeded      tight [('ground:s0', 0.1066)]
+GATE PASS: pre-grasp 1.23 cm, path min 1.23 cm

@@ -1,0 +1,22 @@
+default configuration rejected as a start: min barrier -0.0501, x_tcp 0.375
+start 0: NOT reached (final lat 7.4 cm, ax 6.0 cm, rot 60.6 deg, x_tcp 0.687); grasp no (contact 0.00 s, tilt 0.0 deg, moved 0.0 cm); h_min -0.0023 (slab row 167 at 3.98 s); filter active plant 100 % 
+start 1: NOT reached (final lat 2.6 cm, ax 13.2 cm, rot 15.9 deg, x_tcp 0.615); grasp no (contact 0.00 s, tilt 0.0 deg, moved 0.0 cm); h_min 0.0045 (slab row 123 at 1.28 s); filter active plant 100 % 
+start 2: NOT reached (final lat 3.5 cm, ax 9.7 cm, rot 149.8 deg, x_tcp 0.650); grasp no (contact 0.00 s, tilt 0.0 deg, moved 0.0 cm); h_min -0.0024 (slab row 167 at 10.22 s); filter active plant 100 
+start 3: NOT reached (final lat 2.2 cm, ax 10.2 cm, rot 27.0 deg, x_tcp 0.645); grasp no (contact 0.00 s, tilt 0.0 deg, moved 0.0 cm); h_min -0.0032 (slab row 123 at 1.54 s); filter active plant 100 %
+start 4: NOT reached (final lat 3.2 cm, ax 11.6 cm, rot 11.8 deg, x_tcp 0.631); grasp no (contact 0.00 s, tilt 0.0 deg, moved 0.0 cm); h_min -0.0043 (slab row 122 at 0.34 s); filter active plant 100 %
+rung1: reached 0/5, grasped 0/5, h_min -0.0043
+== --no-video --tag rung2_T150 --rung 2 --T 150
+   reached 0/5  grasped 0/5  h_min -0.0077
+== --no-video --tag rung2_T200 --rung 2 --T 200
+   reached 0/5  grasped 0/5  h_min -0.0079
+== --no-video --tag rung2_sig1234 --rung 2 --T 100 --sigma 0.1 0.2 0.3 0.4
+   reached 0/5  grasped 0/5  h_min -0.0041
+== --no-video --tag rung2_T150_sig1234 --rung 2 --T 150 --sigma 0.1 0.2 0.3 0.4
+   reached 0/5  grasped 0/5  h_min -0.0054
+== --no-video --tag rung2_temp01 --rung 2 --T 100 --temp 0.1
+   reached 0/5  grasped 0/5  h_min -0.0072
+== --no-video --tag rung2_temp1 --rung 2 --T 100 --temp 1.0
+   reached 0/5  grasped 0/5  h_min -0.0055
+== --no-video --tag rung2_proj128 --rung 2 --T 100 --proj-iters 128
+   reached 0/5  grasped 0/5  h_min -0.0043
+LADDER-DONE

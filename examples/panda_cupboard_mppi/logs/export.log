@@ -1,0 +1,2 @@
+exported frax T=100 double batches [1, 256]: 4 programs (25.2 s)
+exported mjx T=100 double batches [1, 256]: 4 programs (54.7 s)

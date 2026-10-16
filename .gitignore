@@ -3,3 +3,4 @@ __pycache__/
 build/
 *.plan
 *.ref
+examples/humanoid_mit/mpc/vendor/

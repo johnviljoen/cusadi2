@@ -1,0 +1,82 @@
+{
+  "panda_rnea_fp64": {
+    "batch": 64,
+    "max_abs_frax": 56.902666869794224,
+    "max_rel_err": 4.994793916327174e-16
+  },
+  "panda_crba_fp64": {
+    "batch": 64,
+    "max_abs_frax": 3.9073774668515218,
+    "max_rel_err": 6.819242015149867e-16
+  },
+  "panda_jac_fp64": {
+    "batch": 64,
+    "max_abs_frax": 61.852862795285645,
+    "max_rel_err": 4.595051570122358e-16
+  },
+  "panda_hess_fp64": {
+    "batch": 64,
+    "max_abs_frax": 56.77428822651604,
+    "max_rel_err": 5.318968711562016e-16
+  },
+  "g1_rnea_fp64": {
+    "batch": 64,
+    "max_abs_frax": 397.52646705282103,
+    "max_rel_err": 7.149639529945435e-16
+  },
+  "g1_crba_fp64": {
+    "batch": 64,
+    "max_abs_frax": 33.34114202,
+    "max_rel_err": 8.258124749952366e-16
+  },
+  "g1_jac_fp64": {
+    "batch": 64,
+    "max_abs_frax": 99.38292481581317,
+    "max_rel_err": 2.4375481444340005e-15
+  },
+  "g1_hess_fp64": {
+    "batch": 64,
+    "max_abs_frax": 109.75428123722041,
+    "max_rel_err": 3.576852374978913e-15
+  },
+  "panda_rnea_fp32": {
+    "batch": 64,
+    "max_abs_frax": 56.866172790527344,
+    "max_rel_err": 0.0006417065234438885
+  },
+  "panda_crba_fp32": {
+    "batch": 64,
+    "max_abs_frax": 3.907132863998413,
+    "max_rel_err": 0.0012583215597695419
+  },
+  "panda_jac_fp32": {
+    "batch": 64,
+    "max_abs_frax": 61.85041427612305,
+    "max_rel_err": 0.0006662260931563186
+  },
+  "panda_hess_fp32": {
+    "batch": 64,
+    "max_abs_frax": 56.764488220214844,
+    "max_rel_err": 0.0011519797425753352
+  },
+  "g1_rnea_fp32": {
+    "batch": 64,
+    "max_abs_frax": 397.51416015625,
+    "max_rel_err": 0.00042538836937068623
+  },
+  "g1_crba_fp32": {
+    "batch": 64,
+    "max_abs_frax": 33.34375,
+    "max_rel_err": 0.00033788493334297386
+  },
+  "g1_jac_fp32": {
+    "batch": 64,
+    "max_abs_frax": 99.294921875,
+    "max_rel_err": 0.0022046082362949704
+  },
+  "g1_hess_fp32": {
+    "batch": 64,
+    "max_abs_frax": 109.7177963256836,
+    "max_rel_err": 0.001945910177859834
+  }
+}

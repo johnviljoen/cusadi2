@@ -1,57 +1,113 @@
 dtype,system,launch,batch,assembly_us,factor_us,iters_us,total_us,wall_us,max_abs_err
-f32,cusadi2,eager,1,553.0,329.7,3042.3,3925.0,3929.7,0.07272
-f32,cusadi2,eager,4,556.0,463.9,3643.4,4664.3,4670.4,0.06422
-f32,cusadi2,eager,16,510.0,6632.2,52131.9,59274.2,59281.7,0.03276
-f32,cusadi2,eager,64,1110.0,6625.3,51902.5,59635.7,59643.2,0.03259
-f32,cusadi2,eager,256,4209.5,7438.3,59341.5,70988.8,70994.3,inf
-f32,cusadi2,eager,1024,15322.1,11338.7,106798.1,133430.4,133442.7,0.03275
-f32,cusadi2,eager,4096,60430.4,36749.3,367451.1,464620.5,464633.8,0.03258
-f32,cusadi2,graph,1,nan,nan,nan,3748.9,3754.2,0.09198
-f32,cusadi2,graph,4,nan,nan,nan,4493.2,4497.3,0.05692
-f32,cusadi2,graph,16,nan,nan,nan,59135.0,59141.7,0.03276
-f32,cusadi2,graph,64,nan,nan,nan,59490.3,59496.2,0.03259
-f32,cusadi2,graph,256,nan,nan,nan,70863.9,70870.3,0.03259
-f32,cusadi2,graph,1024,nan,nan,nan,133276.3,133282.5,0.03275
-f32,cusadi2,graph,4096,nan,nan,nan,464581.6,464593.4,0.03258
-f64,cusadi,eager,1,125788.20000000001,450.3,3643.7,129882.1,nan,7.26e-10
-f64,cusadi,eager,4,127776.7,580.6,4294.7,132655.1,nan,7.454e-10
-f64,cusadi,eager,12,130175.0,1028.2,6491.1,137695.2,nan,7.355e-10
-f64,cusadi,eager,16,130211.9,8746.0,58916.9,197872.6,nan,7.37e-10
-f64,cusadi,eager,64,148721.7,8761.3,58759.2,216247.3,nan,7.07e-10
-f64,cusadi,eager,256,174228.4,10672.1,72861.1,257746.3,nan,6.943e-10
-f64,cusadi,eager,1024,177318.59999999998,27788.3,127417.3,332572.7,nan,7.093e-10
-f64,cusadi,eager,4096,175890.5,77564.9,465276.9,718733.3,nan,6.905e-10
-f64,cusadi,graph,1,125788.20000000001,450.3,3643.7,129721.3,nan,7.26e-10
-f64,cusadi,graph,4,127776.7,580.6,4294.7,132509.7,nan,7.454e-10
-f64,cusadi,graph,12,130175.0,1028.2,6491.1,137560.1,nan,7.355e-10
-f64,cusadi,graph,16,130211.9,8746.0,58916.9,197735.4,nan,7.37e-10
-f64,cusadi,graph,64,148721.7,8761.3,58759.2,216154.1,nan,7.07e-10
-f64,cusadi,graph,256,174228.4,10672.1,72861.1,258723.8,nan,6.943e-10
-f64,cusadi,graph,1024,177318.59999999998,27788.3,127417.3,332803.1,nan,7.093e-10
-f64,cusadi,graph,4096,175890.5,77564.9,465276.9,718668.8,nan,6.905e-10
-f64,cusadi2,eager,1,676.9,532.5,3466.2,4674.6,4679.4,8.515e-10
-f64,cusadi2,eager,2,604.2,513.0,3176.7,4295.3,4299.8,8.516e-10
-f64,cusadi2,eager,3,605.1,573.4,3302.4,4483.1,4488.5,8.516e-10
-f64,cusadi2,eager,4,612.4,644.1,3772.6,5030.7,5035.7,8.516e-10
-f64,cusadi2,eager,5,605.2,703.3,3917.8,5226.5,5230.8,8.557e-10
-f64,cusadi2,eager,6,606.2,777.0,4301.8,5684.2,5689.9,8.516e-10
-f64,cusadi2,eager,8,842.8,910.3,4902.9,6657.0,6663.0,8.516e-10
-f64,cusadi2,eager,12,860.8,1179.6,6098.9,8140.8,8145.8,8.929e-10
-f64,cusadi2,eager,16,1233.6,9419.8,58293.2,68941.8,68948.0,8.515e-10
-f64,cusadi2,eager,64,3459.1,9395.2,58124.3,70978.6,70985.4,8.515e-10
-f64,cusadi2,eager,256,13004.8,11375.6,70783.1,95165.6,95172.2,8.515e-10
-f64,cusadi2,eager,1024,51307.5,28980.2,120254.5,200503.1,200515.4,8.515e-10
-f64,cusadi2,eager,4096,204559.4,82859.0,436772.9,724181.9,724196.0,8.515e-10
-f64,cusadi2,graph,1,nan,nan,nan,4058.1,4062.6,8.6e-10
-f64,cusadi2,graph,2,nan,nan,nan,4145.2,4149.3,8.515e-10
-f64,cusadi2,graph,3,nan,nan,nan,4333.6,4338.4,8.515e-10
-f64,cusadi2,graph,4,nan,nan,nan,4875.9,4880.8,8.516e-10
-f64,cusadi2,graph,5,nan,nan,nan,5081.9,5086.5,8.684e-10
-f64,cusadi2,graph,6,nan,nan,nan,5537.7,5542.6,8.516e-10
-f64,cusadi2,graph,8,nan,nan,nan,6508.5,6513.3,8.711e-10
-f64,cusadi2,graph,12,nan,nan,nan,7990.3,7995.4,9.1e-10
-f64,cusadi2,graph,16,nan,nan,nan,68807.7,68814.7,8.515e-10
-f64,cusadi2,graph,64,nan,nan,nan,70047.7,70067.5,8.515e-10
-f64,cusadi2,graph,256,nan,nan,nan,94992.4,95000.9,8.515e-10
-f64,cusadi2,graph,1024,nan,nan,nan,200494.1,200501.7,8.515e-10
-f64,cusadi2,graph,4096,nan,nan,nan,724237.3,724255.7,8.515e-10
+f32,cusadi,eager,1,145173.1,283.6,96067.6,241525.8,nan,0.006993
+f32,cusadi,eager,4,146268.1,381.7,98540.5,245191.7,nan,0.01868
+f32,cusadi,eager,12,148631.5,708.6,101565.4,250905.6,nan,0.009085
+f32,cusadi,eager,16,149080.2,6397.3,150287.4,305763.3,nan,0.009235
+f32,cusadi,eager,64,152462.3,6404.1,158057.5,316923.9,nan,0.008729
+f32,cusadi,eager,256,195125.3,7127.0,193908.7,396169.2,nan,0.008617
+f32,cusadi,eager,1024,198913.0,10873.9,255200.3,465001.5,nan,0.008816
+f32,cusadi,eager,4096,196480.90000000002,35192.8,508504.1,740121.6,nan,0.008828
+f32,cusadi,graph,1,145173.1,283.6,96067.6,241348.6,nan,0.006993
+f32,cusadi,graph,4,146268.1,381.7,98540.5,245040.1,nan,0.01868
+f32,cusadi,graph,12,148631.5,708.6,101565.4,250742.8,nan,0.009085
+f32,cusadi,graph,16,149080.2,6397.3,150287.4,305615.9,nan,0.009235
+f32,cusadi,graph,64,152462.3,6404.1,158057.5,316786.7,nan,0.008729
+f32,cusadi,graph,256,195125.3,7127.0,193908.7,396053.5,nan,0.008617
+f32,cusadi,graph,1024,198913.0,10873.9,255200.3,464796.7,nan,0.008816
+f32,cusadi,graph,4096,196480.90000000002,35192.8,508504.1,740099.1,nan,0.008828
+f32,cusadi (level kernel where it fits),eager,1,145174.5,283.3,2992.1,148447.2,nan,0.00631
+f32,cusadi (level kernel where it fits),eager,4,146272.6,383.0,3540.7,150196.2,nan,0.02319
+f32,cusadi (level kernel where it fits),eager,12,148627.3,707.7,5342.0,154677.2,nan,0.02248
+f32,cusadi (level kernel where it fits),eager,16,149128.2,6394.9,53851.1,209375.2,nan,0.008815
+f32,cusadi (level kernel where it fits),eager,64,152450.0,6404.1,53508.1,212362.2,nan,0.008879
+f32,cusadi (level kernel where it fits),eager,256,195160.8,7127.0,61450.5,263745.5,nan,0.008691
+f32,cusadi (level kernel where it fits),eager,1024,199024.7,10902.5,107596.8,317547.4,nan,0.008398
+f32,cusadi (level kernel where it fits),eager,4096,196489.1,35241.0,370612.4,602342.4,nan,0.008614
+f32,cusadi (level kernel where it fits),graph,1,145174.5,283.3,2992.1,148284.4,nan,0.00631
+f32,cusadi (level kernel where it fits),graph,4,146272.6,383.0,3540.7,150054.8,nan,0.02319
+f32,cusadi (level kernel where it fits),graph,12,148627.3,707.7,5342.0,154523.5,nan,0.02248
+f32,cusadi (level kernel where it fits),graph,16,149128.2,6394.9,53851.1,209220.6,nan,0.008815
+f32,cusadi (level kernel where it fits),graph,64,152450.0,6404.1,53508.1,212235.2,nan,0.008879
+f32,cusadi (level kernel where it fits),graph,256,195160.8,7127.0,61450.5,263633.9,nan,0.008691
+f32,cusadi (level kernel where it fits),graph,1024,199024.7,10902.5,107596.8,317441.0,nan,0.008398
+f32,cusadi (level kernel where it fits),graph,4096,196489.1,35241.0,370612.4,602194.9,nan,0.008614
+f32,cusadi2,eager,1,285.7,329.7,3146.8,3761.2,3766.4,0.09735
+f32,cusadi2,eager,4,287.7,464.2,3750.9,4503.6,4509.3,0.04848
+f32,cusadi2,eager,12,265.4,800.0,5342.2,6407.2,6412.4,0.06539
+f32,cusadi2,eager,16,274.4,6651.7,52494.3,59420.6,59427.2,0.03172
+f32,cusadi2,eager,64,612.4,6639.6,52195.7,59446.6,59454.0,0.03182
+f32,cusadi2,eager,256,2219.0,7455.7,59633.7,69300.2,69308.0,0.03169
+f32,cusadi2,eager,1024,8448.0,11382.8,107257.6,127076.4,127084.8,0.03162
+f32,cusadi2,eager,4096,33765.4,36983.8,369616.1,440345.6,440362.4,0.03165
+f32,cusadi2,graph,1,nan,nan,nan,3588.8,3593.4,0.04242
+f32,cusadi2,graph,4,nan,nan,nan,4337.7,4343.3,0.069
+f32,cusadi2,graph,12,nan,nan,nan,6246.4,6252.1,0.07568
+f32,cusadi2,graph,16,nan,nan,nan,59267.1,59274.1,0.03172
+f32,cusadi2,graph,64,nan,nan,nan,59300.9,59308.1,0.03182
+f32,cusadi2,graph,256,nan,nan,nan,69144.6,69152.0,0.03169
+f32,cusadi2,graph,1024,nan,nan,nan,126918.5,126926.9,0.03162
+f32,cusadi2,graph,4096,nan,nan,nan,440141.8,440157.8,0.03165
+f64,MJX assembly + bridged solver,xla+graph,1,1763.8,nan,4063.2,5829.9,5829.9,3.621e-10
+f64,MJX assembly + bridged solver,xla+graph,4,2647.2,nan,5074.4,7730.6,7730.6,3.62e-10
+f64,MJX assembly + bridged solver,xla+graph,12,4972.1,nan,8310.6,13284.3,13284.3,3.626e-10
+f64,MJX assembly + bridged solver,xla+graph,16,5301.8,nan,67370.2,72669.3,72669.3,3.624e-10
+f64,MJX assembly + bridged solver,xla+graph,64,16049.4,nan,67558.2,83611.1,83611.1,3.624e-10
+f64,MJX assembly + bridged solver,xla+graph,256,62611.1,nan,84524.9,147121.1,147121.1,3.625e-10
+f64,MJX assembly + bridged solver,xla+graph,1024,254220.0,nan,157045.4,411197.5,411197.5,3.625e-10
+f64,MJX assembly + bridged solver,xla+graph,4096,1015688.0,nan,547947.6,1563700.2,1563700.2,3.625e-10
+f64,cusadi,eager,1,163005.5,454.7,110694.4,274155.3,nan,5.685e-11
+f64,cusadi,eager,4,165129.2,592.1,112345.1,278066.2,nan,6.019e-11
+f64,cusadi,eager,12,167579.7,1047.6,115540.0,284162.0,nan,3.913e-11
+f64,cusadi,eager,16,167612.7,8824.8,168924.2,345362.4,nan,3.696e-11
+f64,cusadi,eager,64,193476.8,8852.2,179005.4,381326.4,nan,3.705e-11
+f64,cusadi,eager,256,224905.2,10756.0,246603.8,482267.2,nan,3.668e-11
+f64,cusadi,eager,1024,228429.90000000002,27251.7,289294.3,544985.9,nan,3.692e-11
+f64,cusadi,eager,4096,226494.5,77865.0,597724.2,902073.2,nan,3.607e-11
+f64,cusadi,graph,1,163005.5,454.7,110694.4,273987.6,nan,5.685e-11
+f64,cusadi,graph,4,165129.2,592.1,112345.1,277901.3,nan,6.019e-11
+f64,cusadi,graph,12,167579.7,1047.6,115540.0,283994.1,nan,3.913e-11
+f64,cusadi,graph,16,167612.7,8824.8,168924.2,345211.9,nan,3.696e-11
+f64,cusadi,graph,64,193476.8,8852.2,179005.4,381606.9,nan,3.705e-11
+f64,cusadi,graph,256,224905.2,10756.0,246603.8,482071.6,nan,3.668e-11
+f64,cusadi,graph,1024,228429.90000000002,27251.7,289294.3,544572.4,nan,3.692e-11
+f64,cusadi,graph,4096,226494.5,77865.0,597724.2,902299.6,nan,3.607e-11
+f64,cusadi (level kernel where it fits),eager,1,162528.5,454.3,3341.1,166326.4,nan,4.147e-11
+f64,cusadi (level kernel where it fits),eager,4,164646.8,587.0,4005.9,169234.4,nan,3.317e-11
+f64,cusadi (level kernel where it fits),eager,12,167058.4,1036.3,6201.3,174292.0,nan,5.249e-11
+f64,cusadi (level kernel where it fits),eager,16,167109.4,8799.2,58908.5,234814.4,nan,3.627e-11
+f64,cusadi (level kernel where it fits),eager,64,192185.4,8811.5,58759.3,259752.0,nan,3.66e-11
+f64,cusadi (level kernel where it fits),eager,256,224309.2,10732.5,71518.2,306559.0,nan,3.717e-11
+f64,cusadi (level kernel where it fits),eager,1024,228718.3,27012.1,122598.4,378301.5,nan,3.682e-11
+f64,cusadi (level kernel where it fits),eager,4096,226660.3,77981.4,444998.7,749647.0,nan,3.676e-11
+f64,cusadi (level kernel where it fits),graph,1,162528.5,454.3,3341.1,166161.4,nan,4.147e-11
+f64,cusadi (level kernel where it fits),graph,4,164646.8,587.0,4005.9,169079.8,nan,3.317e-11
+f64,cusadi (level kernel where it fits),graph,12,167058.4,1036.3,6201.3,174128.1,nan,5.249e-11
+f64,cusadi (level kernel where it fits),graph,16,167109.4,8799.2,58908.5,234653.7,nan,3.627e-11
+f64,cusadi (level kernel where it fits),graph,64,192185.4,8811.5,58759.3,260554.7,nan,3.66e-11
+f64,cusadi (level kernel where it fits),graph,256,224309.2,10732.5,71518.2,306411.5,nan,3.717e-11
+f64,cusadi (level kernel where it fits),graph,1024,228718.3,27012.1,122598.4,378307.6,nan,3.682e-11
+f64,cusadi (level kernel where it fits),graph,4096,226660.3,77981.4,444998.7,749533.2,nan,3.676e-11
+f64,cusadi2,eager,1,313.3,482.0,3047.7,3845.1,3850.5,9.292e-11
+f64,cusadi2,eager,4,314.4,638.0,3703.8,4658.0,4663.3,9.616e-11
+f64,cusadi2,eager,12,466.6,1182.6,6075.4,7724.0,7729.8,1.735e-10
+f64,cusadi2,eager,16,651.3,9314.3,57699.6,67666.8,67673.4,9.485e-11
+f64,cusadi2,eager,64,1794.0,9292.8,57528.3,68616.2,68623.3,9.457e-11
+f64,cusadi2,eager,256,6715.4,11404.1,71207.9,89331.9,89339.9,9.452e-11
+f64,cusadi2,eager,1024,26708.6,29220.9,120634.4,176570.2,176580.5,9.428e-11
+f64,cusadi2,eager,4096,106522.3,83025.2,437675.1,627175.2,627193.6,9.431e-11
+f64,cusadi2,graph,1,nan,nan,nan,3678.2,3683.2,6.573e-11
+f64,cusadi2,graph,4,nan,nan,nan,4505.6,4510.0,8.279e-11
+f64,cusadi2,graph,12,nan,nan,nan,7571.3,7576.9,1.82e-10
+f64,cusadi2,graph,16,nan,nan,nan,67519.5,67527.6,9.485e-11
+f64,cusadi2,graph,64,nan,nan,nan,68501.4,68508.9,9.457e-11
+f64,cusadi2,graph,256,nan,nan,nan,89154.3,89162.1,9.452e-11
+f64,cusadi2,graph,1024,nan,nan,nan,176406.4,176417.5,9.428e-11
+f64,cusadi2,graph,4096,nan,nan,nan,626968.6,626996.5,9.431e-11
+f64,cusadi2 assembly + bridged solver,xla+graph,1,192.4,nan,4017.6,4210.5,4210.5,5.017e-11
+f64,cusadi2 assembly + bridged solver,xla+graph,4,192.4,nan,4933.9,5126.0,5126.0,9.345e-11
+f64,cusadi2 assembly + bridged solver,xla+graph,12,354.9,nan,8166.7,8523.8,8523.8,1.12e-10
+f64,cusadi2 assembly + bridged solver,xla+graph,16,465.6,nan,67193.2,67656.3,67656.3,9.488e-11
+f64,cusadi2 assembly + bridged solver,xla+graph,64,1368.3,nan,67417.0,68784.8,68784.8,9.453e-11
+f64,cusadi2 assembly + bridged solver,xla+graph,256,5061.6,nan,84270.9,89331.2,89331.2,9.509e-11
+f64,cusadi2 assembly + bridged solver,xla+graph,1024,19915.9,nan,156867.8,176782.8,176782.8,9.444e-11
+f64,cusadi2 assembly + bridged solver,xla+graph,4096,80186.1,nan,548141.8,628336.5,628336.5,9.502e-11

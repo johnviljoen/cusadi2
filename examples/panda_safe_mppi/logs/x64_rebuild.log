@@ -1,0 +1,25 @@
+safe_integrate_double.plan {"dtype": "double", "n_levels": 128, "peak_live_slots": 498, "s
+safe_model_T1_double.plan {"dtype": "double", "n_levels": 207, "peak_live_slots": 3649, "s
+safe_model_T10_double.plan {"dtype": "double", "n_levels": 207, "peak_live_slots": 3649, "
+safe_model_T15_double.plan {"dtype": "double", "n_levels": 207, "peak_live_slots": 3649, "
+safe_model_T20_double.plan {"dtype": "double", "n_levels": 207, "peak_live_slots": 3649, "
+safe_model_T25_double.plan {"dtype": "double", "n_levels": 207, "peak_live_slots": 3649, "
+safe_model_T30_double.plan {"dtype": "double", "n_levels": 207, "peak_live_slots": 3649, "
+safe_model_T50_double.plan {"dtype": "double", "n_levels": 207, "peak_live_slots": 3649, "
+safe_model_T100_double.plan {"dtype": "double", "n_levels": 207, "peak_live_slots": 3649, 
+gcc libcpu_T10_double.so: 9.0 s
+gcc libcpu_T20_double.so: 9.1 s
+gcc libcpu_T30_double.so: 9.0 s
+gcc libcpu_T50_double.so: 9.0 s
+gcc libcpu_T100_double.so: 9.0 s
+nvcc libunrolled_integrate_double.so: 1.9 s
+nvcc libunrolled_model_T10_double.so: 18.8 s
+nvcc libunrolled_model_T20_double.so: 18.7 s
+nvcc libunrolled_model_T30_double.so: 19.1 s
+nvcc libunrolled_model_T50_double.so: 19.7 s
+nvcc libunrolled_model_T100_double.so: 19.3 s
+frax     vs cusadi2 over 3 ticks: applied torque 5.0e-15  rollout trajectories 2.8e-15  weights 3.2e-14  plant 3.2e-15   [JAX/XLA program via PJRT (xla_cuda_plugin.so, api 0.114): safe_model_T100_B256_double.mlir]
+mjx      vs cusadi2 over 3 ticks: applied torque 5.3e-15  rollout trajectories 1.6e-15  weights 2.5e-14  plant 2.8e-15   [JAX/XLA program via PJRT (xla_cuda_plugin.so, api 0.114): mjx_model_T100_B256_double.mlir ]
+cusadi   vs cusadi2 over 3 ticks: applied torque 1.2e-14  rollout trajectories 2.0e-15  weights 2.4e-14  plant 2.4e-15   [original CusADi unrolled kernels (one thread per instance, block 256): libunrolled_model_T]
+cpu      vs cusadi2 over 3 ticks: applied torque 6.8e-15  rollout trajectories 1.6e-15  weights 1.7e-14  plant 1.9e-15   [CasADi C codegen on the CPU (16 OpenMP threads, GPU -> CPU -> GPU transfer in every call):]
+GATE 1b PASS

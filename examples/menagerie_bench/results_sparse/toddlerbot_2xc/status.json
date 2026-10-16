@@ -1,0 +1,112 @@
+{
+  "robot": "toddlerbot_2xc",
+  "xml": "toddlerbot_2xc/toddlerbot_2xc.xml",
+  "menagerie_commit": "8161bba264d7fa7c99ca301e91e7fb44737676ad",
+  "manifest_commit": "8161bba264d7fa7c99ca301e91e7fb44737676ad",
+  "gate": {
+    "status": "pass",
+    "reason": null,
+    "nq": 51,
+    "nv": 50,
+    "n_bodies": 45,
+    "n_bodies_unnamed": 0,
+    "floating": true,
+    "fk_max_err": 8.881784197001252e-16,
+    "root_corr": false,
+    "preproc": {
+      "includes_flattened": false,
+      "multitree_wrapped": false,
+      "anchors_fixed": 0
+    }
+  },
+  "stages": {
+    "gate": {
+      "status": "pass",
+      "cached": true,
+      "seconds": 0
+    },
+    "compile_double": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 71.07,
+      "cached": false
+    },
+    "compile_float": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 91.3,
+      "cached": false
+    },
+    "mjx_fp64": {
+      "status": "skip",
+      "reason": "--no-baselines"
+    },
+    "mjx_fp32": {
+      "status": "skip",
+      "reason": "--no-baselines"
+    },
+    "warp": {
+      "status": "skip",
+      "reason": "--no-baselines"
+    },
+    "plot": {
+      "status": "pass",
+      "seconds": 5.4
+    }
+  },
+  "runs": {
+    "0": {
+      "double": {
+        "status": "pass",
+        "seconds": 39.3
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 110.6
+      }
+    },
+    "1": {
+      "double": {
+        "status": "pass",
+        "seconds": 39.2
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 110.5
+      }
+    },
+    "2": {
+      "double": {
+        "status": "pass",
+        "seconds": 39.2
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 110.6
+      }
+    },
+    "3": {
+      "double": {
+        "status": "pass",
+        "seconds": 39.1
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 110.5
+      }
+    },
+    "4": {
+      "double": {
+        "status": "pass",
+        "seconds": 39.2
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 110.4
+      }
+    }
+  },
+  "complete": true,
+  "n_runs": 5,
+  "finished_at": "2026-10-05 23:18:23"
+}

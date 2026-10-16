@@ -1,0 +1,47 @@
+<frozen importlib._bootstrap>:488: RuntimeWarning: to-Python converter for pinocchio::python::DeprecatedBool already registered; second conversion method ignored.
+
+******************************************************************************
+This program contains Ipopt, a library for large-scale nonlinear optimization.
+ Ipopt is released as open source code under the Eclipse Public License (EPL).
+         For more information visit https://github.com/coin-or/Ipopt
+******************************************************************************
+
+  seed  0: s* =   0.63 cm (Solve_Succeeded)
+  seed  2: s* =  -0.69 cm (Solve_Succeeded)
+  seed  3: s* =   0.17 cm (Solve_Succeeded)
+  seed  4: s* =   0.63 cm (Solve_Succeeded)
+  seed  5: s* =  -0.69 cm (Solve_Succeeded)
+  seed  6: s* =   0.63 cm (Solve_Succeeded)
+  seed  7: s* =   0.73 cm (Solve_Succeeded)
+  seed  8: s* =   0.73 cm (Solve_Succeeded)
+  seed  9: s* =   0.73 cm (Solve_Succeeded)
+  seed 10: s* =   1.23 cm (Solve_Succeeded)
+  seed 11: s* =   0.63 cm (Solve_Succeeded)
+  seed 12: s* =  -0.69 cm (Solve_Succeeded)
+  seed 13: s* =  -0.69 cm (Solve_Succeeded)
+  seed 15: s* =   0.63 cm (Solve_Succeeded)
+  seed 16: s* =   0.73 cm (Solve_Succeeded)
+  seed 17: s* =   0.63 cm (Solve_Succeeded)
+  seed 19: s* =   0.63 cm (Solve_Succeeded)
+  seed 20: s* =   1.23 cm (Solve_Succeeded)
+  seed 23: s* =   1.23 cm (Solve_Succeeded)
+pre-grasp: s* = 1.23 cm  (Solve_Succeeded, pos err 2.5e-16, rot err 0.0e+00, joint margin 0.545, sing 0.0173)
+  tight: [('cup:s20', 0.0123), ('floor:s15', 0.0123)]
+  q: [0.889, 0.347, -0.963, -1.398, 2.352, 3.08, -1.285]
+  x = 0.747: s* =   1.23 cm  Solve_Succeeded      tight [('cup:s20', 0.0123), ('floor:s15', 0.0123)]
+  x = 0.715: s* =   1.77 cm  Solve_Succeeded      tight [('floor:s15', 0.0177)]
+  x = 0.683: s* =   1.76 cm  Solve_Succeeded      tight [('floor:s15', 0.0176)]
+  x = 0.652: s* =   1.76 cm  Solve_Succeeded      tight [('floor:s15', 0.0176)]
+  x = 0.620: s* =   1.93 cm  Solve_Succeeded      tight [('floor:s15', 0.0193)]
+  x = 0.588: s* =   2.96 cm  Solve_Succeeded      tight [('floor:s15', 0.0296)]
+  x = 0.556: s* =   3.20 cm  Solve_Succeeded      tight [('floor:s18', 0.032)]
+  x = 0.524: s* =   3.30 cm  Solve_Succeeded      tight [('floor:s20', 0.033)]
+  x = 0.493: s* =   3.34 cm  Solve_Succeeded      tight [('floor:s20', 0.0334)]
+  x = 0.461: s* =   4.17 cm  Solve_Succeeded      tight [('floor:s20', 0.0417)]
+  x = 0.429: s* =   5.17 cm  Solve_Succeeded      tight [('floor:s19', 0.0517)]
+  x = 0.397: s* =   6.31 cm  Solve_Succeeded      tight [('floor:s19', 0.0631)]
+  x = 0.365: s* =   8.19 cm  Solve_Succeeded      tight [('floor:s19', 0.0819)]
+  x = 0.334: s* =  10.54 cm  Solve_Succeeded      tight [('floor:s19', 0.1054)]
+  x = 0.302: s* =  10.66 cm  Solve_Succeeded      tight [('ground:s0', 0.1066)]
+  x = 0.270: s* =  10.66 cm  Solve_Succeeded      tight [('ground:s0', 0.1066)]
+GATE PASS: pre-grasp 1.23 cm, path min 1.23 cm

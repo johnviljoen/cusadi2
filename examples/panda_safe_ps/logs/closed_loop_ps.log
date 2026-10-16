@@ -1,0 +1,11 @@
+cusadi2 plans safe_model (30530 nodes, 207 levels, 14596 B shared, block 256) + safe_integrate (3149 nodes, 128 levels) | R=1 K=256 T=100 proj_iters=48 graph=1
+JAX/XLA program via PJRT (xla_cuda_plugin.so, api 0.114): safe_model_T100_B256_float.mlir + safe_integrate_B256_float.mlir, compile 4.084626 s | R=1 K=256 T=100 proj_iters=48 graph=0
+t=  0.0s wall=  1.1s wp 0 dist 0.230 reached 0 ours 33.60 ms frax 89.49 ms h_min 0.0794
+t=  5.0s wall= 27.4s wp 3 dist 0.330 reached 3 ours 15.12 ms frax 70.74 ms h_min -0.0029
+t= 10.0s wall= 53.6s wp 2 dist 0.682 reached 6 ours 15.12 ms frax 70.53 ms h_min -0.0029
+t= 15.0s wall= 80.2s wp 0 dist 0.583 reached 8 ours 15.13 ms frax 70.84 ms h_min -0.0061
+t= 20.0s wall=106.6s wp 3 dist 0.620 reached 11 ours 15.16 ms frax 70.82 ms h_min -0.0061
+t= 25.0s wall=132.9s wp 0 dist 0.101 reached 12 ours 15.17 ms frax 70.83 ms h_min -0.0061
+{'controller': 'ps', 'K': 256, 'T': 100, 'seconds': 30.0, 'dtype': 'float', 'waypoints_reached': 12, 'waypoints_timed_out': 1, 'time_to_reach_mean_s': 1.8616666666666666, 'time_to_reach_max_s': 2.5799999999999983, 'h_min_all': -0.00609355966797831, 'ours_ms_median': 15.178719997406006, 'ours_ms_p99': 15.272171745300293, 'ours_ms_max': 33.601600646972656, 'frax_ms_median': 70.63062286376953, 'frax_ms_p99': 72.6838478088379, 'ctrl_wall_ms_median': 85.77975049979614, 'sim_ms_median': 1.4474690001406998, 'v_max': 2.657601398576373, 'plan_kept_frac': 0.71, 'cost_min_mean': 5.10795026699702, 'n_ticks': 1500, 'frames': 750}
+h_min per group: {'joint_limits': 0.2536584706292362, 'singularity': 0.022870489753111754, 'obstacle': -0.00609355966797831, 'self_collision': 0.10317943642074123, 'floor': 0.09555538368219997}
+exit 0

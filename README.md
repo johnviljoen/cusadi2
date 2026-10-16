@@ -76,3 +76,5 @@ pytest                    # host: plan verification + file round-trip; GPU: nvcc
 - `examples/paper_results/` — A1/H1 kinematics, Jacobian and Hessian latency benchmark (`bench.py`, `latency.cu`; results committed), and the CusADi paper's KKT solves (`bench_orig.py`)
 - `examples/menagerie_bench/` — the same benchmark once per MuJoCo Menagerie robot (`run.py`; needs the Menagerie checkout at `examples/mujoco_menagerie/`)
 - `examples/humanoid_mit/` — MIT humanoid dynamics functions, and in `mpc/` a staged MPC QP solve with cuDSS in one CUDA graph
+- `examples/go2_mppi/` — Unitree Go2 parkour under annealed MPPI: full-body penalty-contact rollouts as one cusadi2 function, sampling and plant in the same CUDA driver (`mppi_rollout.cu`)
+- `examples/frax_bench/` — latency head-to-head against frax (JAX) on Franka Panda and Unitree G1: RNEA, CRBA and the Jacobian and Hessian of RNEA (`bench.py`, results in `results/`)

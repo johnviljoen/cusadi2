@@ -1,0 +1,112 @@
+{
+  "robot": "flexiv_rizon4",
+  "xml": "flexiv_rizon4/flexiv_rizon4.xml",
+  "menagerie_commit": "8161bba264d7fa7c99ca301e91e7fb44737676ad",
+  "manifest_commit": "8161bba264d7fa7c99ca301e91e7fb44737676ad",
+  "gate": {
+    "status": "pass",
+    "reason": null,
+    "nq": 7,
+    "nv": 7,
+    "n_bodies": 8,
+    "n_bodies_unnamed": 0,
+    "floating": false,
+    "fk_max_err": 4.440892098500626e-16,
+    "root_corr": false,
+    "preproc": {
+      "includes_flattened": false,
+      "multitree_wrapped": false,
+      "anchors_fixed": 0
+    }
+  },
+  "stages": {
+    "gate": {
+      "status": "pass",
+      "cached": true,
+      "seconds": 0
+    },
+    "compile_double": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 12.08,
+      "cached": false
+    },
+    "compile_float": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 12.23,
+      "cached": false
+    },
+    "mjx_fp64": {
+      "status": "skip",
+      "reason": "--no-baselines"
+    },
+    "mjx_fp32": {
+      "status": "skip",
+      "reason": "--no-baselines"
+    },
+    "warp": {
+      "status": "skip",
+      "reason": "--no-baselines"
+    },
+    "plot": {
+      "status": "pass",
+      "seconds": 5.13
+    }
+  },
+  "runs": {
+    "0": {
+      "double": {
+        "status": "pass",
+        "seconds": 4.4
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 3.1
+      }
+    },
+    "1": {
+      "double": {
+        "status": "pass",
+        "seconds": 4.3
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 3.1
+      }
+    },
+    "2": {
+      "double": {
+        "status": "pass",
+        "seconds": 4.4
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 3.1
+      }
+    },
+    "3": {
+      "double": {
+        "status": "pass",
+        "seconds": 4.3
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 3.1
+      }
+    },
+    "4": {
+      "double": {
+        "status": "pass",
+        "seconds": 4.4
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 3.1
+      }
+    }
+  },
+  "complete": true,
+  "n_runs": 5,
+  "finished_at": "2026-10-05 23:15:11"
+}

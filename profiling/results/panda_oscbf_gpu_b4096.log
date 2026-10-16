@@ -1,0 +1,25 @@
+batch 4096 on cuda:0: end_to_end compile+first call 5.3 s
+t= 0.99s frames=30 wall=  35.3s  gpu med 31910 µs  sim med 28425 µs
+t= 2.01s frames=60 wall=  71.9s  gpu med 31920 µs  sim med 28485 µs
+t= 3.03s frames=90 wall= 108.5s  gpu med 31928 µs  sim med 28519 µs
+t= 4.05s frames=120 wall= 145.2s  gpu med 31944 µs  sim med 28544 µs
+t= 5.07s frames=150 wall= 181.8s  gpu med 32029 µs  sim med 28539 µs
+t= 6.09s frames=180 wall= 218.5s  gpu med 32161 µs  sim med 28550 µs
+t= 7.11s frames=210 wall= 255.1s  gpu med 32450 µs  sim med 28551 µs
+t= 8.13s frames=240 wall= 291.9s  gpu med 32458 µs  sim med 28559 µs
+t= 9.15s frames=270 wall= 328.6s  gpu med 32468 µs  sim med 28565 µs
+t=10.17s frames=300 wall= 365.2s  gpu med 32464 µs  sim med 28569 µs
+t=11.19s frames=330 wall= 401.8s  gpu med 32463 µs  sim med 28560 µs
+t=12.21s frames=360 wall= 438.4s  gpu med 32468 µs  sim med 28557 µs
+t=13.23s frames=390 wall= 475.2s  gpu med 32470 µs  sim med 28560 µs
+t=14.25s frames=420 wall= 511.8s  gpu med 32474 µs  sim med 28557 µs
+t=15.27s frames=450 wall= 548.5s  gpu med 32477 µs  sim med 28557 µs
+t=16.29s frames=480 wall= 585.1s  gpu med 32477 µs  sim med 28551 µs
+t=17.31s frames=510 wall= 621.8s  gpu med 32479 µs  sim med 28555 µs
+t=18.33s frames=540 wall= 658.5s  gpu med 32480 µs  sim med 28557 µs
+t=19.35s frames=570 wall= 695.4s  gpu med 32480 µs  sim med 28568 µs
+wrote /home/jovi/code/cusecmpc/cusadi2/profiling/results/panda_oscbf_gpu_b4096.mp4: 589 frames, 10000 ticks, 720 s wall
+GPU end_to_end call (B=4096): median 32480 µs, p99 32747 µs; MuJoCo step of 4096 instances: median 28581 µs; full tick median 66061 µs
+batch-min barrier over the run: joint_limits -0.001, singularity -0.000, obstacle -0.012, self_collision -0.004, floor -0.002
+filter active fraction: mean 0.714, max 0.735
+/home/jovi/code/cusecmpc/cusadi2/profiling/results/panda_oscbf_gpu_b4096.png

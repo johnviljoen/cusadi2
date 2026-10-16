@@ -40,13 +40,18 @@ The campaign is phased so the GPU sweeps never share the machine with a compile:
                 reason; a process killed by earlyoom or hung on VRAM (no
                 heartbeat for CUSADI2_MJX_STALL s, default 3600) is restarted
                 and the shape that took it down is recorded and skipped.
+                frax (fp64/fp32: fk, analytical jac, AD hess; frax_model.py)
+                follows per robot behind its own gate (build/<robot>/
+                frax_gate.json), into results/<robot>/runs/<k>/frax_<fp>.json.
+                --frax-only runs the gates and the frax stages and nothing
+                else (no plots, no summary).
   6. plot       per-robot figures (mean +- std over runs), then the summary
 
 Every phase is resumable: gate JSON, compile stamp and sweep CSVs are skipped
 when present (--force redoes them). Every failure is a machine-recorded stage
 in results/<robot>/status.json, never a crash of the campaign.
 
-    python run.py [--runs 5] [--no-baselines | --baselines-only] [--no-cpu | --cpu-only] [--jobs 8] [--robot R] [--force]
+    python run.py [--runs 5] [--no-baselines | --baselines-only | --frax-only] [--no-cpu | --cpu-only] [--jobs 8] [--robot R] [--force]
     python run.py --summarize          # cross-robot outputs only
 
 Env overrides: CUSADI2_GPU (device index, default "0"), NVCC, CUSADI2_JOBS,
@@ -55,6 +60,17 @@ CUSADI2_CC_TIMEOUT (seconds per CPU executable, default 7200), CUSADI2_CPU_N_TIM
 (paper_results' n_timed=2000: repetitions = max(5, n_timed // n_items)),
 CUSADI2_MENAGERIE, CUSADI2_MANIFEST; smoke-test knobs CUSADI2_BATCHES,
 CUSADI2_N_WARMUP, CUSADI2_N_TIMED, CUSADI2_RESULTS, CUSADI2_BUILD.
+CUSADI2_FRAX_GPU_ONLY=1 adds frax's *_batched_gpu series (the marginal GPU time
+per launch, as MJX's); it is off by default and can be added to finished runs.
+
+CUSADI2_STEMS=fkjac (a comma list) re-measures the listed functions, after a
+change of their definition or of the kernel: the compile phases rebuild whatever
+source changed as always, the cusadi2 and CPU sweeps time only the listed
+functions and merge their rows into the existing per-run files (the other
+functions' measurements are kept), each run recorded against the sha of what it
+measured so the re-measurement is resumable. Listing every function re-measures
+the whole sweep in place (with --no-cpu when the CPU side is to be kept). The MJX / mujoco-warp results do not depend on
+these functions and stay as recorded.
 """
 import argparse
 import concurrent.futures
@@ -97,10 +113,13 @@ DT2FP = {"double": "fp64", "float": "fp32"}
 
 # CSV function stems; plans are <stem>.plan / <stem>_unr.plan in the robot's plan dir.
 STEMS = ["fk", "fkjac", "fkhess"]
+SWEEP_STEMS = [s for s in os.environ.get("CUSADI2_STEMS", "").split(",") if s] or STEMS   # functions the sweeps time
+RESWEEP = bool(os.environ.get("CUSADI2_STEMS"))    # re-measure SWEEP_STEMS, merging into the existing run files
+assert set(SWEEP_STEMS) <= set(STEMS), f"CUSADI2_STEMS: unknown function in {SWEEP_STEMS}"
 LATENCY_CU = os.path.join(HERE, "..", "paper_results", "latency.cu")   # shared driver
 
 # Subprocess timeouts (seconds); expiry is recorded as status "timeout".
-STAGE_TIMEOUT_S = {"gate": 900, "pylib": 7200, "mjx": 7200, "warp": 7200}
+STAGE_TIMEOUT_S = {"gate": 900, "frax_gate": 900, "pylib": 7200, "mjx": 7200, "warp": 7200}
 
 # CPU reference (CasADi C codegen, gcc, OpenMP): the driver source, cuda_root()
 # and the thread list come from paper_results/bench.py unchanged, so the timed
@@ -318,7 +337,7 @@ def compile_robot(manifest, robot, dtype) -> int:
             + ("    {nullptr, nullptr, nullptr, nullptr},\n" if not built else "") + "};\n")
         f.write("static const char* FUNC_NAMES[] = {" + ", ".join(f'"{s}"' for s in STEMS) + "};\n")
 
-    driver_inputs = dict(driver_src, built=built)
+    driver_inputs = dict(driver_src, built={n: kernels[n] for n in built})   # relinked when a kernel changed
     if stamp.get("driver") == driver_inputs and all(os.path.exists(p) for p in (binpath, libpath)) \
             and "nvcc_s" in old_comp:
         nvcc_s, driver_cached = old_comp["nvcc_s"], True
@@ -359,28 +378,57 @@ def sweep_robot(robot, dtype, k, force=False) -> dict:
     rundir = os.path.join(RESULTS, robot, "runs", str(k))
     os.makedirs(rundir, exist_ok=True)
     csv, pycsv = os.path.join(rundir, f"latency_{dtype}.csv"), os.path.join(rundir, f"latency_py_{dtype}.csv")
-    if not force and os.path.exists(csv) and os.path.exists(pycsv):
+    partial = RESWEEP                       # CUSADI2_STEMS: time those functions, merge into the run's files
+    marker = os.path.join(outdir, f"sweep_{k}.json")
+    if partial:
+        shas = {s: ":".join(_sha(os.path.join(outdir, "plans", f"{s}{u}.plan")) for u in ("", "_unr")) for s in SWEEP_STEMS}
+        done = json.load(open(marker)) if os.path.exists(marker) else {}
+        current = all(done.get(s) == h for s, h in shas.items())
+    if not force and os.path.exists(csv) and os.path.exists(pycsv) and (not partial or current):
         return {"status": "pass", "cached": True}
-    env = dict(os.environ, CUDA_VISIBLE_DEVICES=DEVICE)
+    env = dict(os.environ, CUDA_VISIBLE_DEVICES=DEVICE, CUSADI2_FUNCS=",".join(SWEEP_STEMS))
+    out_csv, out_py = (csv + ".part", pycsv + ".part") if partial else (csv, pycsv)
     t0 = time.perf_counter()
     cmd = [os.path.join(outdir, "latency"), os.path.join(outdir, "plans"), str(N_WARMUP), str(N_TIMED)] \
         + [str(b) for b in BATCHES]
-    with open(csv, "w") as f:
+    with open(out_csv, "w") as f:
         rc = subprocess.run(cmd, env=env, stdout=f).returncode
     if rc != 0:
-        os.remove(csv)
+        os.remove(out_csv)
         return {"status": "fail", "reason": f"latency binary exit code {rc}", "seconds": round(time.perf_counter() - t0, 1)}
     try:
         p = subprocess.run([sys.executable, os.path.abspath(__file__), "--pylib", "--dtype", DT2FP[dtype],
-                            "--lib", os.path.join(outdir, "latency_lib.so"), "--out", pycsv],
+                            "--lib", os.path.join(outdir, "latency_lib.so"), "--out", out_py],
                            env=env, timeout=STAGE_TIMEOUT_S["pylib"], stdout=subprocess.DEVNULL)
         rec = {"status": "pass" if p.returncode == 0 else "fail"}
         if p.returncode != 0:
             rec["reason"] = f"pylib exit code {p.returncode}"
     except subprocess.TimeoutExpired:
         rec = {"status": "timeout", "reason": f"pylib timeout after {STAGE_TIMEOUT_S['pylib']}s"}
+    if partial:                             # the run's files change only once both sweeps passed
+        if rec["status"] == "pass":
+            _merge_sweep_csv(csv, out_csv)
+            _merge_sweep_csv(pycsv, out_py)
+            with open(marker, "w") as f:
+                json.dump(dict(done, **shas), f, indent=2)
+        for part in (out_csv, out_py):
+            if os.path.exists(part):
+                os.remove(part)
     rec["seconds"] = round(time.perf_counter() - t0, 1)
     return rec
+
+
+def _merge_sweep_csv(path, part):
+    """Replace the rows of the functions in `part` (a sweep of SWEEP_STEMS) in
+    the run's CSV `path`, keeping the other functions' rows and the STEMS order."""
+    new = open(part).read().splitlines()
+    old = open(path).read().splitlines() if os.path.exists(path) else new[:1]
+    func = lambda row: row.split(",")[1]
+    rows = [r for r in old[1:] if func(r) not in SWEEP_STEMS] + new[1:]
+    rows.sort(key=lambda r: STEMS.index(func(r)))          # stable: batch / config order kept
+    with open(path + ".tmp", "w") as f:
+        f.write("\n".join(new[:1] + rows) + "\n")
+    os.replace(path + ".tmp", path)
 
 
 # ---------------------------------------------------------------------------
@@ -406,7 +454,7 @@ def run_pylib(lib_path, fp, batches, n_stages, n_warmup, n_timed, out_csv):
     # config -> (plan file, serial kernel?, stages per item), as paper_results.bench.config_plan
     configs = [("full", "", 0, n_stages), ("staged", "", 1, n_stages), ("lp", "_unr", 0, 1), ("batch", "_unr", 1, 1)]
     rows = ["dtype,func,config,batch,n_stages,grid_blocks,latency_us,wall_us"]
-    for stem in STEMS:
+    for stem in SWEEP_STEMS:
         for B in batches:
             for cfg, suffix, serial, nst in configs:
                 h = lib.c2_setup(os.path.join(plan_dir, f"{stem}{suffix}.plan").encode(), serial, B)
@@ -569,7 +617,15 @@ def cpu_run_robot(robot, dtype, k, force=False) -> dict:
     rundir = os.path.join(RESULTS, robot, "runs", str(k))
     os.makedirs(rundir, exist_ok=True)
     out = os.path.join(rundir, f"cpu_{dtype}.json")
-    if not force and os.path.exists(out):
+    partial = RESWEEP                       # CUSADI2_STEMS: time those functions, merge into the run's file
+    marker = os.path.join(outdir, f"run_{k}.json")
+    if partial:
+        stamp = os.path.join(outdir, "stamp.json")
+        built = (json.load(open(stamp)) if os.path.exists(stamp) else {}).get("built", {})
+        shas = {s: built.get(s) for s in SWEEP_STEMS}
+        done = json.load(open(marker)) if os.path.exists(marker) else {}
+        current = all(done.get(s) == h for s, h in shas.items())
+    if not force and os.path.exists(out) and (not partial or current):
         return {"status": "pass", "cached": True}
     comp_json = os.path.join(RESULTS, robot, f"cpu_compile_{dtype}.json")
     if not os.path.exists(comp_json):
@@ -579,6 +635,12 @@ def cpu_run_robot(robot, dtype, k, force=False) -> dict:
     bytes_per = 4 if dtype == "float" else 8
     t0 = time.perf_counter()
     lat, seq, seq_tr, skipped = {}, {}, {}, {}
+    if partial and os.path.exists(out):     # keep the other functions' measurements of this run
+        prev = json.load(open(out))
+        keep = lambda d: {s: v for s, v in (d or {}).items() if s not in SWEEP_STEMS}
+        lat, seq, seq_tr = keep(prev.get("latency_us")), keep(prev.get("seq_us")), keep(prev.get("seq_transfer_us"))
+        skipped = {key: v for key, v in (prev.get("skipped") or {}).items()
+                   if key.split()[0].removesuffix("_transfer") not in SWEEP_STEMS}
 
     def run(exe, n_items, threads, stem):      # median us for n_items evaluations over threads
         sz = comp["sizes"][stem]
@@ -595,7 +657,7 @@ def cpu_run_robot(robot, dtype, k, force=False) -> dict:
             skipped[f"{os.path.basename(exe)} B*N={n_items} thr={threads}"] = repr(e)[:200]
             return None
 
-    for stem in STEMS:
+    for stem in SWEEP_STEMS:
         exe, exe_tr = os.path.join(outdir, stem), os.path.join(outdir, stem + "_transfer")
         if stem in comp.get("failed", {}) or not (os.path.exists(exe) and os.path.exists(exe_tr)):
             continue
@@ -607,12 +669,17 @@ def cpu_run_robot(robot, dtype, k, force=False) -> dict:
                                   for t in bench.CPU_THREADS)
         print(f"  [{robot} {dtype}] {stem}: {lat[stem] if lat[stem] is None else round(lat[stem], 2)} us/problem"
               f"   B={top}: {fmt(seq[stem])}   transfer: {fmt(seq_tr[stem])}", flush=True)
-    with open(out, "w") as f:
+    order = lambda d: {s: d[s] for s in STEMS if s in d}
+    with open(out + ".tmp", "w") as f:
         json.dump({"robot": robot, "dtype": dtype, "cpu": comp.get("cpu"), "threads": comp.get("threads"),
                    "n_stages": N_STAGES, "cpu_threads": bench.CPU_THREADS, "n_timed": CPU_N_TIMED,
-                   "latency_us": lat, "seq_us": seq, "seq_transfer_us": seq_tr,
+                   "latency_us": order(lat), "seq_us": order(seq), "seq_transfer_us": order(seq_tr),
                    "compile_s": comp.get("compile_s", {}), "failed": comp.get("failed", {}),
                    "skipped": skipped}, f, indent=2)
+    os.replace(out + ".tmp", out)
+    if partial:
+        with open(marker, "w") as f:
+            json.dump(dict(done, **shas), f, indent=2)
     rec = {"status": "pass" if lat else "skip", "seconds": round(time.perf_counter() - t0, 2)}
     if not lat:
         rec["reason"] = "no CPU executable built"
@@ -1016,6 +1083,127 @@ def run_warp(robot, xml_path, batches, n_stages, n_warmup, n_evals, runs, progre
 
 
 # ---------------------------------------------------------------------------
+# frax baseline (subprocess: run.py --frax --robot R --dtype fpXX --runs K) —
+# the MJX stage's batched series for frax (frax_model.py: the gated Pinocchio
+# model as a URDF of one-dof joints, frax's frame transforms and Jacobians).
+# Same shapes, timing, per-run files, progress and failure handling as MJX.
+# ---------------------------------------------------------------------------
+FRAX_GPU_ONLY = bool(os.environ.get("CUSADI2_FRAX_GPU_ONLY"))       # also time the *_batched_gpu series
+
+
+def run_frax(robot, xml_path, fp, batches, n_stages, n_warmup, n_evals, runs, progress):
+    """Three quantities over the campaign's body set: fk, jac = frax's analytical
+    frame Jacobian, hess = exact forward-mode AD (jax.jacfwd) of that Jacobian.
+    Each as *_batched (vmap over B*N configs, one jit, inputs on the device) and,
+    with CUSADI2_FRAX_GPU_ONLY, *_batched_gpu (repeat-subtraction marginal GPU
+    time per launch) — as run_mjx; frax has no simulation step, so no rollout.
+    compile[key][B] is the first-call time (trace + XLA compile + one run), paid
+    once; results[k][key][B] is run k's median wall."""
+    import jax
+    if fp == "fp64":
+        jax.config.update("jax_enable_x64", True)
+    import jax.numpy as jnp
+    import numpy as np
+    import importlib.metadata
+    from functools import partial
+    import frax_model
+
+    paths = baseline_paths(robot, f"frax_{fp}", runs)
+    dtype = jnp.float64 if fp == "fp64" else jnp.float32
+    m, fm, frobot, frames, q0, _ = frax_model.load(xml_path, os.path.join(BUILD, robot, "frax.urdf"))
+    functions = dict(zip(("fk", "jac", "hess"), frax_model.build_functions(frobot, frames)))
+    print(f"[frax] {robot} {fp}: joints={fm.n} (MuJoCo nq={m.nq} nv={m.nv}) N={n_stages} bodies={len(frames)} "
+          f"runs={runs}  jax {jax.__version__} {jax.devices()}", flush=True)
+
+    def make_repeat(of):
+        vsingle = jax.vmap(of)
+
+        @partial(jax.jit, static_argnums=1)
+        def rep(qb, R):
+            def body(c, _):
+                return c + vsingle(qb + c * 1e-9).sum() * 0.0 + 1.0, None   # carried dep defeats CSE
+            return jax.lax.scan(body, jnp.asarray(0.0, dtype), None, length=R)[0]
+        return rep
+
+    def qbatch(rng, n):
+        return jnp.asarray(rng.normal(0.0, 0.3, size=(n, fm.n)) + q0, dtype=dtype)
+
+    def median_wall(fn, warm, n):
+        for _ in range(warm):
+            jax.block_until_ready(fn())
+            progress.beat()
+        s = np.empty(n)
+        for i in range(n):
+            t = time.perf_counter()
+            jax.block_until_ready(fn())
+            s[i] = time.perf_counter() - t
+            progress.beat()
+        return float(np.median(s))
+
+    res, comp, _ = _load_runs(paths)
+    res = (res + [{} for _ in range(runs)])[:runs]
+    meta = {"robot": robot, "backend": "frax", "dtype": fp, "n_stages": n_stages, "n_bodies": len(frames),
+            "nq": fm.n, "nv": fm.n, "mujoco_nq": int(m.nq), "expanded": fm.expanded,
+            "pure_chain": bool(frobot.is_pure_kinematic_chain), "batches": list(batches), "runs": runs,
+            "jax": jax.__version__, "frax": importlib.metadata.version("frax")}
+    failed = progress.take_over()
+
+    def pending(key, B):
+        return not all(str(B) in r.get(key, {}) for r in res)
+
+    def record(key, B, values, c=None):
+        for k, v in enumerate(values):
+            res[k].setdefault(key, {})[str(B)] = v
+        if c is not None or key not in comp or str(B) not in comp.get(key, {}):
+            comp.setdefault(key, {})[str(B)] = c
+
+    def measure(key, B, body):
+        """One shape, timed by body() -> (values per run, compile seconds), with
+        the stage's skip / failure / flush bookkeeping."""
+        shape = f"{key}:{B}"
+        if not pending(key, B):
+            return
+        if shape in failed:
+            return record(key, B, [None] * runs, None)
+        progress.start(shape)
+        try:
+            vals, c = body()
+            record(key, B, vals, c)
+            print(f"[frax]  {key:15s} B={B:6d}: " + "  ".join(f"{v * 1e6:9.1f}" for v in vals)
+                  + f" us   compile {c:6.2f} s", flush=True)
+        except Exception as e:                                          # VRAM OOM etc.
+            failed[shape] = f"{type(e).__name__}: {e}"[:300]
+            record(key, B, [None] * runs, None)
+            print(f"[frax]  {key:15s} B={B:6d}: FAILED ({failed[shape][:90]})", flush=True)
+        progress.done()
+        _flush_runs(paths, res, comp, meta, failed, False)
+
+    rng = np.random.default_rng(0)
+    for kind, of in functions.items():
+        fn = jax.jit(jax.vmap(of))
+        for B in batches:
+            def batched():
+                qb = qbatch(rng, B * n_stages)
+                t0 = time.perf_counter()
+                jax.block_until_ready(fn(qb))                          # JIT compile + run, once
+                c = time.perf_counter() - t0
+                return [median_wall(lambda: fn(qb), n_warmup, n_evals) for _ in range(runs)], c
+            measure(f"{kind}_batched", B, batched)
+        rep = make_repeat(of)
+        for B in batches if FRAX_GPU_ONLY else ():
+            def marginal():
+                qb = qbatch(rng, B * n_stages)
+                t0 = time.perf_counter()
+                jax.block_until_ready(rep(qb, 200)); jax.block_until_ready(rep(qb, 1))     # both shapes, once
+                c = time.perf_counter() - t0
+                med = lambda R: median_wall(lambda: rep(qb, R), 4, n_evals)
+                return [(med(200) - med(1)) / 199 for _ in range(runs)], c
+            measure(f"{kind}_batched_gpu", B, marginal)
+    _flush_runs(paths, res, comp, meta, failed, True)
+    return paths
+
+
+# ---------------------------------------------------------------------------
 # Orchestration
 # ---------------------------------------------------------------------------
 # ---------------------------------------------------------------------------
@@ -1235,9 +1423,24 @@ def cpu_run_phase(statuses, runs, force):
                       + (f" ({rec.get('reason')})" if rec["status"] != "pass" else ""), flush=True)
 
 
-def baseline_phase(manifest, statuses, runs, force):
-    """MJX (per precision) and mujoco-warp per robot, smallest first, strictly one
-    GPU process at a time: results/<robot>/runs/<k>/{mjx_<fp>,warp}.json. A
+def frax_gate(manifest, robot, force):
+    """frax compatibility gate for one robot (cached in build/<robot>/frax_gate.json)."""
+    gate_json = os.path.join(BUILD, robot, "frax_gate.json")
+    if force or not os.path.exists(gate_json):
+        _run_stage([sys.executable, os.path.abspath(__file__), "--frax-gate", "--robot", robot, "--out", gate_json],
+                   STAGE_TIMEOUT_S["frax_gate"], env=dict(os.environ, JAX_PLATFORMS="cpu"),
+                   log=os.path.join(BUILD, robot, "frax_gate.log"))
+    try:
+        return json.load(open(gate_json))
+    except Exception:
+        return {"status": "skip", "reason": "gate_crashed: frax gate subprocess died"}
+
+
+def baseline_phase(manifest, statuses, runs, force, frax_only=False):
+    """MJX (per precision), mujoco-warp and frax (per precision, behind its own
+    gate) per robot, smallest first, strictly one GPU process at a time:
+    results/<robot>/runs/<k>/{mjx_<fp>,warp,frax_<fp>}.json; frax_only runs the
+    frax stages alone. A
     process that is killed (earlyoom) or stalls (hung on VRAM) is restarted up to
     BASELINE_ATTEMPTS times; each restart skips the shape that took the previous
     one down (recorded in the JSONs' "failed" and in status.json)."""
@@ -1246,7 +1449,17 @@ def baseline_phase(manifest, statuses, runs, force):
     order = sorted((r for r, st in statuses.items() if st.gate_ok()), key=lambda r: statuses[r].d["gate"]["nv"])
     for robot in order:
         st = statuses[robot]
-        for stage, args in [(f"mjx_{fp}", ["--mjx", "--dtype", fp]) for fp in DT2FP.values()] + [("warp", ["--warp"])]:
+        stages = [] if frax_only else ([(f"mjx_{fp}", ["--mjx", "--dtype", fp]) for fp in DT2FP.values()]
+                                       + [("warp", ["--warp"])])
+        fgate = frax_gate(manifest, robot, force)
+        st.d["frax_gate"] = fgate
+        if fgate["status"] == "pass":
+            stages += [(f"frax_{fp}", ["--frax", "--dtype", fp]) for fp in DT2FP.values()]
+        else:
+            for fp in DT2FP.values():
+                st.stage(f"frax_{fp}", {"status": "skip", "reason": fgate.get("reason")})
+            print(f"[frax_gate] {robot}: skip ({fgate.get('reason')})", flush=True)
+        for stage, args in stages:
             outs = baseline_paths(robot, stage, runs)
             progress = os.path.join(BUILD, robot, f"{stage}_progress.json")
             log = os.path.join(BUILD, robot, f"{stage}.log")
@@ -1317,6 +1530,8 @@ def main() -> int:
     ap.add_argument("--pylib", action="store_true", help="(internal) run the Python-called cusadi2 sweep and exit")
     ap.add_argument("--mjx", action="store_true", help="(internal) run the MJX bench and exit")
     ap.add_argument("--warp", action="store_true", help="(internal) run the mujoco-warp FK bench and exit")
+    ap.add_argument("--frax", action="store_true", help="(internal) run the frax bench and exit")
+    ap.add_argument("--frax-gate", action="store_true", help="(internal) run the frax compatibility gate and exit")
     ap.add_argument("--summarize", action="store_true", help="rebuild the cross-robot summary outputs and exit")
     ap.add_argument("--at-batch", type=int, help="(--summarize) fixed batch size for the speedup figure/CSV")
     ap.add_argument("--robot", help="run only this manifest robot")
@@ -1332,7 +1547,9 @@ def main() -> int:
                     help="only the CPU reference phases (gate, gcc compile, CPU sweeps), then plots + summary")
     ap.add_argument("--compile-only", action="store_true", help="stop after the compile phase")
     ap.add_argument("--out")
-    ap.add_argument("--progress", help="(--mjx/--warp) progress/heartbeat json")
+    ap.add_argument("--progress", help="(--mjx/--warp/--frax) progress/heartbeat json")
+    ap.add_argument("--frax-only", action="store_true",
+                    help="only the frax baseline (gates, frax stages); no plots or summary")
     ap.add_argument("--baselines-only", action="store_true",
                     help="only the MJX / mujoco-warp phase (gate, baselines), then plots + summary")
     args = ap.parse_args()
@@ -1360,6 +1577,17 @@ def main() -> int:
         print(f"[gate] {args.robot}: {out['status']}"
               + (f" ({out.get('reason')})" if out.get("reason") else ""))
         return 0
+    if args.frax_gate:
+        try:
+            import frax_model
+            out = frax_model.run_gate(robot_xml(manifest, args.robot), os.path.join(BUILD, args.robot, "frax.urdf"))
+        except Exception as e:
+            out = {"status": "skip", "reason": f"gate_error: {type(e).__name__}: {e}"[:500]}
+        os.makedirs(os.path.dirname(os.path.abspath(args.out)), exist_ok=True)
+        with open(args.out, "w") as f:
+            json.dump(out, f, indent=2)
+        print(f"[frax_gate] {args.robot}: {out['status']}" + (f" ({out.get('reason')})" if out.get("reason") else ""))
+        return 0
     if args.compile:
         return compile_robot(manifest, args.robot, args.dtype)
     if args.cpu_compile:
@@ -1367,20 +1595,21 @@ def main() -> int:
     if args.pylib:
         run_pylib(args.lib, args.dtype, BATCHES, N_STAGES, N_WARMUP, N_TIMED, args.out)
         return 0
-    if args.mjx or args.warp:
+    if args.mjx or args.warp or args.frax:
         xml = robot_xml(manifest, args.robot)
-        tag = f"mjx_{args.dtype}" if args.mjx else "warp"
+        tag = f"mjx_{args.dtype}" if args.mjx else f"frax_{args.dtype}" if args.frax else "warp"
+        name = "mjx" if args.mjx else "frax" if args.frax else "warp"
         progress = _Progress(args.progress or os.path.join(BUILD, args.robot, f"{tag}_progress.json"))
         try:
-            if args.mjx:
-                paths = run_mjx(args.robot, xml, args.dtype, MJX_BATCHES, N_STAGES,
-                                MJX_N_WARMUP, MJX_N_EVALS, args.runs, progress)
+            if args.mjx or args.frax:
+                paths = (run_mjx if args.mjx else run_frax)(args.robot, xml, args.dtype, MJX_BATCHES, N_STAGES,
+                                                            MJX_N_WARMUP, MJX_N_EVALS, args.runs, progress)
             else:
                 paths = run_warp(args.robot, xml, MJX_BATCHES, N_STAGES,
                                  MJX_N_WARMUP, MJX_N_EVALS, args.runs, progress)
         except Exception as e:      # e.g. mjx.put_model rejects the model outright
-            err = f"{'mjx' if args.mjx else 'warp'}_unavailable: {e!r}"[:1000]
-            print(f"[{'mjx' if args.mjx else 'mjw'}] {args.robot}: {err}")
+            err = f"{name}_unavailable: {e!r}"[:1000]
+            print(f"[{'mjw' if name == 'warp' else name}] {args.robot}: {err}")
             paths = baseline_paths(args.robot, tag, args.runs)
             for p in paths:
                 os.makedirs(os.path.dirname(p), exist_ok=True)
@@ -1405,6 +1634,9 @@ def main() -> int:
     print(f"menagerie: {MENAGERIE} @ {head}\nrobots: {len(robots)}   GPU {DEVICE}   N={N_STAGES}   "
           f"batches={BATCHES}   runs={args.runs}   compile jobs={args.jobs}", flush=True)
     statuses = gate_phase(manifest, robots, head, args.force)
+    if args.frax_only:
+        baseline_phase(manifest, statuses, args.runs, args.force, frax_only=True)
+        return 0
     cusadi2_phases = not (args.cpu_only or args.baselines_only)
     cpu_phases = not (args.no_cpu or args.baselines_only)
     if cusadi2_phases:
@@ -1423,7 +1655,7 @@ def main() -> int:
         baseline_phase(manifest, statuses, args.runs, args.force)
     else:
         for st in statuses.values():
-            for stage in ("mjx_fp64", "mjx_fp32", "warp"):
+            for stage in ("mjx_fp64", "mjx_fp32", "warp", "frax_fp64", "frax_fp32"):
                 st.stage(stage, {"status": "skip", "reason": "--no-baselines"})
     plot_phase(statuses, args.runs)
     import summarize

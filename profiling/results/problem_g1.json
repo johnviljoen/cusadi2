@@ -1,0 +1,23 @@
+{
+  "problem": "g1",
+  "nv": 29,
+  "n_vars": 29,
+  "n_rows": 213,
+  "num_cbf": 155,
+  "num_rd1_cbf": 0,
+  "num_rd2_cbf": 155,
+  "barrier_groups": {
+    "joint_limits": 58,
+    "self_collision": 97
+  },
+  "n_self_collision_pairs": 97,
+  "n_collision_spheres": 45,
+  "penalties": {
+    "cbf": 1000.0,
+    "control": 100000.0
+  },
+  "solver_tol": 1e-05,
+  "state_dim": 58,
+  "z_des_dim": 36,
+  "elastic_qp_vars_incl_slack": 242
+}

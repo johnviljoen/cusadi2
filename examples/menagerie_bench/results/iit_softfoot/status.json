@@ -28,7 +28,7 @@
     "compile_double": {
       "status": "pass",
       "rc": 0,
-      "seconds": 22.35,
+      "seconds": 106.85,
       "cached": false,
       "unrolled_failed": {
         "fkhess_unr": "exit code 143 (killed while compiling alone: exceeds this machine's memory)"
@@ -37,7 +37,7 @@
     "compile_float": {
       "status": "pass",
       "rc": 0,
-      "seconds": 20.29,
+      "seconds": 137.57,
       "cached": false,
       "unrolled_failed": {
         "fkhess_unr": "exit code 143 (killed while compiling alone: exceeds this machine's memory)"
@@ -98,18 +98,18 @@
     },
     "plot": {
       "status": "pass",
-      "seconds": 6.9
+      "seconds": 6.5
     },
     "cpu_compile_double": {
       "status": "pass",
       "rc": 0,
-      "seconds": 113.34,
+      "seconds": 6.36,
       "cached": false
     },
     "cpu_compile_float": {
       "status": "pass",
       "rc": 0,
-      "seconds": 91.72,
+      "seconds": 6.19,
       "cached": false
     }
   },
@@ -117,112 +117,116 @@
     "0": {
       "double": {
         "status": "pass",
-        "seconds": 32.9
+        "seconds": 28.8
       },
       "float": {
         "status": "pass",
-        "seconds": 142.5
+        "seconds": 113.4
       }
     },
     "1": {
       "double": {
         "status": "pass",
-        "seconds": 32.9
+        "seconds": 28.8
       },
       "float": {
         "status": "pass",
-        "seconds": 142.5
+        "seconds": 113.4
       }
     },
     "2": {
       "double": {
         "status": "pass",
-        "seconds": 32.9
+        "seconds": 28.8
       },
       "float": {
         "status": "pass",
-        "seconds": 142.5
+        "seconds": 113.4
       }
     },
     "3": {
       "double": {
         "status": "pass",
-        "seconds": 32.9
+        "seconds": 28.8
       },
       "float": {
         "status": "pass",
-        "seconds": 142.5
+        "seconds": 113.4
       }
     },
     "4": {
       "double": {
         "status": "pass",
-        "seconds": 32.9
+        "seconds": 28.8
       },
       "float": {
         "status": "pass",
-        "seconds": 142.4
+        "seconds": 113.5
       }
     }
   },
   "complete": true,
   "n_runs": 5,
-  "finished_at": "2026-09-15 19:25:46",
+  "finished_at": "2026-10-05 16:45:49",
   "cpu_runs": {
     "0": {
       "double": {
         "status": "pass",
-        "seconds": 177.32,
-        "skipped": 5
+        "seconds": 27.39,
+        "skipped": 4
       },
       "float": {
         "status": "pass",
-        "seconds": 213.59
+        "seconds": 18.31
       }
     },
     "1": {
       "double": {
         "status": "pass",
-        "seconds": 176.46,
-        "skipped": 5
+        "seconds": 27.34,
+        "skipped": 4
       },
       "float": {
         "status": "pass",
-        "seconds": 213.49
+        "seconds": 18.5
       }
     },
     "2": {
       "double": {
         "status": "pass",
-        "seconds": 176.68,
-        "skipped": 5
+        "seconds": 27.69,
+        "skipped": 4
       },
       "float": {
         "status": "pass",
-        "seconds": 214.6
+        "seconds": 18.47
       }
     },
     "3": {
       "double": {
         "status": "pass",
-        "seconds": 177.15,
-        "skipped": 5
+        "seconds": 27.35,
+        "skipped": 4
       },
       "float": {
         "status": "pass",
-        "seconds": 214.26
+        "seconds": 18.44
       }
     },
     "4": {
       "double": {
         "status": "pass",
-        "seconds": 177.88,
-        "skipped": 5
+        "seconds": 27.41,
+        "skipped": 4
       },
       "float": {
         "status": "pass",
-        "seconds": 215.43
+        "seconds": 18.42
       }
     }
+  },
+  "resweep": {
+    "when": "2026-10-05 23:16:18",
+    "note": "cusadi2 sweeps re-measured with the sparse Jacobian and the split-dispatch kernel; CPU, MJX and warp as recorded"
   }
 }

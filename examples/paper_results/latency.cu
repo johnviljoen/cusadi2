@@ -156,9 +156,16 @@ extern "C" void c2_teardown(int h) {
 #ifndef CUSADI2_BENCH_LIB
 static const char* CONFIGS[] = {"full", "staged", "lp", "batch"};
 
-// The per-stage functions, from the generated table.
+// The per-stage functions, from the generated table; CUSADI2_FUNCS=a,b sweeps
+// only those of them (re-measuring a function whose definition changed).
 static std::vector<std::string> funcs() {
-    return std::vector<std::string>(std::begin(FUNC_NAMES), std::end(FUNC_NAMES));
+    std::vector<std::string> all(std::begin(FUNC_NAMES), std::end(FUNC_NAMES)), out;
+    const char* only = getenv("CUSADI2_FUNCS");
+    if (!only) return all;
+    const std::string list = std::string(",") + only + ",";
+    for (const std::string& f : all)
+        if (list.find("," + f + ",") != std::string::npos) out.push_back(f);
+    return out;
 }
 
 // config -> plan file and whether it runs the serial kernel.

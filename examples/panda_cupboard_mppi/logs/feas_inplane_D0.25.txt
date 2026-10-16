@@ -1,0 +1,17 @@
+<frozen importlib._bootstrap>:488: RuntimeWarning: to-Python converter for pinocchio::python::DeprecatedBool already registered; second conversion method ignored.
+/home/jovi/code/cusecmpc/cusadi2/profiling/third_party/frax/frax/__init__.py:80: UserWarning: [frax] CPU backend detected but some performance settings are not configured.
+These are optional, but should lead to better precision and speed. See the frax README for more details.
+- Detected JAX version 0.11.1. Consider using a version before JAX 0.4.32 for best CPU performance.
+- JAX_ENABLE_X64 not detected. Recommendation: set JAX_ENABLE_X64=1
+- Single threaded Eigen configuration not detected. Recommendation: set XLA_FLAGS='--xla_cpu_multi_thread_eigen=false'
+- Single threaded BLAS configuration not detected. Recommendation: set OPENBLAS_NUM_THREADS=1
+- Memory-optimized XLA CPU scheduler not detected. Recommendation: add '--xla_cpu_scheduler_type=CPU_SCHEDULER_TYPE_MEMORY_OPTIMIZED' to XLA_FLAGS (requires jax>=0.9.1)
+  check_env_vars()
+
+******************************************************************************
+This program contains Ipopt, a library for large-scale nonlinear optimization.
+ Ipopt is released as open source code under the Eclipse Public License (EPL).
+         For more information visit https://github.com/coin-or/Ipopt
+******************************************************************************
+
+GATE FAIL: the pre-grasp pose is not reachable (no seed reaches it exactly)

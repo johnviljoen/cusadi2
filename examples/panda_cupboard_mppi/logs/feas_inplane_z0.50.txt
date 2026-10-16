@@ -1,0 +1,34 @@
+<frozen importlib._bootstrap>:488: RuntimeWarning: to-Python converter for pinocchio::python::DeprecatedBool already registered; second conversion method ignored.
+
+******************************************************************************
+This program contains Ipopt, a library for large-scale nonlinear optimization.
+ Ipopt is released as open source code under the Eclipse Public License (EPL).
+         For more information visit https://github.com/coin-or/Ipopt
+******************************************************************************
+
+  seed  0: s* =  -5.85 cm (Solve_Succeeded)
+  seed  1: s* =  -8.41 cm (Infeasible_Problem_Detec)
+  seed  3: s* =  -8.41 cm (Infeasible_Problem_Detec)
+  seed  4: s* =  -5.85 cm (Solve_Succeeded)
+  seed  5: s* =  -5.85 cm (Solve_Succeeded)
+  seed  6: s* =  -5.85 cm (Solve_Succeeded)
+  seed  7: s* =  -8.41 cm (Infeasible_Problem_Detec)
+  seed  8: s* =  -9.00 cm (Infeasible_Problem_Detec)
+  seed  9: s* =  -6.23 cm (Infeasible_Problem_Detec)
+  seed 10: s* =  -5.85 cm (Solve_Succeeded)
+  seed 11: s* =  -5.85 cm (Solve_Succeeded)
+  seed 12: s* =  -8.40 cm (Infeasible_Problem_Detec)
+  seed 13: s* =  -5.85 cm (Solve_Succeeded)
+  seed 17: s* =  -7.78 cm (Maximum_Iterations_Excee)
+  seed 18: s* =  -5.85 cm (Solve_Succeeded)
+  seed 19: s* =  -5.85 cm (Solve_Succeeded)
+pre-grasp: s* = -5.85 cm  (Solve_Succeeded, pos err 3.7e-14, rot err 0.0e+00, joint margin 0.100, sing 0.0324)
+  tight: [('floor:s14', -0.0585), ('floor:s13', -0.0585)]
+  q: [-0.001, 0.256, 0.001, -1.826, 0.0, 3.653, 0.785]
+  x = 0.747: s* =  -5.85 cm  Solve_Succeeded      tight [('floor:s14', -0.0585), ('floor:s13', -0.0585)]
+  x = 0.652: s* =  -5.85 cm  Solve_Succeeded      tight [('floor:s14', -0.0585), ('floor:s13', -0.0582)]
+  x = 0.556: s* = -15.41 cm  Infeasible_Problem_D tight []
+  x = 0.461: s* =   4.17 cm  Solve_Succeeded      tight [('floor:s20', 0.0417)]
+  x = 0.365: s* =   8.19 cm  Solve_Succeeded      tight [('floor:s19', 0.0819)]
+  x = 0.270: s* = -99.30 cm  Infeasible_Problem_D tight []
+GATE FAIL: pre-grasp -5.85 cm, path min -99.30 cm

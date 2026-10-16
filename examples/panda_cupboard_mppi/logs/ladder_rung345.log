@@ -1,0 +1,29 @@
+rung-5 patch applied
+4
+nvcc libsafe_mppi_f64.so: 7.9 s
+exported frax T=100 double batches [1, 256]: 4 programs (26.6 s)
+exported mjx T=100 double batches [1, 256]: 4 programs (57.4 s)
+gcc libcpu_T100_double.so: 20.0 s
+nvcc libunrolled_integrate_double.so: 2.0 s
+nvcc libunrolled_model_T100_double.so: 71.4 s
+driver cusadi2  vs casadi: rows max 1.9e-14, step max 2.0e-14; states over the gate: 0
+driver frax     vs casadi: rows max 3.9e-14, step max 3.7e-14; states over the gate: 0
+driver mjx      vs casadi: rows max 2.4e-14, step max 2.5e-14; states over the gate: 0
+driver cusadi   vs casadi: rows max 2.6e-14, step max 1.7e-14; states over the gate: 0
+driver cpu      vs casadi: rows max 2.0e-14, step max 1.5e-14; states over the gate: 0
+GATE PASS
+== --no-video --tag rung5_q1 --rung 5 --T 100 --par w_q=1
+   reached 0/5  grasped 0/5  h_min -0.0064
+== --no-video --tag rung5_q5 --rung 5 --T 100 --par w_q=5
+   reached 0/5  grasped 0/5  h_min -0.0161
+== --no-video --tag rung5_q20 --rung 5 --T 100 --par w_q=20
+   reached 0/5  grasped 0/5  h_min -0.0191
+== --no-video --tag rung3_fun20 --rung 3 --T 100 --par w_fun=20
+   reached 0/5  grasped 0/5  h_min -0.0030
+== --no-video --tag rung3_fun100 --rung 3 --T 100 --par w_fun=100
+   reached 0/5  grasped 0/5  h_min -0.0028
+== --no-video --tag rung4_fun20_wr20 --rung 4 --T 100 --par w_fun=20,w_wrist=20
+   reached 0/5  grasped 0/5  h_min -0.0032
+== --no-video --tag rung4_fun100_wr100 --rung 4 --T 100 --par w_fun=100,w_wrist=100
+   reached 0/5  grasped 0/5  h_min -0.0026
+LADDER345-DONE

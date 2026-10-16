@@ -2,24 +2,24 @@
   "robot": "iit_softfoot",
   "dtype": "double",
   "codegen_s": {
-    "fk": 0.7400520640076138,
-    "fkjac": 2.0026864429819398,
-    "fkhess": 13.635908113996265
+    "fk": 0.6977411759980896,
+    "fkjac": 1.0497670359982294,
+    "fkhess": 12.95859898100025
   },
-  "nvcc_s": 3.6689060390053783,
+  "nvcc_s": 3.66920719799964,
   "codegen_unrolled_s": {
-    "fk": 0.004190672974800691,
-    "fk_unr": 0.03198074901592918,
-    "fkjac": 0.04297933500492945,
-    "fkjac_unr": 0.3523098849982489,
-    "fkhess": 0.12171130502247252,
-    "fkhess_unr": 0.998071128007723
+    "fk": 0.004252593997080112,
+    "fk_unr": 0.031437948000530014,
+    "fkjac": 0.012817226001061499,
+    "fkjac_unr": 0.0978443320018414,
+    "fkhess": 0.12094803800209775,
+    "fkhess_unr": 0.9617926770006306
   },
   "nvcc_unrolled_s": {
     "fk": null,
     "fk_unr": null,
-    "fkjac": null,
-    "fkjac_unr": null,
+    "fkjac": 4.871922815997095,
+    "fkjac_unr": 75.28292658699866,
     "fkhess": null
   },
   "unrolled_failed": {
@@ -45,13 +45,13 @@
       "windowed_unr": false
     },
     "fkjac": {
-      "nnz_out": 27048,
-      "n_instr": 34193,
-      "n_instr_unr": 273299,
-      "sz_w": 90,
-      "sz_w_unr": 103,
-      "smem_kb": 15.9453125,
-      "smem_unr_kb": 74.1796875,
+      "nnz_out": 2389,
+      "n_instr": 9533,
+      "n_instr_unr": 76026,
+      "sz_w": 89,
+      "sz_w_unr": 102,
+      "smem_kb": 15.9375,
+      "smem_unr_kb": 74.171875,
       "levels": 31,
       "levels_unr": 60,
       "windowed": false,

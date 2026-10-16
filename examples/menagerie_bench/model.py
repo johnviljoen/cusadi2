@@ -346,11 +346,17 @@ def build_fk(pmodel, names, name="fk", root_corr=None):
     return ca.Function(name, [q], [ca.vertcat(*placements)])
 
 
-def build_fkjac(pmodel, names, name="fkjac", root_corr=None):
+def build_fkjac(pmodel, names, name="fkjac", root_corr=None, sparse=True):
     """Frame Jacobians f(q) -> stacked 6xnv LOCAL_WORLD_ALIGNED Jacobian of
     every common link frame. Under the constant world remap `root_corr` both the
     linear and angular rows rotate by R (the translation part cancels because
-    LOCAL_WORLD_ALIGNED is taken at the frame's own origin)."""
+    LOCAL_WORLD_ALIGNED is taken at the frame's own origin).
+
+    The output holds the structural nonzeros only (column-major within each
+    frame's 6xnv block, frames in `names` order), as build_fkhess's does: a
+    frame's Jacobian is zero in every column that is not one of its ancestors'
+    dofs, and Pinocchio's dense matrix carries those as literal zeros (most of
+    the output on a large model). `sparse=False` keeps them (the dense layout)."""
     import casadi as ca
     import pinocchio as pin
     import pinocchio.casadi as cpin
@@ -365,6 +371,8 @@ def build_fkjac(pmodel, names, name="fkjac", root_corr=None):
         Rc = _ca.DM(root_corr[0])
         jacs = [_ca.vertcat(_ca.mtimes(Rc, J[:3, :]), _ca.mtimes(Rc, J[3:, :]))
                 for J in jacs]
+    if sparse:
+        jacs = [ca.sparsify(J) for J in jacs]
     flat = [ca.reshape(J, J.shape[0] * J.shape[1], 1) for J in jacs]
     return ca.Function(name, [q], [ca.vertcat(*flat)])
 

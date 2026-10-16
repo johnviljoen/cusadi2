@@ -1,0 +1,60 @@
+% The per-tick update of examples/panda_safe_mppi (safe_mppi.cu), and the best-sample rule of examples/panda_safe_ps.
+% Needs amsmath.
+
+\paragraph{Rollout.}
+A plan $Y \in \mathbb{R}^{28}$ holds $4$ knots of $7$ joint targets. From the plant state $x_p$,
+\begin{align}
+  u_s     &= \Pi\!\left(x_s, Y\right), \qquad s = 0,\dots,T-1,
+           && \text{filtered torque: projection of the PD torque onto } \{u : G u \le h,\ |u| \le u_{\max}\} \\
+  x_{s+1} &= f(x_s, u_s), && \text{semi-implicit Euler, } \Delta t = 20\,\mathrm{ms},\ T = 100 \\
+  J(Y; x_p) &= \sum_{s=0}^{T-1} \Delta t\, \ell(x_s, u_s), \qquad x_0 = x_p .
+\end{align}
+Every step of every rollout is filtered, so every rolled-out trajectory satisfies the CBF conditions.
+
+\paragraph{One MPPI tick.}
+\begin{align}
+  \varepsilon_0 &= 0, \qquad \varepsilon_k \sim \mathcal{N}(0, I_{28}), \quad k = 1,\dots,K-1, \qquad K = 256 \\
+  Y_k &= \operatorname{clip}\!\left(Y_0 + \sigma\,\varepsilon_k\right), \qquad \sigma = 0.1\,\mathrm{rad} \\
+  J_k &= J(Y_k; x_p) && \text{256 filtered rollouts in parallel} \\
+  \lambda &= 0.3\, \operatorname{std}_k(J_k) && \text{temperature, rescaled every tick} \\
+  w_k &= \exp\!\left(-\frac{J_k - \min_j J_j}{\lambda}\right), \qquad
+  \bar w_k = \frac{w_k}{\sum_j w_j} \\
+  Y_0 &\leftarrow \sum_{k} \bar w_k\, Y_k && \text{the averaging step (plans, not torques)} \\
+  u_{\mathrm{applied}} &= \Pi\!\left(x_p, Y_0\right) && \text{one model evaluation and one projection, not a rollout}
+\end{align}
+The effective sample size $(\sum_k w_k)^2 / \sum_k w_k^2$ was $94$ of $256$ on average.
+
+\paragraph{The averaging step is a gradient step.}
+Ignoring the clip, $Y_k = Y_0 + \sigma \varepsilon_k$, so
+\begin{equation}
+  Y_0^{\mathrm{new}} - Y_0 = \sigma \sum_k \bar w_k\, \varepsilon_k
+  \;\approx\; \sigma\, \frac{\mathbb{E}_\varepsilon\!\left[\varepsilon\, g(\varepsilon)\right]}{\mathbb{E}_\varepsilon\!\left[g(\varepsilon)\right]},
+  \qquad g(\varepsilon) = \exp\!\left(-\frac{J(Y_0 + \sigma\varepsilon)}{\lambda}\right).
+\end{equation}
+Stein's identity for a standard Gaussian, $\mathbb{E}[\varepsilon\, g(\varepsilon)] = \mathbb{E}[\nabla_\varepsilon g(\varepsilon)]$,
+with $\nabla_\varepsilon g = -\frac{\sigma}{\lambda}\, g\, \nabla J(Y_0 + \sigma\varepsilon)$, gives
+\begin{equation}
+  \frac{\mathbb{E}[\varepsilon\, g]}{\mathbb{E}[g]}
+  = -\frac{\sigma}{\lambda}\, \frac{\mathbb{E}\!\left[g\, \nabla J\right]}{\mathbb{E}[g]}
+  = -\frac{\sigma}{\lambda}\, \nabla F(Y_0),
+  \qquad
+  F(Y) = -\lambda \log \mathbb{E}_\varepsilon\!\left[\exp\!\left(-\frac{J(Y + \sigma\varepsilon)}{\lambda}\right)\right],
+\end{equation}
+so that
+\begin{equation}
+  \boxed{\; Y_0^{\mathrm{new}} \approx Y_0 - \frac{\sigma^2}{\lambda}\, \nabla F(Y_0) \;}
+\end{equation}
+One tick is one gradient-descent step of size $\sigma^2/\lambda$ on $F$, the $\sigma$-smoothed, $\lambda$-soft version of $J$
+($F \to \mathbb{E}_\varepsilon[J]$ as $\lambda \to \infty$, $F \to \min$ over the $\sigma$-neighbourhood as $\lambda \to 0$).
+Every draw contributes a direction; the incumbent $Y_0$ enters the sum with weight $\bar w_0 \approx 1/94$ and nothing more.
+
+\paragraph{The best-sample rule (predictive sampling) is the limit $\lambda \to 0$.}
+The weights collapse to one-hot on the minimum:
+\begin{equation}
+  Y_0^{\mathrm{new}} = Y_{k^*}, \qquad k^* = \arg\min_k J_k \quad (k = 0 \text{ included}), \qquad
+  u_{\mathrm{applied}} = u_0^{(k^*)} = \Pi\!\left(x_p, Y_{k^*}\right),
+\end{equation}
+so $Y_0$ changes only if some draw satisfies $J(Y_0 + \sigma\varepsilon_k) < J(Y_0)$: an accept-only-if-better test at scale
+$\sigma$. At a local minimum of $J$ wider than $\sigma$ no draw passes it, and the expectation over directions that
+produced $\nabla F$ is gone. The applied torque is the first torque of a scored, horizon-feasible rollout, which the
+MPPI mean is not.

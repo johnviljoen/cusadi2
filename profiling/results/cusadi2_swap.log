@@ -1,0 +1,54 @@
+cusadi2 plan: 361 levels, peak live 4397 slots, block 512, shared 35176 B, 37727 SX nodes
+B=    1 model_frax     median     1424.7 us  p99     1591.9  compile   0.0 s  |du| 6.9e-13
+B=    1 model_cusadi2_ml6000 median      213.1 us  p99      227.1  compile   0.0 s  |du| 6.9e-13
+B=    1 solve          median     2153.8 us  p99     2446.4  compile   0.5 s  |du| 6.9e-13
+B=    1 e2e_frax       median     3469.3 us  p99     3696.7  compile   0.0 s  |du| 6.9e-13
+B=    1 e2e_cusadi2_ml6000 median     2299.7 us  p99     2601.1  compile   0.0 s  |du| 6.9e-13
+B=    4 model_frax     median      724.6 us  p99      814.0  compile   0.0 s  |du| 2.6e-11
+B=    4 model_cusadi2_ml6000 median      212.9 us  p99      229.3  compile   0.0 s  |du| 2.6e-11
+B=    4 solve          median     1755.1 us  p99     2077.5  compile   0.3 s  |du| 2.6e-11
+B=    4 e2e_frax       median     2394.1 us  p99     2799.9  compile   0.0 s  |du| 2.6e-11
+B=    4 e2e_cusadi2_ml6000 median     1897.6 us  p99     2210.5  compile   0.0 s  |du| 2.6e-11
+B=   16 model_frax     median      775.8 us  p99      916.3  compile   0.0 s  |du| 3.3e-09
+B=   16 model_cusadi2_ml6000 median      221.0 us  p99      244.6  compile   0.1 s  |du| 3.3e-09
+B=   16 solve          median     1951.2 us  p99     2203.3  compile   0.3 s  |du| 3.3e-09
+B=   16 e2e_frax       median     2710.6 us  p99     2960.5  compile   0.0 s  |du| 3.3e-09
+B=   16 e2e_cusadi2_ml6000 median     2087.0 us  p99     2171.5  compile   0.0 s  |du| 3.3e-09
+B=   64 model_frax     median      916.6 us  p99     1026.2  compile   0.0 s  |du| 1.5e-08
+B=   64 model_cusadi2_ml6000 median      221.8 us  p99      248.9  compile   0.1 s  |du| 1.5e-08
+B=   64 solve          median     2246.7 us  p99     2504.0  compile   0.3 s  |du| 1.5e-08
+B=   64 e2e_frax       median     3099.8 us  p99     3291.1  compile   0.0 s  |du| 1.5e-08
+B=   64 e2e_cusadi2_ml6000 median     2372.1 us  p99     2714.9  compile   0.0 s  |du| 1.5e-08
+B=  256 model_frax     median     1907.3 us  p99     2145.2  compile   0.0 s  |du| 8.3e-07
+B=  256 model_cusadi2_ml6000 median      377.6 us  p99      398.9  compile   0.1 s  |du| 8.3e-07
+B=  256 solve          median     2849.4 us  p99     3048.5  compile   0.4 s  |du| 8.3e-07
+B=  256 e2e_frax       median     4713.2 us  p99     4964.5  compile   0.0 s  |du| 8.3e-07
+B=  256 e2e_cusadi2_ml6000 median     3144.2 us  p99     3338.8  compile   0.0 s  |du| 8.3e-07
+B= 1024 model_frax     median     5552.5 us  p99     6428.6  compile   0.0 s  |du| 1.6e-05
+B= 1024 model_cusadi2_ml6000 median     1134.2 us  p99     1152.3  compile   0.1 s  |du| 1.6e-05
+B= 1024 solve          median     4490.2 us  p99     4960.3  compile   0.4 s  |du| 1.6e-05
+B= 1024 e2e_frax       median     9916.9 us  p99    10183.4  compile   0.0 s  |du| 1.6e-05
+B= 1024 e2e_cusadi2_ml6000 median     5525.6 us  p99     5995.5  compile   0.0 s  |du| 1.6e-05
+B= 4096 model_frax     median    21334.7 us  p99    21694.3  compile   0.0 s  |du| 1.1e-02
+B= 4096 model_cusadi2_ml6000 median     4198.3 us  p99     4542.4  compile   0.1 s  |du| 1.1e-02
+B= 4096 solve          median    12785.8 us  p99    13202.9  compile   0.5 s  |du| 1.1e-02
+B= 4096 e2e_frax       median    33732.2 us  p99    34032.5  compile   0.0 s  |du| 1.1e-02
+B= 4096 e2e_cusadi2_ml6000 median    16930.1 us  p99    17188.7  compile   0.0 s  |du| 1.1e-02
+appended 35 rows to /home/jovi/code/cusecmpc/cusadi2/profiling/results/cusadi2_swap.csv; run report_cusadi2_swap.py for the table and plot
+cusadi2 plan: 601 levels, peak live 2082 slots, block 256, shared 16656 B, 37727 SX nodes
+B=    1 model_cusadi2_ml3000 median      282.7 us  p99      310.6  compile   0.0 s  |du| 7.9e-13
+B=    1 e2e_cusadi2_ml3000 median     2362.5 us  p99     2711.3  compile   0.0 s  |du| 7.9e-13
+B=    4 model_cusadi2_ml3000 median      313.0 us  p99      330.5  compile   0.0 s  |du| 1.4e-11
+B=    4 e2e_cusadi2_ml3000 median     1967.3 us  p99     2236.6  compile   0.0 s  |du| 1.4e-11
+B=   16 model_cusadi2_ml3000 median      318.7 us  p99      339.0  compile   0.0 s  |du| 2.1e-09
+B=   16 e2e_cusadi2_ml3000 median     2270.4 us  p99     2572.4  compile   0.0 s  |du| 2.1e-09
+B=   64 model_cusadi2_ml3000 median      319.6 us  p99      334.5  compile   0.0 s  |du| 3.7e-09
+B=   64 e2e_cusadi2_ml3000 median     2442.0 us  p99     2842.6  compile   0.0 s  |du| 3.7e-09
+B=  256 model_cusadi2_ml3000 median      357.3 us  p99      363.5  compile   0.1 s  |du| 8.3e-07
+B=  256 e2e_cusadi2_ml3000 median     3118.2 us  p99     4100.3  compile   0.0 s  |du| 8.3e-07
+B= 1024 model_cusadi2_ml3000 median      945.7 us  p99      956.3  compile   0.0 s  |du| 1.6e-05
+B= 1024 e2e_cusadi2_ml3000 median     5263.1 us  p99     5566.9  compile   0.0 s  |du| 1.6e-05
+B= 4096 model_cusadi2_ml3000 median     3026.8 us  p99     3320.3  compile   0.1 s  |du| 1.1e-02
+B= 4096 e2e_cusadi2_ml3000 median    15730.9 us  p99    16139.2  compile   0.0 s  |du| 1.1e-02
+appended 14 rows to /home/jovi/code/cusecmpc/cusadi2/profiling/results/cusadi2_swap.csv; run report_cusadi2_swap.py for the table and plot
+SWEEP_DONE

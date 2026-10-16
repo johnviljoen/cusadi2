@@ -1,0 +1,14 @@
+== verify
+<frozen importlib._bootstrap>:488: RuntimeWarning: to-Python converter for pinocchio::python::DeprecatedBool already registered; second conversion method ignored.
+casadi step: {'T': 20, 'dt': 0.02, 'proj_rounds': 3, 'n_cbf': 64, 'sx_nodes': 49777} (0.6 s)
+one step  rel err: x1 1.1e-10  u 5.9e-11
+projection residual: {'rows_violated_frac': 0.0408935546875, 'instances_violated_frac': 0.4384765625, 'max_rel_violation': 1058.023696611954}
+5-step rollout rel err: 6.3e-11
+GATE 1 PASS
+== plans
+<frozen importlib._bootstrap>:488: RuntimeWarning: to-Python converter for pinocchio::python::DeprecatedBool already registered; second conversion method ignored.
+{"dtype": "float", "knot_dt": 0.13333333333333333, "n_levels": 501, "peak_live_slots": 4247, "shared_bytes": 16988, "casadi_build_s": 1.3999277809634805, "plan_write_s": 0.2541813859716058, "T": 20, "dt": 0.02, "proj_rounds": 3, "n_cbf": 64, "sx_nodes": 49777}
+{"dtype": "double", "knot_dt": 0.13333333333333333, "n_levels": 501, "peak_live_slots": 4247, "shared_bytes": 33976, "casadi_build_s": 1.3999277809634805, "plan_write_s": 0.23276775795966387, "T": 20, "dt": 0.02, "proj_rounds": 3, "n_cbf": 64, "sx_nodes": 49777}
+<frozen importlib._bootstrap>:488: RuntimeWarning: to-Python converter for pinocchio::python::DeprecatedBool already registered; second conversion method ignored.
+{"dtype": "float", "knot_dt": 0.06666666666666667, "n_levels": 501, "peak_live_slots": 4247, "shared_bytes": 16988, "casadi_build_s": 1.3580052590114065, "plan_write_s": 0.5498224800103344, "T": 10, "dt": 0.02, "proj_rounds": 3, "n_cbf": 64, "sx_nodes": 49777}
+{"dtype": "double", "knot_dt": 0.06666666666666667, "n_levels": 501, "peak_live_slots": 4247, "shared_bytes": 33976, "casadi_build_s": 1.3580052590114065, "plan_write_s": 0.4797350480221212, "T": 10, "dt": 0.02, "proj_rounds": 3, "n_cbf": 64, "sx_nodes": 49777}

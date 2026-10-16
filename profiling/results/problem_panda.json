@@ -1,0 +1,26 @@
+{
+  "problem": "panda",
+  "nv": 7,
+  "n_vars": 7,
+  "n_rows": 78,
+  "num_cbf": 64,
+  "num_rd1_cbf": 0,
+  "num_rd2_cbf": 64,
+  "barrier_groups": {
+    "joint_limits": 14,
+    "singularity": 1,
+    "obstacle": 21,
+    "self_collision": 7,
+    "floor": 21
+  },
+  "n_self_collision_pairs": 7,
+  "n_collision_spheres": 21,
+  "penalties": {
+    "cbf": 1000.0,
+    "control": 100000.0
+  },
+  "solver_tol": 1e-05,
+  "state_dim": 14,
+  "z_des_dim": 18,
+  "elastic_qp_vars_incl_slack": 85
+}

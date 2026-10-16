@@ -107,7 +107,7 @@ In order of the rows of $g_k(x_{k-1}, x_k; p)$. $\mu = 0.7$.
 | 70 | toe_lateral | $\big[R_{yaw}(q_k)(p_{lt} - p_{rt})\big]_y - r^2 - o \ge 0$ | ineq |
 | 71 | heel_lateral | same with heels | ineq |
 | 72 | right_leg_max | $\|\tfrac12(p_{rt}+p_{rh}) - p_{r,hip}\|^2 - L^2 \le 0$ | ineq |
-| 73 | left_leg_max | $\|\tfrac12(p_{lt}+p_{lh}) + p_{l,hip}\|^2 - L^2 \le 0$ | ineq |
+| 73 | left_leg_max | $\|\tfrac12(p_{lt}+p_{lh}) - p_{l,hip}\|^2 - L^2 \le 0$ | ineq |
 
 Details:
 
@@ -135,11 +135,16 @@ Details:
 - **lateral spacing.** $R_{yaw}$ is the rotation by minus the base yaw
   (yaw extracted from the quaternion by `atan2`), $r = 0.15$ m,
   $o = 0.2$ m; as coded the term is $r^2 = 0.0225$, not $r$.
-- **leg length.** $L = 0.58$ m. **As coded the left-leg row uses
-  `- - p_left_hip_yaw`, i.e. adds the hip position instead of subtracting
-  it.** This is a sign error in the wip formulation and is reproduced
-  unchanged here so that the benchmark matches the reference bit-for-bit; it
-  makes that row a near-inactive bound rather than a leg-length limit.
+- **leg length.** $L = 0.58$ m. **The wip codes the left-leg row with
+  `- - p_left_hip_yaw`, i.e. it adds the hip position instead of subtracting
+  it**, so the row bounds $\|p_{foot} + p_{hip}\|$, roughly twice the
+  robot's distance from the world origin, instead of the leg length. At the
+  benchmark point (robot at the origin) it is nearly inactive; in closed loop
+  it cages the robot (section 12). This is the one place this example departs
+  from the wip: the sign is corrected in `build_mpc_stage.py` and, by a
+  one-line patch in `vendor_setup.py`, in the wip controller that generates the
+  reference functions, so the bit-for-bit comparisons below are against the
+  patched wip.
 
 Equality rows: 54 (0–33, 50–69); inequality rows: 20. Bounds per row:
 equalities $l = u = 0$; friction and leg-length rows $(-\infty, 0]$; lateral
@@ -219,7 +224,7 @@ output is the unscaled primal step
 $$d = D\, x^{25} .$$
 
 $y$ and $z$ are not unscaled or returned. OSQP itself on the same problem with
-`max_iter = 25` returns a solution within $1.3\times10^{-9}$ of this loop,
+`max_iter = 25` returns a solution within $3.7\times10^{-12}$ of this loop,
 which confirms the loop is OSQP.
 
 Numerical remark: $K$ is quasi-definite ($P_s + \sigma I \succ 0$,
@@ -236,7 +241,7 @@ instance (the original CusADi execution model):
 
 | function | inputs → outputs | instructions |
 |---|---|---|
-| `KKT_matrix` | $(x, p) \to \mathrm{triu}\begin{bmatrix} P & A^\top \\ A & 0\end{bmatrix}$ nonzeros (10,422) | 607,593 |
+| `KKT_matrix` | $(x, p) \to \mathrm{triu}\begin{bmatrix} P & A^\top \\ A & 0\end{bmatrix}$ nonzeros (10,422) | 606,073 |
 | `ruiz_scaling` | $(\text{kkt nz}, x, p, \sigma, \bar\rho) \to (\mathrm{triu}\,K$ (11,162 nz)$, q_s, D, l_s, u_s)$ | 277,164 |
 | `ldl_factorize` | $\mathrm{triu}\,K \to (D_{LDL}, L, \pi)$, symbolic sparse LDL (`ca.ldl`, fill 11,162 → 27,533) | 1,277,725 |
 | `KKT_vector` | $(q_s, x, y, z, \sigma, \bar\rho) \to$ rhs | 7,243 |
@@ -244,10 +249,11 @@ instance (the original CusADi execution model):
 | `ADMM_step` | $(\tilde x, \nu, x, y, z, l_s, u_s, \alpha, \bar\rho) \to (x, y, z)$ | 16,725 |
 
 In the results table the "cusadi" column keeps the first, second, fourth and
-sixth of these (working sets 542 KB, 330 KB, 35 KB, 53 KB; the first two ran
-in cusadi2's serial kernel, the last two fit shared memory and ran in its level
-kernel) and replaces the two LDL functions by cuDSS; the symbolic-LDL variant is also measured
-(872 ms at $B=1$) and kept in the raw CSVs.
+sixth of these (working sets 555 KB, 338 KB, 36 KB, 53 KB), all in cusadi2's
+serial kernel, and replaces the two LDL functions by cuDSS; the "hybrid" column
+runs the last two, which fit shared memory, in the level kernel instead. The
+symbolic-LDL variant was measured before the leg-row correction (872 ms at
+$B=1$).
 
 ## 10. The staged realisation (cusadi2 + cuDSS)
 
@@ -276,7 +282,7 @@ next-stage term and the padded $x_{N}$ slot. Assembled over the ten stages this
 reproduces the wip `KKT_matrix` output **bit-for-bit** (10,422 nonzeros,
 identical pattern).
 
-The function has 77,859 instructions, 173 levels and an 8,197-slot working
+The function has 77,707 instructions, 175 levels and an 8,197-slot working
 set (64 KB in fp64); it runs as one level-parallel cusadi2 launch with grid
 $B \times 10$. Neighbour stages are read through cusadi2's *coupled* inputs:
 the buffer $[x_{-1}; x_0; \dots; x_9; x_{10}]$ is passed three times with
@@ -334,20 +340,94 @@ At $x^{(0)} = 0$ with the benchmark parameters, fp64:
 | $\mathrm{triu}\begin{bmatrix} P & A^\top \\ A & 0\end{bmatrix}$ (10,422 nz) | bit-exact |
 | $q_s$, $D$ | bit-exact |
 | scaled $K$, $l_s$, $u_s$ | $\le 1$ ulp ($4\times10^{-16}$ rel.) |
-| $d$ after 25 iterations, CPU, wip LDL | $1.4\times10^{-10}$ |
-| $d$ on the GPU with cuDSS, every instance, all $B$ | $8.5\times10^{-10}$ |
-| OSQP on the same QP | $1.3\times10^{-9}$ |
+| $d$ after 25 iterations, CPU, wip LDL | $2.5\times10^{-13}$ |
+| $d$ on the GPU with cuDSS, every instance, all $B$ | $1.8\times10^{-10}$ |
+| OSQP on the same QP | $3.7\times10^{-12}$ |
 
 ## 11. Things to state when reporting this as a result
 
-- It is a single SQP iteration linearised at rest ($x^{(0)} = 0$ at the nominal
-  stance), not a converged nonlinear MPC solve; the benchmark measures the
-  cost of one QP of the controller's inner loop.
+- The benchmark is a single SQP iteration linearised at rest ($x^{(0)} = 0$ at
+  the nominal stance), not a converged nonlinear MPC solve; it measures the
+  cost of one QP of the controller's inner loop. The rollout of section 12
+  runs that QP in closed loop, against the MPC's own model only.
 - 25 fixed ADMM iterations, no convergence check, fixed $\rho$, cold start.
 - $P$ is the cost Hessian, not the Lagrangian Hessian.
 - Contact schedule and swing height are parameters (given gait), so the QP has
   no complementarity; friction is a pyramid; no $F_z \ge 0$ row.
-- Two wip quirks are reproduced verbatim: the left-leg length sign and the
-  squared collision radius in the lateral-spacing bound.
+- One wip quirk is reproduced verbatim, the squared collision radius in the
+  lateral-spacing bound; the left-leg length sign is corrected (section 5).
 - Toe/heel frames are reconstructed, not from the published model.
 - fp32 is not accurate enough for this scaled KKT; all accuracy claims are fp64.
+
+## 12. Receding horizon (`mpc_rollout.cu`)
+
+One control step lasts $\Delta t_0$ (20.92 ms, the first stage of the grid)
+and is one real-time iteration. Let $q_0, v_0$ be the current state and
+$x = [x_0; \dots; x_9]$ the current plan (initially $x = 0$).
+
+**Solve.** The QP of section 6 is formed at $x$ instead of at rest
+($P, c, A, l, u$ evaluated at $x^{(0)} = x$; `mpc_assemble` is symbolic in
+$x_{k-1}, x_k, x_{k+1}$, so nothing is rebuilt), scaled, factorised and
+iterated exactly as in sections 7, 8 and 10, with ADMM started cold. Then
+$x^+ = x + d$.
+
+**Advance.** Stage 0 of the plan is the state one control period ahead
+(its integration row is $q_0 \oplus \delta q_0 = q_0 \oplus v_0^{plan} \Delta t_0$),
+so the plant is
+
+$$q_0' = q_0 \oplus \delta q_0^+, \qquad v_0' = v_0^+ .$$
+
+This is the MPC's own model: a nominal closed loop without contact physics.
+Whatever residual the executed stage carries (integration, dynamics, stance
+velocity) is carried into the state; `rollout_report.py` reports it.
+
+**Shift.** The next linearisation point is the plan $x^+$ re-sampled
+$\Delta t_0$ later. With $t_k = \sum_{j \le k} \Delta t_j$ the old stage
+times, new stage $k$ sits at old time $\Delta t_0 + t_k$, which on the
+geometric grid always lies between old stages $k$ and $k+1$ at the constant
+fraction $w_k = \Delta t_0 / \Delta t_{k+1}$. With $q_k = q_0 \oplus \delta q_k^+$:
+
+$$\bar q_k = q_k \oplus w_k\,(q_{k+1} \ominus q_k), \qquad
+\delta q_k' = \bar q_k \ominus q_0', \qquad
+v_k' = (1 - w_k)\, v_k^+ + w_k\, v_{k+1}^+ ,$$
+
+and likewise for $F$. The increments are re-based because $\delta q$ is
+always relative to the current $q_0$ (section 2). The last stage has no
+successor and continues at constant velocity,
+$\bar q_9 = q_9 \oplus v_9^+ \Delta t_0$, keeping $v_9^+$ and $F_9^+$.
+
+**Realisation.** `mpc_advance` is a plan with one stage that reads $x_0^+$
+out of the padded plan buffer through a coupled input; `mpc_shift` is a
+10-stage plan reading $x_k^+, x_{k+1}^+$ through coupled inputs and the old
+and new state as shared inputs. With one kernel for $x^+ = x + d$ and two
+copies, the control step is the solve's launches plus three, captured in one
+CUDA graph.
+
+**References** (`gen_batch12.py`). All are functions of time, sampled at each
+step's stage times $s \Delta t_0 + t_k$ and uploaded once:
+
+- command: forward speed $0.2\,(i \bmod 4)$ m/s and yaw rate
+  $(-0.5, 0, 0.5)_{\lfloor i/4 \rfloor}$ rad/s, ramped linearly from zero over
+  0.5 s once the instance starts stepping (0.2 to 0.3 s);
+- gait: 0.7 s cycle, each foot (toe and heel together) in swing for 0.28 s
+  with swing phase $\phi$ running 0 to 1, 0.07 s of double support between
+  swings, odd instances leading with the left foot; the zero-command
+  instance stands;
+- $q^{des}$: nominal joints and height, heading $\psi(t) = \int \omega_z$ of the
+  ramped command (an absolute heading from the clock, not relative to the
+  measured yaw) and the matching unicycle position, which carries no weight
+  and only keeps the SE(3) error local; $v^{des}$ is the ramped command.
+
+Because the grid is geometric, the contact flags of late stages are samples
+150 to 330 ms apart, coarser than a swing; the schedule is resolved properly
+only near the start of the horizon, which is the part that gets executed.
+
+**What was found.** Linearising at rest every step diverges; the shift is
+what stabilises the loop. With the wip's left-leg row the 0.6 m/s walker
+covers 0.5 m in 4 s at 25 ADMM iterations and 0.2 m at 400: the row is
+violated when the QP is solved loosely and holds the robot near the origin
+when it is solved well. With the row corrected the same walker covers
+2.05 m of the 2.1 m commanded, and more ADMM iterations (50, 100, 400) change
+neither the distance nor the residuals, so the duals are left cold; a second
+SQP step per control step lowers the executed dynamics residual about
+eightfold. Numbers are in `README.md`.

@@ -28,7 +28,7 @@
     "compile_double": {
       "status": "pass",
       "rc": 0,
-      "seconds": 71.37,
+      "seconds": 232.08,
       "cached": false,
       "unrolled_failed": {
         "fkhess_unr": "exit code 143 (killed while compiling alone: exceeds this machine's memory)"
@@ -37,7 +37,7 @@
     "compile_float": {
       "status": "pass",
       "rc": 0,
-      "seconds": 63.84,
+      "seconds": 289.82,
       "cached": false,
       "unrolled_failed": {
         "fkhess_unr": "exit code 143 (killed while compiling alone: exceeds this machine's memory)"
@@ -105,18 +105,18 @@
     },
     "plot": {
       "status": "pass",
-      "seconds": 6.74
+      "seconds": 6.4
     },
     "cpu_compile_double": {
       "status": "pass",
       "rc": 0,
-      "seconds": 205.05,
+      "seconds": 15.2,
       "cached": false
     },
     "cpu_compile_float": {
       "status": "pass",
       "rc": 0,
-      "seconds": 190.81,
+      "seconds": 14.46,
       "cached": false
     }
   },
@@ -124,117 +124,121 @@
     "0": {
       "double": {
         "status": "pass",
-        "seconds": 77.8
+        "seconds": 65.3
       },
       "float": {
         "status": "pass",
-        "seconds": 58.5
+        "seconds": 47.9
       }
     },
     "1": {
       "double": {
         "status": "pass",
-        "seconds": 77.8
+        "seconds": 65.3
       },
       "float": {
         "status": "pass",
-        "seconds": 58.5
+        "seconds": 47.9
       }
     },
     "2": {
       "double": {
         "status": "pass",
-        "seconds": 77.7
+        "seconds": 65.3
       },
       "float": {
         "status": "pass",
-        "seconds": 58.5
+        "seconds": 47.9
       }
     },
     "3": {
       "double": {
         "status": "pass",
-        "seconds": 77.6
+        "seconds": 65.4
       },
       "float": {
         "status": "pass",
-        "seconds": 58.5
+        "seconds": 47.9
       }
     },
     "4": {
       "double": {
         "status": "pass",
-        "seconds": 77.7
+        "seconds": 65.6
       },
       "float": {
         "status": "pass",
-        "seconds": 58.5
+        "seconds": 47.9
       }
     }
   },
   "complete": true,
   "n_runs": 5,
-  "finished_at": "2026-09-15 19:24:30",
+  "finished_at": "2026-10-05 16:44:38",
   "cpu_runs": {
     "0": {
       "double": {
         "status": "pass",
-        "seconds": 217.09,
-        "skipped": 2
+        "seconds": 45.96,
+        "skipped": 1
       },
       "float": {
         "status": "pass",
-        "seconds": 318.13,
-        "skipped": 8
+        "seconds": 29.66,
+        "skipped": 4
       }
     },
     "1": {
       "double": {
         "status": "pass",
-        "seconds": 217.2,
-        "skipped": 2
+        "seconds": 45.7,
+        "skipped": 1
       },
       "float": {
         "status": "pass",
-        "seconds": 316.57,
-        "skipped": 8
+        "seconds": 29.52,
+        "skipped": 4
       }
     },
     "2": {
       "double": {
         "status": "pass",
-        "seconds": 217.14,
-        "skipped": 2
+        "seconds": 45.74,
+        "skipped": 1
       },
       "float": {
         "status": "pass",
-        "seconds": 315.2,
-        "skipped": 8
+        "seconds": 29.59,
+        "skipped": 4
       }
     },
     "3": {
       "double": {
         "status": "pass",
-        "seconds": 217.31,
-        "skipped": 2
+        "seconds": 45.77,
+        "skipped": 1
       },
       "float": {
         "status": "pass",
-        "seconds": 315.48,
-        "skipped": 8
+        "seconds": 29.37,
+        "skipped": 4
       }
     },
     "4": {
       "double": {
         "status": "pass",
-        "seconds": 219.27,
-        "skipped": 2
+        "seconds": 45.82,
+        "skipped": 1
       },
       "float": {
         "status": "pass",
-        "seconds": 319.44,
-        "skipped": 8
+        "seconds": 29.44,
+        "skipped": 4
       }
     }
+  },
+  "resweep": {
+    "when": "2026-10-05 23:15:21",
+    "note": "cusadi2 sweeps re-measured with the sparse Jacobian and the split-dispatch kernel; CPU, MJX and warp as recorded"
   }
 }

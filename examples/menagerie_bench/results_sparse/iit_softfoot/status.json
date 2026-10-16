@@ -1,0 +1,118 @@
+{
+  "robot": "iit_softfoot",
+  "xml": "iit_softfoot/softfoot.xml",
+  "menagerie_commit": "8161bba264d7fa7c99ca301e91e7fb44737676ad",
+  "manifest_commit": "8161bba264d7fa7c99ca301e91e7fb44737676ad",
+  "gate": {
+    "status": "pass",
+    "reason": null,
+    "nq": 92,
+    "nv": 92,
+    "n_bodies": 49,
+    "n_bodies_unnamed": 0,
+    "floating": false,
+    "fk_max_err": 1.9984014443252818e-15,
+    "root_corr": false,
+    "preproc": {
+      "includes_flattened": false,
+      "multitree_wrapped": false,
+      "anchors_fixed": 0
+    }
+  },
+  "stages": {
+    "gate": {
+      "status": "pass",
+      "cached": true,
+      "seconds": 0
+    },
+    "compile_double": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 106.85,
+      "cached": false,
+      "unrolled_failed": {
+        "fkhess_unr": "exit code 143 (killed while compiling alone: exceeds this machine's memory)"
+      }
+    },
+    "compile_float": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 137.57,
+      "cached": false,
+      "unrolled_failed": {
+        "fkhess_unr": "exit code 143 (killed while compiling alone: exceeds this machine's memory)"
+      }
+    },
+    "mjx_fp64": {
+      "status": "skip",
+      "reason": "--no-baselines"
+    },
+    "mjx_fp32": {
+      "status": "skip",
+      "reason": "--no-baselines"
+    },
+    "warp": {
+      "status": "skip",
+      "reason": "--no-baselines"
+    },
+    "plot": {
+      "status": "pass",
+      "seconds": 5.35
+    }
+  },
+  "runs": {
+    "0": {
+      "double": {
+        "status": "pass",
+        "seconds": 28.8
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 113.4
+      }
+    },
+    "1": {
+      "double": {
+        "status": "pass",
+        "seconds": 28.8
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 113.4
+      }
+    },
+    "2": {
+      "double": {
+        "status": "pass",
+        "seconds": 28.8
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 113.4
+      }
+    },
+    "3": {
+      "double": {
+        "status": "pass",
+        "seconds": 28.8
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 113.4
+      }
+    },
+    "4": {
+      "double": {
+        "status": "pass",
+        "seconds": 28.8
+      },
+      "float": {
+        "status": "pass",
+        "seconds": 113.5
+      }
+    }
+  },
+  "complete": true,
+  "n_runs": 5,
+  "finished_at": "2026-10-05 23:16:18"
+}

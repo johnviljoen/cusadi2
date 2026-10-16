@@ -1,0 +1,28 @@
+{
+  "T": 100,
+  "K": 256,
+  "ticks": 3,
+  "cusadi2": "cusadi2 plans safe_model (30530 nodes, 207 levels, 14596 B shared, block 256) + safe_integrate (3149 nodes, 128 levels) | R=1 K=256 T=100 proj_iters=48 graph=0",
+  "cusadi2_selected": [
+    171,
+    138,
+    57
+  ],
+  "cusadi2_recompute": 0.0,
+  "evaluators": {
+    "cusadi": {
+      "info": "original CusADi unrolled kernels (one thread per instance, block 256): libunrolled_model_T100_float.so (sz_w 713) + libunrolled_integrate_float.so (sz_w 222) | R=1 K=256 T=100 proj_iters=48 graph=0",
+      "Y": 0.0,
+      "u": 1.0371258918375185e-07,
+      "traj": 3.750640890762209e-07,
+      "cost": 7.577860797452737e-07,
+      "selected": [
+        171,
+        138,
+        57
+      ],
+      "same_selected": true,
+      "recompute": 0.0
+    }
+  }
+}

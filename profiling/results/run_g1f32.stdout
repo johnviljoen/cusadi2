@@ -1,0 +1,43 @@
+
+$ /home/jovi/miniconda3/envs/cusadi2/bin/python /home/jovi/code/cusecmpc/cusadi2/profiling/bench.py --problem g1 --backend qpax --platform gpu --dtype f32 --batches 1 16 128 1024 4096   [22:04:20]
+  [g1/qpax/gpu/f32] nv=29 rows=213 num_cbf=155 sc_pairs=97 backend=gpu x64=False
+    dataset: 4096 states, v_rms=0.509; solver converged 0.0%, iters mean 30.00 max 30; dataset+stats pass 28.6s
+    active CBF row in 83.8% of instances (mean 3.10 rows; random 80%, joint-limit 81%, collision 95%); filter changed u in 94.5%; u_des beyond torque bound in 36.4%
+    solve_qp_elastic_primal vs solve_qp_elastic max|dx| = nan
+    B=    1 nominal     median      281.2 us  p99      313.9 us  compile   0.95 s  (n=1000)
+    B=    1 qp_data     median      878.9 us  p99     1011.6 us  compile   5.06 s  (n=1000)
+    B=    1 dyn_terms   median      372.4 us  p99      393.7 us  compile   0.91 s  (n=1000)
+    B=    1 barriers    median      896.1 us  p99      997.6 us  compile   3.74 s  (n=1000)
+    B=    1 h2_only     median      207.9 us  p99      230.6 us  compile   0.37 s  (n=1000)
+    B=    1 solve       median     3749.3 us  p99     4125.3 us  compile   1.14 s  (n=1000)
+    B=    1 end_to_end  median     4393.0 us  p99     4797.7 us  compile   5.57 s  (n=1000)
+    B=   16 nominal     median      386.4 us  p99      411.6 us  compile   2.33 s  (n=1000)
+    B=   16 qp_data     median     1042.8 us  p99     1234.9 us  compile   6.33 s  (n=1000)
+    B=   16 dyn_terms   median      420.2 us  p99      474.0 us  compile   1.87 s  (n=1000)
+    B=   16 barriers    median     1005.6 us  p99     1137.7 us  compile   4.14 s  (n=1000)
+    B=   16 h2_only     median      206.8 us  p99      238.8 us  compile   0.69 s  (n=1000)
+    B=   16 solve       median     9993.8 us  p99    10241.2 us  compile   1.24 s  (n=1000)
+    B=   16 end_to_end  median    10781.0 us  p99    11034.3 us  compile   5.84 s  (n=1000)
+    B=  128 nominal     median      406.3 us  p99      462.7 us  compile   2.42 s  (n=1000)
+    B=  128 qp_data     median     1202.7 us  p99     1501.2 us  compile   6.39 s  (n=1000)
+    B=  128 dyn_terms   median      424.7 us  p99      481.9 us  compile   1.87 s  (n=1000)
+    B=  128 barriers    median     1152.4 us  p99     1273.3 us  compile   4.42 s  (n=1000)
+    B=  128 h2_only     median      214.1 us  p99      266.4 us  compile   0.73 s  (n=1000)
+    B=  128 solve       median    10867.8 us  p99    11992.4 us  compile   1.35 s  (n=1000)
+    B=  128 end_to_end  median    11907.1 us  p99    12879.7 us  compile   5.96 s  (n=1000)
+    B= 1024 nominal     median      527.7 us  p99      536.3 us  compile   2.52 s  (n=200)
+    B= 1024 qp_data     median     3547.0 us  p99     3837.8 us  compile   6.87 s  (n=200)
+    B= 1024 dyn_terms   median      616.3 us  p99      635.5 us  compile   2.12 s  (n=200)
+    B= 1024 barriers    median     3147.2 us  p99     3547.5 us  compile   4.52 s  (n=200)
+    B= 1024 h2_only     median      236.1 us  p99      271.0 us  compile   0.82 s  (n=200)
+    B= 1024 solve       median    25605.5 us  p99    25899.4 us  compile   1.33 s  (n=200)
+    B= 1024 end_to_end  median    29055.1 us  p99    29176.0 us  compile   6.29 s  (n=200)
+    B= 4096 nominal     median     1420.9 us  p99     1461.0 us  compile   3.37 s  (n=200)
+    B= 4096 qp_data     median    14462.5 us  p99    14873.2 us  compile   7.50 s  (n=200)
+    B= 4096 dyn_terms   median     1289.8 us  p99     1352.5 us  compile   2.64 s  (n=200)
+    B= 4096 barriers    median    12827.7 us  p99    14115.1 us  compile   4.62 s  (n=200)
+    B= 4096 h2_only     median      290.9 us  p99      332.9 us  compile   0.86 s  (n=200)
+    B= 4096 solve       median   132929.6 us  p99   133110.7 us  compile   1.57 s  (n=200)
+    B= 4096 end_to_end  median   148531.2 us  p99   148887.3 us  compile   6.92 s  (n=200)
+    done in 289.1s
+  -> exit 0 after 291s

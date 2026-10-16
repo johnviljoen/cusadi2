@@ -1,0 +1,33 @@
+{
+  "batch": 256,
+  "N": 20,
+  "n_rows": 1358,
+  "seconds": 20.0,
+  "ctrl_dt": 0.02,
+  "physics_dt": 0.002,
+  "compile_ours_s": 0.19988595199538395,
+  "compile_frax_s": 22.422440652968362,
+  "ours_us_median": 12905.545998364687,
+  "ours_us_p99": 13289.039200753905,
+  "ours_us_max": 14708.585978951305,
+  "frax_us_median": 56625.16050506383,
+  "frax_us_p99": 59441.00721448194,
+  "sim_us_median": 9793.493984034285,
+  "h_min": {
+    "joint_limits": -0.00017511657605639996,
+    "singularity": -3.172277251794076e-05,
+    "obstacle": -0.0056192637543155954,
+    "self_collision": -0.0006727911908148421,
+    "floor": -0.00029820785037100277
+  },
+  "h_min_all": -0.0056192637543155954,
+  "active_frac_mean": 0.70919921875,
+  "pred_changed_frac_mean": 0.0838828125,
+  "pred_changed_frac_max": 0.14453125,
+  "pred_row_active_frac_mean": 0.2969296875,
+  "ticks_with_pred_change": 0.987,
+  "iters_max_over_run": 29,
+  "conv_frac_min": 1.0,
+  "n_ticks": 1000,
+  "frames": 500
+}

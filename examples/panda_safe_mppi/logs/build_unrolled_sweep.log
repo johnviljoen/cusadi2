@@ -1,0 +1,5 @@
+<frozen importlib._bootstrap>:488: RuntimeWarning: to-Python converter for pinocchio::python::DeprecatedBool already registered; second conversion method ignored.
+nvcc libunrolled_model_T10_double.so: 20.5 s
+nvcc libunrolled_model_T20_double.so: 21.3 s
+nvcc libunrolled_model_T30_double.so: 20.9 s
+nvcc libunrolled_model_T50_double.so: 19.9 s

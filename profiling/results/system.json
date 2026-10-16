@@ -1,0 +1,36 @@
+{
+  "hostname": "t1",
+  "os": "Linux-7.0.0-31-generic-x86_64-with-glibc2.43",
+  "python": "3.12.14",
+  "cpu": "AMD Ryzen 7 5800X3D 8-Core Processor",
+  "physical_cores": 8,
+  "logical_cpus": 16,
+  "gpu": "NVIDIA GeForce RTX 4080, 610.43.02",
+  "nvcc": "Build cuda_13.3.r13.3/compiler.38244171_0",
+  "jax_cuda_versions": {
+    "cuda_runtime": 13030,
+    "cuda_driver": 13000,
+    "cudnn": 92501
+  },
+  "jax_backend": "gpu",
+  "jax_devices": [
+    "cuda:0"
+  ],
+  "versions": {
+    "jax": "0.11.1",
+    "jaxlib": "0.11.1",
+    "jax-cuda13-plugin": "0.11.1",
+    "jax-cuda13-pjrt": "0.11.1",
+    "frax": "0.0.4",
+    "cbfpy": "0.1.0",
+    "qpax": "0.1.4",
+    "elastiqp": "0.1.0",
+    "numpy": "2.5.2"
+  },
+  "frax_source": {
+    "path": "/home/jovi/code/cusecmpc/cusadi2/profiling/third_party/frax",
+    "commit": "cc0a066b5b539c729838308496ae1b8a1d6aeada",
+    "pyproject_version": "0.1.0"
+  },
+  "x64": true
+}

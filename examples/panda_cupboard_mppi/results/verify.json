@@ -1,0 +1,102 @@
+{
+  "T": 100,
+  "n": 1000,
+  "near_fraction": 0.493,
+  "collision_fraction": 0.433,
+  "pairs": {
+    "casadi-frax": {
+      "rows_max": 9.873500457876727e-13,
+      "rows_median": 5.36128903855731e-15,
+      "u_nom": 6.635725267845469e-15,
+      "G": 9.873500457876727e-13,
+      "h": 2.2479574184610031e-13,
+      "step_max": 2.8079381218117393e-14,
+      "n_over": 0,
+      "worst": []
+    },
+    "casadi-mjx": {
+      "rows_max": 9.874763735022094e-13,
+      "rows_median": 2.322691980406187e-15,
+      "u_nom": 1.0031962609656127e-14,
+      "G": 9.874763735022094e-13,
+      "h": 2.2495902501553539e-13,
+      "step_max": 3.2139879178091154e-14,
+      "n_over": 0,
+      "worst": []
+    },
+    "mjx-frax": {
+      "rows_max": 3.544636097669296e-14,
+      "rows_median": 4.63104472744225e-15,
+      "u_nom": 4.178239983595397e-15,
+      "G": 3.544636097669296e-14,
+      "h": 2.4968169882727103e-14,
+      "step_max": 2.693612478238602e-14,
+      "n_over": 0,
+      "worst": []
+    }
+  },
+  "driver": {
+    "cusadi2": {
+      "rows_max": 1.9482565943289476e-14,
+      "step_max": 2.013576482956377e-14,
+      "n_over": 0
+    },
+    "frax": {
+      "rows_max": 3.9037332186748794e-14,
+      "step_max": 3.662058817624481e-14,
+      "n_over": 0
+    },
+    "mjx": {
+      "rows_max": 2.4053369755015454e-14,
+      "step_max": 2.5079554326761595e-14,
+      "n_over": 0
+    },
+    "cusadi": {
+      "rows_max": 2.560291701213757e-14,
+      "step_max": 1.73210880254312e-14,
+      "n_over": 0
+    },
+    "cpu": {
+      "rows_max": 1.9867542387602924e-14,
+      "step_max": 1.5372185198845148e-14,
+      "n_over": 0
+    }
+  },
+  "kernel": {
+    "n_cbf": 196,
+    "cases": [
+      {
+        "u_vs_numpy": 7.902887625985921e-16,
+        "active_fraction": 0.01953125,
+        "rows_violated_after": 0.01953125,
+        "active_rows_beyond_64": 71
+      },
+      {
+        "u_vs_numpy": 1.669855108061627e-16,
+        "active_fraction": 0.0625,
+        "rows_violated_after": 0.0,
+        "active_rows_beyond_64": 30
+      },
+      {
+        "u_vs_numpy": 9.416396508982691e-16,
+        "active_fraction": 1.0,
+        "rows_violated_after": 0.2421875,
+        "active_rows_beyond_64": 3788
+      }
+    ]
+  },
+  "casadi": {
+    "model": {
+      "T": 100,
+      "rows": "all",
+      "n_cbf": 196,
+      "sx_nodes": 59510
+    },
+    "integrate": {
+      "dt": 0.02,
+      "sx_nodes": 3338
+    },
+    "build_s": 0.6639530370011926
+  },
+  "gate": true
+}

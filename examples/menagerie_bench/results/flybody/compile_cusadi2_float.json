@@ -2,24 +2,24 @@
   "robot": "flybody",
   "dtype": "float",
   "codegen_s": {
-    "fk": 1.3521862350171432,
-    "fkjac": 3.024514780001482,
-    "fkhess": 41.54352202499285
+    "fk": 1.2929653840001265,
+    "fkjac": 1.6879854319995502,
+    "fkhess": 40.41173263699966
   },
-  "nvcc_s": 3.569594753003912,
+  "nvcc_s": 3.5203008160024183,
   "codegen_unrolled_s": {
-    "fk": 0.01210217599873431,
-    "fk_unr": 0.08880358200985938,
-    "fkjac": 0.07700296898838133,
-    "fkjac_unr": 0.6517453620035667,
-    "fkhess": 0.34517654101364315,
-    "fkhess_unr": 2.979659091011854
+    "fk": 0.011891862002812559,
+    "fk_unr": 0.08877637299883645,
+    "fkjac": 0.02832619800028624,
+    "fkjac_unr": 0.22425169099733466,
+    "fkhess": 0.34449454300192883,
+    "fkhess_unr": 3.0016605269993306
   },
   "nvcc_unrolled_s": {
     "fk": null,
     "fk_unr": null,
-    "fkjac": null,
-    "fkjac_unr": 2089.3473016530043,
+    "fkjac": 10.329717909000465,
+    "fkjac_unr": 212.6985813579995,
     "fkhess": null
   },
   "unrolled_failed": {
@@ -45,13 +45,13 @@
       "windowed_unr": false
     },
     "fkjac": {
-      "nnz_out": 43416,
-      "n_instr": 60224,
-      "n_instr_unr": 477431,
-      "sz_w": 146,
-      "sz_w_unr": 732,
-      "smem_kb": 11.86328125,
-      "smem_unr_kb": 94.87890625,
+      "nnz_out": 4551,
+      "n_instr": 21358,
+      "n_instr_unr": 166510,
+      "sz_w": 145,
+      "sz_w_unr": 731,
+      "smem_kb": 11.859375,
+      "smem_unr_kb": 94.875,
       "levels": 43,
       "levels_unr": 43,
       "windowed": false,

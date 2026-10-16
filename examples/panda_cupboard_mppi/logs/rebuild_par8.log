@@ -1,0 +1,21 @@
+safe_integrate_double.plan {"dtype": "double", "n_levels": 128, "peak_live_slots": 506, "shared_byte
+safe_model_T100_double.plan {"dtype": "double", "n_levels": 207, "peak_live_slots": 7752, "shared_by
+nvcc libsafe_mppi_f64.so: 7.0 s
+exported frax T=100 double batches [1, 256]: 4 programs (24.1 s)
+exported mjx T=100 double batches [1, 256]: 4 programs (54.9 s)
+gcc libcpu_T100_double.so: 20.0 s
+nvcc libunrolled_integrate_double.so: 2.0 s
+nvcc libunrolled_model_T100_double.so: 64.7 s
+casadi vs frax : rows max 9.9e-13 (u_nom 6.6e-15, G 9.9e-13, h 2.2e-13), step max 2.8e-14; states over the gate: 0
+casadi vs mjx  : rows max 9.9e-13 (u_nom 1.0e-14, G 9.9e-13, h 2.2e-13), step max 3.2e-14; states over the gate: 0
+mjx    vs frax : rows max 3.5e-14 (u_nom 4.2e-15, G 3.5e-14, h 2.5e-14), step max 2.7e-14; states over the gate: 0
+driver cusadi2  vs casadi: rows max 1.9e-14, step max 2.0e-14; states over the gate: 0
+driver frax     vs casadi: rows max 3.7e-14, step max 2.8e-14; states over the gate: 0
+driver mjx      vs casadi: rows max 2.4e-14, step max 2.5e-14; states over the gate: 0
+driver cusadi   vs casadi: rows max 2.6e-14, step max 1.7e-14; states over the gate: 0
+driver cpu      vs casadi: rows max 2.0e-14, step max 1.5e-14; states over the gate: 0
+projection kernel vs numpy, plant state 0: {'u_vs_numpy': 7.902887625985921e-16, 'active_fraction': 0.01953125, 'rows_violated_after': 0.01953125, 'active_rows_beyond_64': 71}
+projection kernel vs numpy, plant state 1: {'u_vs_numpy': 1.669855108061627e-16, 'active_fraction': 0.0625, 'rows_violated_after': 0.0, 'active_rows_beyond_64': 30}
+projection kernel vs numpy, plant state 2: {'u_vs_numpy': 9.416396508982691e-16, 'active_fraction': 1.0, 'rows_violated_after': 0.2421875, 'active_rows_beyond_64': 3788}
+GATE PASS
+REBUILD-DONE

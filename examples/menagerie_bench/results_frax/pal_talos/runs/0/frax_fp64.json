@@ -1,0 +1,104 @@
+{
+  "robot": "pal_talos",
+  "backend": "frax",
+  "dtype": "fp64",
+  "n_stages": 8,
+  "n_bodies": 45,
+  "nq": 50,
+  "nv": 50,
+  "mujoco_nq": 51,
+  "expanded": {
+    "free": 1,
+    "ball": 0,
+    "composite": 0
+  },
+  "pure_chain": false,
+  "batches": [
+    1,
+    4,
+    16,
+    64,
+    256,
+    1024,
+    4096,
+    16384
+  ],
+  "runs": 5,
+  "jax": "0.11.1",
+  "frax": "0.0.4",
+  "run": 0,
+  "results": {
+    "fk_batched": {
+      "1": 0.00023928000155137852,
+      "4": 0.0002594740071799606,
+      "16": 0.00028414100233931094,
+      "64": 0.0004475925015867688,
+      "256": 0.001108364995161537,
+      "1024": 0.003536267002345994,
+      "4096": 0.014054209495952819,
+      "16384": 0.056878863004385494
+    },
+    "jac_batched": {
+      "1": 0.0004345119959907606,
+      "4": 0.00045598299766425043,
+      "16": 0.0006022564994054846,
+      "64": 0.0010983160027535632,
+      "256": 0.0036720955031341873,
+      "1024": 0.014038425499165896,
+      "4096": null,
+      "16384": null
+    },
+    "hess_batched": {
+      "1": 0.0013786599956802092,
+      "4": 0.0033675805025268346,
+      "16": 0.011031239504518453,
+      "64": null,
+      "256": null,
+      "1024": null,
+      "4096": null,
+      "16384": null
+    }
+  },
+  "compile": {
+    "fk_batched": {
+      "1": 0.7804173570038984,
+      "4": 0.8621220759960124,
+      "16": 0.9790818280016538,
+      "64": 1.232243643986294,
+      "256": 1.1844492490054108,
+      "1024": 1.227655438997317,
+      "4096": 1.3673189520050073,
+      "16384": 1.9831977680005366
+    },
+    "jac_batched": {
+      "1": 5.074839120992692,
+      "4": 5.045007644992438,
+      "16": 5.808604689009371,
+      "64": 5.873679612006526,
+      "256": 8.284467270001187,
+      "1024": 8.581141228001798,
+      "4096": null,
+      "16384": null
+    },
+    "hess_batched": {
+      "1": 12.965575965004973,
+      "4": 14.834657011000672,
+      "16": 16.703843581999536,
+      "64": null,
+      "256": null,
+      "1024": null,
+      "4096": null,
+      "16384": null
+    }
+  },
+  "failed": {
+    "jac_batched:4096": "JaxRuntimeError: RESOURCE_EXHAUSTED: Out of memory while trying to allocate 4.09GiB with allocator GPU_0_bfc on device 0. [executable_name='jit_jac'] [tf-allocator-allocation-error='']",
+    "jac_batched:16384": "JaxRuntimeError: RESOURCE_EXHAUSTED: Out of memory while trying to allocate 13.18GiB with allocator GPU_0_bfc on device 0. [tf-allocator-allocation-error=''] [executable_name='jit_jac']",
+    "hess_batched:64": "JaxRuntimeError: RESOURCE_EXHAUSTED: Out of memory while trying to allocate 3.19GiB with allocator GPU_0_bfc on device 0. [executable_name='jit_hess'] [tf-allocator-allocation-error='']",
+    "hess_batched:256": "JaxRuntimeError: RESOURCE_EXHAUSTED: Out of memory while trying to allocate 10.30GiB with allocator GPU_0_bfc on device 0. [tf-allocator-allocation-error=''] [executable_name='jit_hess']",
+    "hess_batched:1024": "JaxRuntimeError: RESOURCE_EXHAUSTED: Out of memory while trying to allocate 2.46GiB with allocator GPU_0_bfc on device 0. [tf-allocator-allocation-error='']",
+    "hess_batched:4096": "JaxRuntimeError: RESOURCE_EXHAUSTED: Out of memory while trying to allocate 9.78GiB with allocator GPU_0_bfc on device 0. [tf-allocator-allocation-error='']",
+    "hess_batched:16384": "JaxRuntimeError: NOT_FOUND: Failed to get configs for: 16 out of 334 instructions. See logs for all failures. Example failure: \nAll configs failed during profiling.\nFailures (2):\nEXECUTION FAILED: RESOURCE_EXHAUSTED: Out of memory while trying to allocate 1.77GiB with allocator GPU_0_bfc on device 0"
+  },
+  "complete": true
+}

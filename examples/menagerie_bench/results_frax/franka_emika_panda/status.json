@@ -1,0 +1,63 @@
+{
+  "robot": "franka_emika_panda",
+  "xml": "franka_emika_panda/panda_nohand.xml",
+  "menagerie_commit": "8161bba264d7fa7c99ca301e91e7fb44737676ad",
+  "manifest_commit": "8161bba264d7fa7c99ca301e91e7fb44737676ad",
+  "gate": {
+    "status": "pass",
+    "reason": null,
+    "nq": 7,
+    "nv": 7,
+    "n_bodies": 9,
+    "n_bodies_unnamed": 0,
+    "floating": false,
+    "fk_max_err": 7.216449660063518e-15,
+    "root_corr": false,
+    "preproc": {
+      "includes_flattened": false,
+      "multitree_wrapped": false,
+      "anchors_fixed": 0
+    }
+  },
+  "stages": {
+    "gate": {
+      "status": "pass",
+      "cached": true,
+      "seconds": 0
+    },
+    "frax_fp64": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 43.95,
+      "attempts": 1,
+      "failed_shapes": {
+        "hess_batched:16384": "JaxRuntimeError: RESOURCE_EXHAUSTED: Out of memory while trying to allocate 4.08GiB with allocator GPU_0_bfc on device 0. [executable_name='jit_hess'] [tf-allocator-allocation-error='']"
+      }
+    },
+    "frax_fp32": {
+      "status": "pass",
+      "rc": 0,
+      "seconds": 32.08,
+      "attempts": 1
+    }
+  },
+  "runs": {},
+  "complete": false,
+  "frax_gate": {
+    "status": "pass",
+    "reason": null,
+    "n_joints": 7,
+    "n_bodies": 9,
+    "n_bodies_static": 1,
+    "expanded": {
+      "free": 0,
+      "ball": 0,
+      "composite": 0
+    },
+    "pure_chain": true,
+    "fk_max_err": 1.1102230246251565e-15,
+    "jac_max_err": 5.551115123125783e-16,
+    "frax": "0.0.4",
+    "jax": "0.11.1"
+  }
+}

@@ -1,0 +1,39 @@
+== plans
+safe_model_T50_double.plan {"dtype": "double", "n_levels": 2
+safe_model_T100_double.plan {"dtype": "double", "n_levels": 
+== export
+exported T=50 double batches [256]: 2 programs (18.5 s)
+exported T=100 double batches [64, 128, 256, 512]: 8 programs (22.6 s)
+== verify
+model rel err: {'u_nom': 1.5109242082255003e-15, 'G': 4.867534444173816e-12, 'h': 4.955113228321883e-12}
+integrate rel err: {'x1': 5.973408612860839e-15}
+projection kernel vs numpy: {'u_vs_numpy': 3.598653941888438e-16, 'rows_violated_after': 0.0673828125}
+GATE 1 PASS
+== bench
+cusadi2  K= 256 T= 10  tick    3.71 ms (p99    3.80)  rollout    3.53  model  0.244  integrate  0.055  project  0.058
+cusadi2  K= 256 T= 20  tick    6.43 ms (p99    7.34)  rollout    6.92  model  0.244  integrate  0.055  project  0.054
+cusadi2  K= 256 T= 30  tick    9.37 ms (p99   10.93)  rollout   10.25  model  0.244  integrate  0.055  project  0.054
+cusadi2  K= 256 T= 50  tick   15.36 ms (p99   18.04)  rollout   17.51  model  0.244  integrate  0.055  project  0.054
+cusadi2  K= 256 T=100  tick   30.91 ms (p99   35.84)  rollout   34.97  model  0.244  integrate  0.054  project  0.054
+cusadi2  K=  64 T=100  tick   17.32 ms (p99   22.50)  rollout   17.36  model  0.116  integrate  0.056  project  0.005
+cusadi2  K= 128 T=100  tick   18.10 ms (p99   23.23)  rollout   22.79  model  0.121  integrate  0.056  project  0.055
+cusadi2  K= 512 T=100  tick   44.35 ms (p99   49.61)  rollout   48.11  model  0.368  integrate  0.060  project  0.056
+frax     K= 256 T= 10  tick   21.54 ms (p99   22.71)  rollout   20.04  model  1.753  integrate  0.217  project  0.005
+frax     K= 256 T= 20  tick   41.87 ms (p99   43.11)  rollout   39.88  model  1.733  integrate  0.218  project  0.005
+frax     K= 256 T= 30  tick   61.87 ms (p99   62.36)  rollout   60.05  model  1.741  integrate  0.217  project  0.005
+frax     K= 256 T= 50  tick  101.90 ms (p99  102.65)  rollout   99.71  model  1.733  integrate  0.220  project  0.005
+frax     K= 256 T=100  tick  202.14 ms (p99  203.53)  rollout  199.42  model  1.728  integrate  0.218  project  0.005
+frax     K=  64 T=100  tick   93.68 ms (p99   97.34)  rollout   91.84  model  0.721  integrate  0.168  project  0.005
+frax     K= 128 T=100  tick  127.73 ms (p99  130.54)  rollout  124.91  model  1.038  integrate  0.182  project  0.005
+frax     K= 512 T=100  tick  330.53 ms (p99  334.84)  rollout  328.02  model  2.967  integrate  0.277  project  0.007
+== closed loop
+t=  0.0s wall=  1.3s wp 0 dist 0.230 reached 0 ours 69.13 ms frax 216.78 ms h_min 0.0794
+t=  5.0s wall= 64.8s wp 2 dist 0.099 reached 2 ours 35.09 ms frax 200.60 ms h_min 0.0005
+t= 10.0s wall=130.2s wp 0 dist 0.565 reached 4 ours 35.12 ms frax 206.19 ms h_min -0.0016
+t= 15.0s wall=194.6s wp 2 dist 0.147 reached 6 ours 35.17 ms frax 205.48 ms h_min -0.0016
+t= 20.0s wall=260.0s wp 0 dist 0.695 reached 8 ours 35.30 ms frax 205.42 ms h_min -0.0016
+t= 25.0s wall=324.9s wp 2 dist 0.280 reached 10 ours 35.35 ms frax 205.40 ms h_min -0.0021
+{'controller': 'mppi', 'K': 256, 'T': 100, 'seconds': 30.0, 'waypoints_reached': 12, 'waypoints_timed_out': 0, 'time_to_reach_mean_s': 2.4716666666666667, 'time_to_reach_max_s': 3.5200000000000014, 'h_min_all': -0.0020518303004989913, 'ours_ms_median': 35.3969612121582, 'ours_ms_p99': 36.68668220520019, 'ours_ms_max': 69.13030242919922, 'frax_ms_median': 205.23904418945312, 'frax_ms_p99': 212.25984466552734, 'ctrl_wall_ms_median': 240.89443549746647, 'sim_ms_median': 1.5023394953459501, 'v_max': 1.6028585848791135, 'ess_mean': 93.91642496353454, 'n_ticks': 1500, 'frames': 750}
+h_min per group: {'joint_limits': 0.21284842492331313, 'singularity': 0.006634025334237789, 'obstacle': -0.0020518303004989913, 'self_collision': 0.08895997444190074, 'floor': 0.08876384128369073}
+== report
+done
