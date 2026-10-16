@@ -1,5 +1,15 @@
 # Safe MPPI on the Panda: 256 CBF-filtered 2 s rollouts per tick in 31 ms with cusadi2, 191-274 ms with the GPU frameworks, 26 ms on 16 CPU threads
 
+**Status (2026-10-16).** This directory is the one-iteration best-sample variant of `examples/panda_safe_mppi` (safe
+predictive sampling: the best of the K CBF-filtered rollouts becomes the plan and its first filtered torque is applied,
+nothing averaged, nothing re-filtered; `FORMULATION.md`, `driver.py`, `closed_loop.py`). Its closed loop failed the
+no-tuning pass rule on every seed: the arm stalls against the sphere at the first waypoint because no single
+perturbation of the plan beats it there (the plan was kept on 71-81 % of the ticks; `results/closed_loop_ps*.json`,
+`results/closed_loop_ps.mp4`). The MJPC-faithful successor, with several sequential planner iterations per tick, MJPC's
+cubic 7-knot spline, noise scaling and sizes, is `examples/panda_safe_mjpc`. The README below is still the MPPI
+example's text and is kept only as the description of the shared driver and evaluators.
+
+
 The batched backup-CBF filter of `examples/panda_backup_cbf` needs a consumer that must be real time. This example
 makes the one-step CBF filter the safety layer inside every rollout of a sampling-based MPC: one Franka Panda,
 MPPI with K = 256 sampled joint-target plans over T = 100 steps of 20 ms (a 2 s horizon), and at every rollout step the sampled torque is

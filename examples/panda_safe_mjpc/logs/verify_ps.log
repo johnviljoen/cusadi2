@@ -1,0 +1,4 @@
+spline: numpy vs direct Hermite 1.3e-15, CasADi weights vs numpy 0.0e+00 (kdt 0.0800 s)
+cusadi2 plans safe_model (30647 nodes, 207 levels, 14596 B shared, block 256) + safe_integrate (3149 nodes, 128 levels) | R=1 K=64 T=25 n_iter=4 proj_iters=48 graph=1 keep_nominal=1
+gather: |u - recompute| max 0.0e+00   resample kernel vs numpy 1.1e-07   cost monotone within ticks True   nominal-cost carry |c0(i+1) - cmin(i)| max 0.0e+00   projection vs numpy 1.8e-07   improving iterations per tick 0.72 of 4
+GATES PASS
