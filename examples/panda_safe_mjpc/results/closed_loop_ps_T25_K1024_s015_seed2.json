@@ -1,0 +1,98 @@
+{
+  "controller": "ps",
+  "K": 1024,
+  "T": 25,
+  "n_iter": 2,
+  "seconds": 30.0,
+  "dtype": "float",
+  "seed": 2,
+  "noise": 0.1,
+  "sigma": [
+    0.15,
+    0.15,
+    0.15,
+    0.15,
+    0.15,
+    0.15,
+    0.15
+  ],
+  "knot_scale": "",
+  "par": "",
+  "keep_nominal": true,
+  "waypoints_reached": 5,
+  "waypoints_timed_out": 3,
+  "time_to_reach_mean_s": 2.3680000000000003,
+  "time_to_reach_max_s": 3.5600000000000005,
+  "h_min_all": -0.00491748433050837,
+  "h_min": {
+    "joint_limits": 0.07338329276795941,
+    "singularity": 0.0005952471427294801,
+    "obstacle": -0.00491748433050837,
+    "self_collision": 0.0685925427479114,
+    "floor": 0.07403056855142696
+  },
+  "ours_ms_median": 17.68064022064209,
+  "ours_ms_p99": 18.36363098144531,
+  "ours_ms_max": 40.03472137451172,
+  "frax_ms_median": null,
+  "frax_ms_p99": null,
+  "ctrl_wall_ms_median": 17.752550505974796,
+  "sim_ms_median": 1.4821345030213706,
+  "v_max": 2.3194848451464534,
+  "plan_kept_frac": 0.502,
+  "improved_iterations_mean": 0.664,
+  "cost_min_mean": 1.8297821059922377,
+  "cost_start_mean": 1.8792821980615457,
+  "events": [
+    {
+      "wp": 0,
+      "t_start": 0.0,
+      "t_end": 2.9,
+      "reached": true
+    },
+    {
+      "wp": 1,
+      "t_start": 2.9,
+      "t_end": 8.92,
+      "reached": false
+    },
+    {
+      "wp": 2,
+      "t_start": 8.92,
+      "t_end": 12.48,
+      "reached": true
+    },
+    {
+      "wp": 3,
+      "t_start": 12.48,
+      "t_end": 15.38,
+      "reached": true
+    },
+    {
+      "wp": 0,
+      "t_start": 15.38,
+      "t_end": 21.400000000000002,
+      "reached": false
+    },
+    {
+      "wp": 1,
+      "t_start": 21.400000000000002,
+      "t_end": 22.94,
+      "reached": true
+    },
+    {
+      "wp": 2,
+      "t_start": 22.94,
+      "t_end": 28.96,
+      "reached": false
+    },
+    {
+      "wp": 3,
+      "t_start": 28.96,
+      "t_end": 29.900000000000002,
+      "reached": true
+    }
+  ],
+  "n_ticks": 1500,
+  "frames": 0
+}

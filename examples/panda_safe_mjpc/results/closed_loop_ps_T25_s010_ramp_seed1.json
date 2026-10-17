@@ -1,0 +1,98 @@
+{
+  "controller": "ps",
+  "K": 256,
+  "T": 25,
+  "n_iter": 5,
+  "seconds": 30.0,
+  "dtype": "float",
+  "seed": 1,
+  "noise": 0.1,
+  "sigma": [
+    0.0,
+    0.05,
+    0.1,
+    0.1,
+    0.1,
+    0.1,
+    0.1
+  ],
+  "knot_scale": "0,0.5,1,1,1,1,1",
+  "par": "",
+  "keep_nominal": true,
+  "waypoints_reached": 7,
+  "waypoints_timed_out": 1,
+  "time_to_reach_mean_s": 3.1342857142857143,
+  "time_to_reach_max_s": 5.759999999999998,
+  "h_min_all": -0.00314494976283175,
+  "h_min": {
+    "joint_limits": 0.17192069131729237,
+    "singularity": 0.021760584533576446,
+    "obstacle": -0.00314494976283175,
+    "self_collision": 0.10426147711697514,
+    "floor": 0.09907757211688108
+  },
+  "ours_ms_median": 18.892399787902832,
+  "ours_ms_p99": 19.51611026763916,
+  "ours_ms_max": 43.0582389831543,
+  "frax_ms_median": null,
+  "frax_ms_p99": null,
+  "ctrl_wall_ms_median": 18.966817995533347,
+  "sim_ms_median": 1.4709514944115654,
+  "v_max": 1.8711595685940872,
+  "plan_kept_frac": 0.42133333333333334,
+  "improved_iterations_mean": 1.0286666666666666,
+  "cost_min_mean": 2.0032634271283944,
+  "cost_start_mean": 2.0433821426331997,
+  "events": [
+    {
+      "wp": 0,
+      "t_start": 0.0,
+      "t_end": 2.48,
+      "reached": true
+    },
+    {
+      "wp": 1,
+      "t_start": 2.48,
+      "t_end": 3.72,
+      "reached": true
+    },
+    {
+      "wp": 2,
+      "t_start": 3.72,
+      "t_end": 6.72,
+      "reached": true
+    },
+    {
+      "wp": 3,
+      "t_start": 6.72,
+      "t_end": 11.32,
+      "reached": true
+    },
+    {
+      "wp": 0,
+      "t_start": 11.32,
+      "t_end": 14.56,
+      "reached": true
+    },
+    {
+      "wp": 1,
+      "t_start": 14.56,
+      "t_end": 20.580000000000002,
+      "reached": false
+    },
+    {
+      "wp": 2,
+      "t_start": 20.580000000000002,
+      "t_end": 26.34,
+      "reached": true
+    },
+    {
+      "wp": 3,
+      "t_start": 26.34,
+      "t_end": 27.96,
+      "reached": true
+    }
+  ],
+  "n_ticks": 1500,
+  "frames": 0
+}

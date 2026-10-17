@@ -27,8 +27,12 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE)); sys.path.insert(0, str(HERE.parent.parent / "profiling"))
 from model import NX, ND, NV, N_KNOT, NPAR, PAR_DEFAULT, DT, PROJ_ITERS, knot_dt  # noqa: E402
 
-N_ITER = 4                      # iterations per 20 ms tick, fixed by measurement in phase 1 (closed_loop.py default)
-NOISE = 0.1                     # MJPC's sampling_exploration: knot noise std = NOISE x half the joint range
+N_ITER = 3                      # iterations per 20 ms tick at the tuned horizon (T = 35: 5.3 ms per iteration, tick 15.5 ms)
+NOISE = 0.1                     # MJPC's sampling_exploration: knot noise std = NOISE x half the joint range (the MJPC-faithful run)
+# The tuned configuration (closed_loop.py defaults; sweep.py grids 1-6, results/closed_loop_ps_<tag>_seed<s>.json): 0.7 s
+# horizon, 3 iterations of 256 samples, 0.10 rad knot noise with knot 0 frozen (the applied torque stays continuous),
+# kp 20, w_pos 100. MJPC-faithful phase-1 settings: T 25, K 64, n_iter 4, noise 0.1 x half range on every knot, kp 50, w_pos 50.
+TUNED = dict(T=35, K=256, n_iter=3, sigma=0.10, knot_scale=(0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0), par=dict(kp=20.0, w_pos=100.0))
 
 PLUGIN = Path(sys.executable).parent.parent / "lib" / f"python{sys.version_info.major}.{sys.version_info.minor}" / "site-packages" / "jax_plugins" / "xla_cuda13" / "xla_cuda_plugin.so"
 
@@ -42,7 +46,7 @@ def joint_limits():
 
 
 class SafePS:
-    def __init__(self, evaluator, K, T, R=1, n_iter=1, noise=NOISE, dtype="float", graph=True, proj_iters=PROJ_ITERS, sigma=None,
+    def __init__(self, evaluator, K, T, R=1, n_iter=1, noise=NOISE, dtype="float", graph=True, proj_iters=PROJ_ITERS, sigma=None, knot_scale=None,
                  seed=1, par=PAR_DEFAULT, ylim=None, umax=None, record=32, build=HERE / "build", cpu_threads=16, cpu_transfer=True, block=256, keep_nominal=True):
         assert dtype == "float", "this example is fp32 only"
         self.lib = ctypes.CDLL(str(build / "libsafe_mppi_f32.so"))
@@ -71,7 +75,13 @@ class SafePS:
         self.ylim, self.umax = np.asarray(ylim), np.asarray(umax)
         if sigma is None:                                   # MJPC: N(0, (noise x half the control range)^2) on every spline parameter
             sigma = noise * 0.5 * (self.ylim[NV:] - self.ylim[:NV])
-        self.sigma = np.asarray(sigma, dtype=np.float64); assert self.sigma.shape == (NV,)
+        sigma = np.asarray(sigma, dtype=np.float64)
+        if sigma.shape == ():                               # one absolute std (rad) for every knot and joint
+            sigma = np.full(NV, float(sigma))
+        if sigma.shape == (NV,):                            # per joint -> per knot x joint, optionally scaled per knot (knot_scale[j])
+            ks = np.ones(N_KNOT) if knot_scale is None else np.asarray(knot_scale, dtype=np.float64)
+            sigma = (ks[:, None] * sigma[None, :]).reshape(-1)
+        self.sigma = sigma; assert self.sigma.shape == (ND,), self.sigma.shape
         cfg = dict(R=R, K=K, T=T, n_iter=n_iter, graph=int(graph), seed=seed, keep_nominal=int(keep_nominal), dt=DT, proj_iters=proj_iters, record=record, sigma=",".join(repr(float(s)) for s in self.sigma),
                    ylim=",".join(repr(float(v)) for v in self.ylim), umax=",".join(repr(float(v)) for v in self.umax),
                    par=",".join(repr(float(v)) for v in np.asarray(par)))

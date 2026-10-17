@@ -1,0 +1,110 @@
+{
+  "controller": "ps",
+  "K": 512,
+  "T": 25,
+  "n_iter": 3,
+  "seconds": 30.0,
+  "dtype": "float",
+  "seed": 5,
+  "noise": 0.1,
+  "sigma": [
+    0.0,
+    0.1,
+    0.1,
+    0.1,
+    0.1,
+    0.1,
+    0.1
+  ],
+  "knot_scale": "0,1,1,1,1,1,1",
+  "par": "",
+  "keep_nominal": true,
+  "waypoints_reached": 10,
+  "waypoints_timed_out": 0,
+  "time_to_reach_mean_s": 2.914,
+  "time_to_reach_max_s": 5.68,
+  "h_min_all": -0.003920390749968972,
+  "h_min": {
+    "joint_limits": 0.16141348266774624,
+    "singularity": 0.024655044471972087,
+    "obstacle": -0.003920390749968972,
+    "self_collision": 0.10208636159589257,
+    "floor": 0.0708854485870382
+  },
+  "ours_ms_median": 18.497183799743652,
+  "ours_ms_p99": 18.702479038238526,
+  "ours_ms_max": 42.14380645751953,
+  "frax_ms_median": null,
+  "frax_ms_p99": null,
+  "ctrl_wall_ms_median": 18.570737993286457,
+  "sim_ms_median": 1.4713149939780124,
+  "v_max": 2.0204083961983383,
+  "plan_kept_frac": 0.4053333333333333,
+  "improved_iterations_mean": 0.97,
+  "cost_min_mean": 2.0398331627051034,
+  "cost_start_mean": 2.085773043582837,
+  "events": [
+    {
+      "wp": 0,
+      "t_start": 0.0,
+      "t_end": 2.24,
+      "reached": true
+    },
+    {
+      "wp": 1,
+      "t_start": 2.24,
+      "t_end": 6.34,
+      "reached": true
+    },
+    {
+      "wp": 2,
+      "t_start": 6.34,
+      "t_end": 8.72,
+      "reached": true
+    },
+    {
+      "wp": 3,
+      "t_start": 8.72,
+      "t_end": 14.4,
+      "reached": true
+    },
+    {
+      "wp": 0,
+      "t_start": 14.4,
+      "t_end": 18.04,
+      "reached": true
+    },
+    {
+      "wp": 1,
+      "t_start": 18.04,
+      "t_end": 19.1,
+      "reached": true
+    },
+    {
+      "wp": 2,
+      "t_start": 19.1,
+      "t_end": 22.64,
+      "reached": true
+    },
+    {
+      "wp": 3,
+      "t_start": 22.64,
+      "t_end": 23.98,
+      "reached": true
+    },
+    {
+      "wp": 0,
+      "t_start": 23.98,
+      "t_end": 28.240000000000002,
+      "reached": true
+    },
+    {
+      "wp": 1,
+      "t_start": 28.240000000000002,
+      "t_end": 29.14,
+      "reached": true
+    }
+  ],
+  "n_ticks": 1500,
+  "frames": 0
+}

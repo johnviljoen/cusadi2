@@ -31,7 +31,7 @@
 //
 // C API (driver.py wraps it with ctypes; host arrays are double):
 //   void* sm_create(const char* cfg)     cfg = "key=value;..." : evaluator=cusadi2|pjrt|cusadi|cpu, R, K, T, n_iter, graph, seed,
-//        dt, sigma=7 values (per joint), ylim=lo(7),hi(7), par=6 values, umax=7 values, proj_iters, record, model_plan, integrate_plan |
+//        dt, sigma=N_KNOT*7 values (knot-major, per knot and joint), ylim=lo(7),hi(7), par=6 values, umax=7 values, proj_iters, record, model_plan, integrate_plan |
 //        plugin, model_mlir, integrate_mlir, compile_options | model_lib, integrate_lib, block | cpu_lib, cpu_threads, cpu_transfer
 //   int sm_tick(h, const double* x_plant[R*16] or NULL, const double* wp[R*3], double* u[R*7], double* stat[R*4],
 //               double* gpu_ms, double* wall_ms)                    stat = (cost min, cost mean, cost std, selected index) of the last iteration
@@ -385,7 +385,7 @@ __global__ void k_sample(const S* __restrict__ Y0, S* __restrict__ Y, const S* _
     const S* y0 = Y0 + (size_t)(b / K) * ND; S* y = Y + (size_t)b * ND;
     if (keep_nominal && b % K == 0) { for (int i = 0; i < ND; ++i) y[i] = y0[i]; return; }
     curandStatePhilox4_32_10_t st; curand_init(seed, (unsigned long long)b, (unsigned long long)counter[0] * 64ull, &st);
-    for (int i = 0; i < ND; ++i) y[i] = fmin(fmax(y0[i] + sigma[i % NV] * (S)curand_normal(&st), ylim[i % NV]), ylim[NV + i % NV]);   // MJPC AddNoiseToPolicy: every knot, clamped
+    for (int i = 0; i < ND; ++i) y[i] = fmin(fmax(y0[i] + sigma[i] * (S)curand_normal(&st), ylim[i % NV]), ylim[NV + i % NV]);   // sigma per knot x joint (MJPC: the same on every knot), clamped
 }
 __global__ void k_tick(unsigned* counter) { counter[0] += 1; }
 // traj[step][k] = x[k] for the first n_rec samples (sample 0 is the current plan; record=K keeps every rollout), for the video
@@ -505,9 +505,9 @@ struct Driver {
         un_b = dalloc((size_t)B * NV); G_b = dalloc((size_t)B * NCBF * NV); h_b = dalloc((size_t)B * NCBF); u_b = dalloc((size_t)B * NV);
         u0_b = dalloc((size_t)B * NV); x1_b = dalloc((size_t)B * NX); stat = dalloc((size_t)R * 4); istat = dalloc((size_t)n_iter * R * 5); traj = dalloc((size_t)(T + 1) * n_rec * NX);
         std::vector<double> sig = parse_list(c.at("sigma")), yl = parse_list(c.at("ylim")), par = parse_list(c.at("par")), um = parse_list(c.at("umax"));
-        if ((int)sig.size() != NV || (int)yl.size() != 2 * NV || (int)par.size() != NPAR || (int)um.size() != NV) throw std::runtime_error("sigma / ylim / par / umax length");
+        if ((int)sig.size() != ND || (int)yl.size() != 2 * NV || (int)par.size() != NPAR || (int)um.size() != NV) throw std::runtime_error("sigma / ylim / par / umax length");
         std::vector<S> t;
-        t.assign(sig.begin(), sig.end()); sigma = dalloc(NV); CKV(cudaMemcpy(sigma, t.data(), NV * sizeof(S), cudaMemcpyHostToDevice));
+        t.assign(sig.begin(), sig.end()); sigma = dalloc(ND); CKV(cudaMemcpy(sigma, t.data(), ND * sizeof(S), cudaMemcpyHostToDevice));
         t.assign(yl.begin(), yl.end()); ylim = dalloc(2 * NV); CKV(cudaMemcpy(ylim, t.data(), 2 * NV * sizeof(S), cudaMemcpyHostToDevice));
         t.assign(um.begin(), um.end()); umax = dalloc(NV); CKV(cudaMemcpy(umax, t.data(), NV * sizeof(S), cudaMemcpyHostToDevice));
         std::vector<S> pr((size_t)R * NPAR), pb((size_t)B * NPAR);

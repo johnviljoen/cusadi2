@@ -110,6 +110,16 @@ of the ticks and the arm stalled against the sphere on every seed). MJPC's plann
 iteration that finds a better sample moves the nominal before the next batch is drawn, so a tick gets `n_iter` chances to
 improve along a path rather than one, with three times the noise and a C1 spline that keeps the torque smooth.
 
+## 3b. The tuned configuration
+
+The MJPC-faithful settings above fail the task (README, section 1). With the structure unchanged, the settings that
+work are (README, sections 3-4): T = 35 (0.7 s) with 3 iterations of K = 256 samples per tick (5.3 ms per iteration,
+tick 15.5 ms), knot noise 0.10 rad absolute on every joint with **knot 0 frozen** (the knot at the current time is
+never perturbed, so the applied torque of a newly selected sample is continuous with the previous one), kp = 20,
+w_pos = 100. Freezing knot 0 is the single change that made best-sample selection usable; MJPC perturbs every knot.
+`closed_loop.py` uses these by default and reproduces the MJPC-faithful run with
+`--K 64 --T 25 --n-iter 4 --sigma mjpc --knot-scale "" --par ""`.
+
 ## 4. Task and plant
 
 MuJoCo, frax's demo scene (`panda.xml` + `obstacle_scene.xml`: the sphere at (0.5, 0.5, 0.5), r = 0.3), 2 ms
@@ -119,10 +129,10 @@ the arm has to go around. A waypoint counts as reached within 4 cm and is abando
 controller is frax's own filtered OSC (operational-space PD + cbfpy's one-step CBF-QP through qpax) on the same
 waypoints.
 
-The parameters are frozen in advance (MJPC's values where it has one, the MPPI example's gains and weights otherwise);
-only `n_iter` is set by measurement. The pass rule fixed before the runs: every attempted waypoint reached within 6 s over
-30 s with the barriers above -0.01, on all five seeds. A failure is reported next to the MPPI and one-iteration
-predictive-sampling results, not tuned away.
+For the MJPC-faithful run the parameters were frozen in advance (MJPC's values where it has one, the MPPI example's
+gains and weights otherwise), only `n_iter` set by measurement, and the pass rule fixed before the runs: every attempted
+waypoint reached within 6 s over 30 s with the barriers above -0.01, on all five seeds. That run failed and is reported
+as such; the tuning that followed (section 3b) was a separate, explicit decision.
 
 ## 5. Precision
 

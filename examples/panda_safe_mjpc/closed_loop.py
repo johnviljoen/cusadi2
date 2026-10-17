@@ -1,6 +1,7 @@
 """Closed loop: one simulated Panda (MuJoCo, frax's demo scene) at 50 Hz on a reach-around waypoint cycle, fp32.
 
-    python closed_loop.py --controller ps  [--K 64] [--T 25] [--n-iter N_ITER] [--seconds 30] [--frax-timing] [--no-video]
+    python closed_loop.py --controller ps  [--K 256] [--T 35] [--n-iter 3] [--sigma 0.10] [--knot-scale 0,1,1,1,1,1,1] [--par kp=20,w_pos=100] [--seconds 30] [--frax-timing] [--no-video]
+    (the tuned configuration is the default; the MJPC-faithful phase-1 run was --K 64 --T 25 --n-iter 4 --sigma mjpc --knot-scale "" --par "")
     python closed_loop.py --controller osc [--seconds 30]
 
 ps:   MJPC-faithful safe predictive sampling through the native driver (cusadi2 evaluator, applied): every 20 ms tick
@@ -26,19 +27,24 @@ import common
 
 p = argparse.ArgumentParser()
 p.add_argument("--controller", default="ps", choices=["ps", "osc"])
-p.add_argument("--K", type=int, default=64); p.add_argument("--T", type=int, default=25); p.add_argument("--n-iter", type=int, default=None, help="default driver.N_ITER")
+p.add_argument("--K", type=int, default=256); p.add_argument("--T", type=int, default=35); p.add_argument("--n-iter", type=int, default=None, help="default driver.N_ITER")
 p.add_argument("--seconds", type=float, default=30.0); p.add_argument("--seed", type=int, default=1)
 p.add_argument("--frax-timing", action="store_true"); p.add_argument("--no-video", action="store_true")
 p.add_argument("--fps", type=int, default=25); p.add_argument("--size", default="1280x720")
-p.add_argument("--noise", type=float, default=0.1, help="MJPC sampling_exploration: knot noise std = noise x half the joint range"); p.add_argument("--tag", default="", help="suffix of the results files")
+p.add_argument("--noise", type=float, default=0.1, help="MJPC sampling_exploration: knot noise std = noise x half the joint range")
+p.add_argument("--sigma", default=0.10, help="absolute knot noise std in rad on every joint (overrides --noise; 'mjpc' = MJPC scaling)")
+p.add_argument("--knot-scale", default="0,1,1,1,1,1,1", help="per-knot multipliers of the noise std; 0,1,1,1,1,1,1 freezes knot 0 ('' = all knots)")
+p.add_argument("--par", default="kp=20,w_pos=100", help="model parameter overrides, e.g. kp=30,w_v=2 ('' = model defaults)"); p.add_argument("--tag", default="", help="suffix of the results files")
+p.add_argument("--proj-iters", type=int, default=48, help="greedy projection iterations of the rollout filter")
 p.add_argument("--no-nominal", action="store_true", help="sample 0 is a perturbation too (the shifted plan is not in the batch)")
-args = p.parse_args()
+p.set_defaults(); args = p.parse_args()
 PS = args.controller == "ps"
+if isinstance(args.sigma, str): args.sigma = None if args.sigma == "mjpc" else float(args.sigma)
 common.configure("gpu", x64=True)
 common.ensure_frax()
 import jax, jax.numpy as jnp, numpy as np, mujoco
 from panda_problem import PandaProblem
-from model import DT, NX, DES_ROT, N_KNOT
+from model import DT, NX, DES_ROT, N_KNOT, PARAMS, PAR_DEFAULT
 
 CTRL_DT = DT
 REACH, TIMEOUT = 0.04, 6.0
@@ -58,11 +64,16 @@ if PS:
     from driver import SafePS, N_ITER
     n_iter = N_ITER if args.n_iter is None else args.n_iter
     record = args.K if not args.no_video else 32            # the video needs the selected rollout, which can be any sample
-    ours = SafePS("cusadi2", K=args.K, T=args.T, n_iter=n_iter, noise=args.noise, seed=args.seed, record=record, keep_nominal=not args.no_nominal)
-    print(ours.info, flush=True)
+    par = PAR_DEFAULT.copy()
+    for kv in filter(None, args.par.split(",")):
+        k_, v_ = kv.split("="); par[[n for n, _ in PARAMS].index(k_)] = float(v_)
+    knot_scale = [float(v) for v in args.knot_scale.split(",")] if args.knot_scale else None
+    kw = dict(K=args.K, T=args.T, noise=args.noise, sigma=args.sigma, knot_scale=knot_scale, par=par, seed=args.seed, keep_nominal=not args.no_nominal, proj_iters=args.proj_iters)
+    ours = SafePS("cusadi2", n_iter=n_iter, record=record, **kw)
+    print(ours.info, "sigma", np.round(ours.sigma.reshape(N_KNOT, -1)[:, 0], 3).tolist(), "par", dict(zip([n for n, _ in PARAMS], par)), flush=True)
     fr = None
     if args.frax_timing:
-        fr = SafePS("frax", K=args.K, T=args.T, n_iter=1, noise=args.noise, seed=args.seed, keep_nominal=not args.no_nominal)
+        fr = SafePS("frax", n_iter=1, **kw)
         print(fr.info, flush=True)
 else:
     osc_j = jax.jit(prob.end_to_end)
@@ -172,7 +183,8 @@ for k in range(n_ticks):
 if not args.no_video:
     ff.stdin.close(); ff.wait(); renderer.close()
 reached = [e for e in events if e["reached"]]
-summary = dict(controller=args.controller, K=args.K if PS else None, T=args.T if PS else None, n_iter=n_iter if PS else None, seconds=args.seconds, dtype="float", seed=args.seed, noise=args.noise, keep_nominal=not args.no_nominal,
+summary = dict(controller=args.controller, K=args.K if PS else None, T=args.T if PS else None, n_iter=n_iter if PS else None, seconds=args.seconds, dtype="float", seed=args.seed, noise=args.noise,
+               sigma=ours.sigma.reshape(N_KNOT, -1)[:, 0].tolist() if PS else None, knot_scale=args.knot_scale, par=args.par, proj_iters=args.proj_iters, keep_nominal=not args.no_nominal,
                waypoints_reached=len(reached), waypoints_timed_out=len(events) - len(reached),
                time_to_reach_mean_s=float(np.mean([e["t_end"] - e["t_start"] for e in reached])) if reached else None,
                time_to_reach_max_s=float(np.max([e["t_end"] - e["t_start"] for e in reached])) if reached else None,
