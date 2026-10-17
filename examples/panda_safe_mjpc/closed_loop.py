@@ -162,10 +162,10 @@ for k in range(n_ticks):
         add_trace(renderer.scene, np.array(trail), (0.15, 0.9, 0.3, 0.9))
         img = Image.fromarray(renderer.render()); d = ImageDraw.Draw(img, "RGBA")
         d.rectangle([10, 10, int(1000 * fs), int(176 * fs)], fill=(0, 0, 0, 150))
-        title = (f"Safe predictive sampling (MJPC-faithful): {n_iter} iterations x best of {args.K} CBF-filtered rollouts, {args.T * CTRL_DT:.1f} s horizon, cubic 7-knot spline, fp32, 50 Hz" if PS
+        title = (f"Safe predictive sampling, MJPC style: {n_iter} x best of {args.K} CBF-filtered rollouts, {args.T * CTRL_DT:.1f} s horizon, 50 Hz, no re-filter" if PS
                  else "Filtered OSC (frax demo controller: OSC + one-step CBF-QP), 50 Hz")
         d.text((20 * fs, 16 * fs), title, font=font_b, fill="white")
-        if PS: d.text((20 * fs, 150 * fs), f"yellow: the final nominal's rollout (its first filtered torque is applied, no re-filter); blue: {len(others)} of the last iteration's {args.K} samples, brighter = lower cost; green: trail", font=font, fill=(200, 200, 200))
+        if PS: d.text((20 * fs, 150 * fs), f"yellow: the selected rollout (its first filtered torque is applied); blue: {len(others)} of the last iteration's {args.K} samples, brighter = lower cost; green: trail", font=font, fill=(200, 200, 200))
         d.text((20 * fs, 44 * fs), f"t = {t:5.2f} s   waypoint {wi % len(WAYPOINTS) + 1} of {len(WAYPOINTS)} (cycle)   distance {dist:5.3f} m   reached so far {sum(e['reached'] for e in events)}, timed out {sum(not e['reached'] for e in events)}", font=font, fill=(220, 220, 220))
         if PS:
             om = np.median(log["ours_ms"][-ticks_per_frame:]); ni = np.mean(log["n_improved"][-ticks_per_frame:])
