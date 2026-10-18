@@ -1,0 +1,43 @@
+skip T25_s010_k0 seed 1 (exists)
+skip T25_s010_k0 seed 2 (exists)
+T25_s010_k0      seed 3: reached  7 timed out 2 h_min -0.0047 v_max 2.11 t_reach 2.35 tick 18.9/19.0
+T25_s010_k0      seed 4: reached  6 timed out 2 h_min -0.0049 v_max 1.76 t_reach 2.82 tick 19.0/19.6
+T25_s010_k0      seed 5: reached  6 timed out 2 h_min -0.0028 v_max 1.80 t_reach 2.78 tick 19.0/19.1
+T25_s007_k0      seed 1: reached  9 timed out 1 h_min -0.0037 v_max 1.90 t_reach 2.20 tick 18.9/19.1
+T25_s007_k0      seed 2: reached  8 timed out 1 h_min -0.0031 v_max 1.87 t_reach 2.99 tick 18.9/19.0
+T25_s007_k0      seed 3: reached  6 timed out 2 h_min -0.0069 v_max 1.69 t_reach 2.48 tick 19.0/19.7
+T25_s007_k0      seed 4: reached 10 timed out 0 h_min -0.0019 v_max 1.85 t_reach 2.56 tick 18.7/19.7
+T25_s007_k0      seed 5: reached  5 timed out 2 h_min -0.0050 v_max 1.77 t_reach 2.44 tick 19.0/19.7
+T25_s015_k0      seed 1: reached  3 timed out 3 h_min -0.0044 v_max 2.18 t_reach 3.29 tick 19.0/19.4
+T25_s015_k0      seed 2: reached  6 timed out 2 h_min -0.0021 v_max 1.97 t_reach 2.09 tick 19.0/19.7
+T25_s015_k0      seed 3: reached  4 timed out 3 h_min -0.0143 v_max 2.03 t_reach 2.90 tick 19.1/19.3
+T25_s015_k0      seed 4: reached  3 timed out 3 h_min -0.0067 v_max 1.82 t_reach 2.70 tick 19.0/19.1
+T25_s015_k0      seed 5: reached  4 timed out 3 h_min -0.0047 v_max 1.82 t_reach 1.99 tick 19.0/19.7
+T25_s010_ramp    seed 1: reached  7 timed out 1 h_min -0.0031 v_max 1.87 t_reach 3.13 tick 18.9/19.5
+T25_s010_ramp    seed 2: reached  9 timed out 1 h_min -0.0029 v_max 1.85 t_reach 2.41 tick 18.8/19.1
+T25_s010_ramp    seed 3: reached  9 timed out 1 h_min -0.0030 v_max 1.98 t_reach 2.36 tick 18.9/19.7
+T25_s010_ramp    seed 4: reached  8 timed out 1 h_min -0.0043 v_max 2.70 t_reach 2.78 tick 19.0/19.7
+T25_s010_ramp    seed 5: reached  5 timed out 2 h_min -0.0075 v_max 1.95 t_reach 2.53 tick 18.8/19.4
+T25_s015_ramp    seed 1: reached  2 timed out 4 h_min -0.0099 v_max 1.96 t_reach 2.88 tick 19.0/19.4
+T25_s015_ramp    seed 2: reached  4 timed out 3 h_min -0.0068 v_max 1.97 t_reach 2.27 tick 19.0/19.3
+T25_s015_ramp    seed 3: reached 10 timed out 0 h_min -0.0018 v_max 2.23 t_reach 2.64 tick 18.9/19.5
+T25_s015_ramp    seed 4: reached  9 timed out 1 h_min -0.0069 v_max 2.27 t_reach 2.24 tick 18.9/19.1
+T25_s015_ramp    seed 5: reached  6 timed out 2 h_min -0.0057 v_max 1.90 t_reach 2.87 tick 18.9/19.8
+T25_K512_s010_k0 seed 1: reached  3 timed out 3 h_min -0.0071 v_max 4.31 t_reach 2.02 tick 18.7/18.9
+T25_K512_s010_k0 seed 2: reached  7 timed out 1 h_min -0.0019 v_max 1.93 t_reach 2.59 tick 18.6/19.2
+T25_K512_s010_k0 seed 3: reached  6 timed out 1 h_min -0.0069 v_max 1.83 t_reach 3.48 tick 18.6/19.0
+T25_K512_s010_k0 seed 4: reached  5 timed out 2 h_min -0.0260 v_max 6.33 t_reach 3.27 tick 18.7/19.4
+T25_K512_s010_k0 seed 5: reached 10 timed out 0 h_min -0.0039 v_max 2.02 t_reach 2.91 tick 18.5/18.7
+T25_K1024_s010_k0 seed 1: reached  4 timed out 2 h_min -0.0039 v_max 2.05 t_reach 3.31 tick 17.7/17.8
+T25_K1024_s010_k0 seed 2: reached  5 timed out 2 h_min -0.0048 v_max 1.83 t_reach 3.22 tick 17.7/18.0
+T25_K1024_s010_k0 seed 3: reached  5 timed out 3 h_min -0.0053 v_max 1.86 t_reach 1.90 tick 17.7/18.6
+T25_K1024_s010_k0 seed 4: reached  2 timed out 4 h_min -0.0046 v_max 1.96 t_reach 2.53 tick 17.7/17.9
+T25_K1024_s010_k0 seed 5: reached 10 timed out 0 h_min -0.0024 v_max 2.07 t_reach 2.75 tick 17.6/17.8
+config             seeds  reached timed out    h_min  v_max  t_reach  tick p99  args
+T25_s010_k0            5      7.8       1.2  -0.0049   2.29     2.71      19.6  --T 25 --K 256 --n-iter 5 --sigma 0.10 --knot-scale 0,1,1,1,1,1,1
+T25_s007_k0            5      7.6       1.2  -0.0069   1.90     2.53      19.7  --T 25 --K 256 --n-iter 5 --sigma 0.07 --knot-scale 0,1,1,1,1,1,1
+T25_s010_ramp          5      7.6       1.2  -0.0075   2.70     2.64      19.7  --T 25 --K 256 --n-iter 5 --sigma 0.10 --knot-scale 0,0.5,1,1,1,1,1
+T25_K512_s010_k0       5      6.2       1.4  -0.0260   6.33     2.86      19.4  --T 25 --K 512 --n-iter 3 --sigma 0.10 --knot-scale 0,1,1,1,1,1,1
+T25_s015_ramp          5      6.2       2.0  -0.0099   2.27     2.58      19.8  --T 25 --K 256 --n-iter 5 --sigma 0.15 --knot-scale 0,0.5,1,1,1,1,1
+T25_K1024_s010_k0      5      5.2       2.2  -0.0053   2.07     2.74      18.6  --T 25 --K 1024 --n-iter 2 --sigma 0.10 --knot-scale 0,1,1,1,1,1,1
+T25_s015_k0            5      4.0       2.8  -0.0143   2.18     2.59      19.7  --T 25 --K 256 --n-iter 5 --sigma 0.15 --knot-scale 0,1,1,1,1,1,1

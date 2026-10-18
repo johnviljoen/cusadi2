@@ -1,0 +1,148 @@
+{
+ "variant": "noisy_kp50",
+ "seed": 5,
+ "kp": 50.0,
+ "seconds": 30.0,
+ "knot_scale": [
+  1.0,
+  1.0,
+  1.0,
+  1.0,
+  1.0,
+  1.0,
+  1.0
+ ],
+ "waypoints_reached": 18,
+ "waypoints_timed_out": 1,
+ "time_to_reach_mean_s": 1.16,
+ "h_min": -0.006778136587004269,
+ "v_max": 3.1251231092970277,
+ "du_median": 9.821413053076983,
+ "du_p90": 28.076352212109523,
+ "du_p99": 53.53402978480464,
+ "du_max": 89.98276690092273,
+ "plan_kept_frac": 0.43133333333333335,
+ "improved_iters_mean": 1.044,
+ "frac_better_mean": 0.0103984375,
+ "cost_toward_minus_away_mean": -0.0044219539582541975,
+ "cost_toward_lower_frac": 0.518,
+ "frac_toward_among_better_mean": 0.48593416337949286,
+ "d_win_minus_d_nom_mean_when_switched": 0.035247598426103484,
+ "d_nom_mean": 0.9887722550101165,
+ "events": [
+  {
+   "wp": 0,
+   "t_start": 0.0,
+   "t_end": 0.74,
+   "reached": true
+  },
+  {
+   "wp": 1,
+   "t_start": 0.74,
+   "t_end": 1.3800000000000001,
+   "reached": true
+  },
+  {
+   "wp": 2,
+   "t_start": 1.3800000000000001,
+   "t_end": 3.54,
+   "reached": true
+  },
+  {
+   "wp": 3,
+   "t_start": 3.54,
+   "t_end": 4.2,
+   "reached": true
+  },
+  {
+   "wp": 0,
+   "t_start": 4.2,
+   "t_end": 5.92,
+   "reached": true
+  },
+  {
+   "wp": 1,
+   "t_start": 5.92,
+   "t_end": 7.0200000000000005,
+   "reached": true
+  },
+  {
+   "wp": 2,
+   "t_start": 7.0200000000000005,
+   "t_end": 7.96,
+   "reached": true
+  },
+  {
+   "wp": 3,
+   "t_start": 7.96,
+   "t_end": 8.58,
+   "reached": true
+  },
+  {
+   "wp": 0,
+   "t_start": 8.58,
+   "t_end": 9.42,
+   "reached": true
+  },
+  {
+   "wp": 1,
+   "t_start": 9.42,
+   "t_end": 10.56,
+   "reached": true
+  },
+  {
+   "wp": 2,
+   "t_start": 10.56,
+   "t_end": 12.120000000000001,
+   "reached": true
+  },
+  {
+   "wp": 3,
+   "t_start": 12.120000000000001,
+   "t_end": 12.88,
+   "reached": true
+  },
+  {
+   "wp": 0,
+   "t_start": 12.88,
+   "t_end": 13.780000000000001,
+   "reached": true
+  },
+  {
+   "wp": 1,
+   "t_start": 13.780000000000001,
+   "t_end": 14.56,
+   "reached": true
+  },
+  {
+   "wp": 2,
+   "t_start": 14.56,
+   "t_end": 20.580000000000002,
+   "reached": false
+  },
+  {
+   "wp": 3,
+   "t_start": 20.580000000000002,
+   "t_end": 22.32,
+   "reached": true
+  },
+  {
+   "wp": 0,
+   "t_start": 22.32,
+   "t_end": 23.2,
+   "reached": true
+  },
+  {
+   "wp": 1,
+   "t_start": 23.2,
+   "t_end": 24.76,
+   "reached": true
+  },
+  {
+   "wp": 2,
+   "t_start": 24.76,
+   "t_end": 26.900000000000002,
+   "reached": true
+  }
+ ]
+}

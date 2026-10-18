@@ -1,0 +1,18 @@
+{
+  "K": 64,
+  "T": 25,
+  "n_iter": 4,
+  "ticks": 40,
+  "spline": {
+    "numpy_vs_hermite": 1.3322676295501878e-15,
+    "casadi_vs_numpy": 0.0,
+    "kdt": 0.08
+  },
+  "gather_max_abs": 0.0,
+  "resample_max_rel": 1.1428029479588614e-07,
+  "monotone_all": true,
+  "nominal_cost_carry_max_abs": 0.0,
+  "project_max_rel": 1.7769575041146333e-07,
+  "improving_iterations_per_tick_mean": 0.725,
+  "pass": true
+}

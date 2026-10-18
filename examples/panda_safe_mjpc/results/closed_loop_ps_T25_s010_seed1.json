@@ -1,0 +1,98 @@
+{
+  "controller": "ps",
+  "K": 256,
+  "T": 25,
+  "n_iter": 5,
+  "seconds": 30.0,
+  "dtype": "float",
+  "seed": 1,
+  "noise": 0.1,
+  "sigma": [
+    0.1,
+    0.1,
+    0.1,
+    0.1,
+    0.1,
+    0.1,
+    0.1
+  ],
+  "knot_scale": "",
+  "par": "",
+  "keep_nominal": true,
+  "waypoints_reached": 5,
+  "waypoints_timed_out": 3,
+  "time_to_reach_mean_s": 1.8959999999999997,
+  "time_to_reach_max_s": 2.959999999999999,
+  "h_min_all": -0.006024281418547273,
+  "h_min": {
+    "joint_limits": -0.003780384132885839,
+    "singularity": 0.002412030790143591,
+    "obstacle": -0.006024281418547273,
+    "self_collision": 0.09080436971416012,
+    "floor": -0.005190268507852742
+  },
+  "ours_ms_median": 19.0248966217041,
+  "ours_ms_p99": 19.727359771728516,
+  "ours_ms_max": 42.930240631103516,
+  "frax_ms_median": null,
+  "frax_ms_p99": null,
+  "ctrl_wall_ms_median": 19.0999769984046,
+  "sim_ms_median": 1.4781689969822764,
+  "v_max": 2.5097856407945907,
+  "plan_kept_frac": 0.38466666666666666,
+  "improved_iterations_mean": 1.1866666666666668,
+  "cost_min_mean": 2.7639202282826107,
+  "cost_start_mean": 3.0804538297752537,
+  "events": [
+    {
+      "wp": 0,
+      "t_start": 0.0,
+      "t_end": 1.62,
+      "reached": true
+    },
+    {
+      "wp": 1,
+      "t_start": 1.62,
+      "t_end": 7.640000000000001,
+      "reached": false
+    },
+    {
+      "wp": 2,
+      "t_start": 7.640000000000001,
+      "t_end": 10.6,
+      "reached": true
+    },
+    {
+      "wp": 3,
+      "t_start": 10.6,
+      "t_end": 11.94,
+      "reached": true
+    },
+    {
+      "wp": 0,
+      "t_start": 11.94,
+      "t_end": 14.44,
+      "reached": true
+    },
+    {
+      "wp": 1,
+      "t_start": 14.44,
+      "t_end": 15.5,
+      "reached": true
+    },
+    {
+      "wp": 2,
+      "t_start": 15.5,
+      "t_end": 21.52,
+      "reached": false
+    },
+    {
+      "wp": 3,
+      "t_start": 21.52,
+      "t_end": 27.54,
+      "reached": false
+    }
+  ],
+  "n_ticks": 1500,
+  "frames": 0
+}

@@ -1,0 +1,31 @@
+F_s007           seed 1: reached 24 timed out 0 h_min -0.0090 v_max 3.04 t_reach 1.22 tick 15.2/16.4
+F_s007           seed 2: reached  9 timed out 1 h_min -0.0135 v_max 2.56 t_reach 2.33 tick 15.9/16.2
+F_s007           seed 3: reached 21 timed out 0 h_min -0.0063 v_max 2.49 t_reach 1.42 tick 15.7/16.0
+F_s007           seed 4: reached 12 timed out 2 h_min -0.0095 v_max 2.23 t_reach 1.46 tick 15.9/16.4
+F_s007           seed 5: reached 22 timed out 0 h_min -0.0149 v_max 2.42 t_reach 1.36 tick 15.9/16.3
+F_wv2            seed 1: reached 13 timed out 0 h_min -0.0016 v_max 2.17 t_reach 2.19 tick 15.8/16.0
+F_wv2            seed 2: reached 13 timed out 0 h_min -0.0069 v_max 1.88 t_reach 2.22 tick 15.8/16.0
+F_wv2            seed 3: reached 11 timed out 1 h_min -0.0037 v_max 1.51 t_reach 2.12 tick 15.9/16.5
+F_wv2            seed 4: reached  6 timed out 3 h_min -0.0041 v_max 1.79 t_reach 1.75 tick 15.9/16.0
+F_wv2            seed 5: reached  9 timed out 1 h_min -0.0050 v_max 1.67 t_reach 2.17 tick 15.9/16.0
+F_kp20           seed 1: reached 14 timed out 0 h_min -0.0137 v_max 2.33 t_reach 2.04 tick 15.9/16.0
+F_kp20           seed 2: reached 25 timed out 0 h_min -0.0085 v_max 2.51 t_reach 1.19 tick 15.3/16.0
+F_kp20           seed 3: reached 26 timed out 0 h_min -0.0092 v_max 2.67 t_reach 1.13 tick 15.2/16.0
+F_kp20           seed 4: reached 18 timed out 0 h_min -0.0059 v_max 2.57 t_reach 1.64 tick 15.9/16.1
+F_kp20           seed 5: reached 19 timed out 0 h_min -0.0082 v_max 2.51 t_reach 1.58 tick 15.9/16.1
+F_wpos150        seed 1: reached 23 timed out 0 h_min -0.0106 v_max 2.96 t_reach 1.28 tick 15.9/16.7
+F_wpos150        seed 2: reached 29 timed out 0 h_min -0.0091 v_max 3.43 t_reach 1.01 tick 15.6/16.0
+F_wpos150        seed 3: reached 25 timed out 0 h_min -0.0127 v_max 3.08 t_reach 1.17 tick 15.9/16.1
+F_wpos150        seed 4: reached 25 timed out 1 h_min -0.0108 v_max 3.23 t_reach 0.95 tick 15.7/16.1
+F_wpos150        seed 5: reached 29 timed out 0 h_min -0.0071 v_max 2.75 t_reach 1.01 tick 15.7/16.2
+F_T50_n2         seed 1: reached 24 timed out 0 h_min -0.0092 v_max 2.78 t_reach 1.24 tick 14.8/15.5
+F_T50_n2         seed 2: reached 25 timed out 0 h_min -0.0065 v_max 2.95 t_reach 1.19 tick 14.9/15.9
+F_T50_n2         seed 3: reached 21 timed out 0 h_min -0.0148 v_max 3.23 t_reach 1.26 tick 15.0/15.7
+F_T50_n2         seed 4: reached 17 timed out 1 h_min -0.0094 v_max 3.55 t_reach 1.25 tick 15.0/15.8
+F_T50_n2         seed 5: reached 14 timed out 1 h_min -0.0124 v_max 2.39 t_reach 1.41 tick 15.2/15.4
+config             seeds  reached timed out    h_min  v_max  t_reach  tick p99  args
+F_wpos150              5     26.2       0.2  -0.0127   3.43     1.08      16.7  --T 35 --K 256 --n-iter 3 --sigma 0.10 --knot-scale 0,1,1,1,1,1,1 --par kp=30,w_pos=150
+F_kp20                 5     20.4       0.0  -0.0137   2.67     1.52      16.1  --T 35 --K 256 --n-iter 3 --sigma 0.10 --knot-scale 0,1,1,1,1,1,1 --par kp=20,w_pos=100
+F_T50_n2               5     20.2       0.4  -0.0148   3.55     1.27      15.9  --T 50 --K 256 --n-iter 2 --sigma 0.10 --knot-scale 0,1,1,1,1,1,1 --par kp=30,w_pos=100
+F_s007                 5     17.6       0.6  -0.0149   3.04     1.56      16.4  --T 35 --K 256 --n-iter 3 --sigma 0.07 --knot-scale 0,1,1,1,1,1,1 --par kp=30,w_pos=100
+F_wv2                  5     10.4       1.0  -0.0069   2.17     2.09      16.5  --T 35 --K 256 --n-iter 3 --sigma 0.10 --knot-scale 0,1,1,1,1,1,1 --par kp=30,w_pos=100,w_v=2

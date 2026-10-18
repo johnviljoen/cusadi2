@@ -1,0 +1,282 @@
+=== bench run 1 13:25:59
+cusadi2 K=256 T=10: AssertionError: /home/jovi/code/cusecmpc/cusadi2/examples/panda_safe_mjpc/build/plans/safe_model_T10_float.plan
+cusadi2  K= 256 T= 25  tick   10.82 ms (p99   13.02)  iteration    3.58  rollout    3.83  model  0.096  integrate  0.046  project  0.014
+cusadi2  K= 256 T= 35  tick   14.98 ms (p99   15.88)  iteration    5.00  rollout    4.98  model  0.096  integrate  0.046  project  0.003
+cusadi2  K= 256 T= 50  tick   21.54 ms (p99   22.83)  iteration    7.29  rollout    7.30  model  0.096  integrate  0.046  project  0.003
+cusadi2  K= 256 T=100  tick   43.17 ms (p99   44.82)  iteration   14.50  rollout   14.48  model  0.096  integrate  0.046  project  0.003
+cusadi2  K=  64 T= 35  tick   14.27 ms (p99   15.58)  iteration    4.77  rollout    4.75  model  0.091  integrate  0.045  project  0.003
+cusadi2  K= 128 T= 35  tick   14.46 ms (p99   15.96)  iteration    4.81  rollout    4.79  model  0.092  integrate  0.045  project  0.003
+cusadi2  K= 512 T= 35  tick   25.35 ms (p99   26.82)  iteration    8.52  rollout    8.88  model  0.191  integrate  0.047  project  0.014
+cusadi2  K=1024 T= 35  tick   36.51 ms (p99   38.43)  iteration   12.25  rollout   12.58  model  0.292  integrate  0.051  project  0.014
+frax     K= 256 T= 10  tick   21.15 ms (p99   22.86)  iteration    7.09  rollout    7.05  model  0.520  integrate  0.148  project  0.003
+frax     K= 256 T= 25  tick   53.36 ms (p99   56.25)  iteration   17.92  rollout   18.17  model  0.528  integrate  0.145  project  0.013
+frax     K= 256 T= 35  tick   75.13 ms (p99   81.51)  iteration   25.48  rollout   25.25  model  0.525  integrate  0.145  project  0.013
+frax     K= 256 T= 50  tick  106.30 ms (p99  110.11)  iteration   35.46  rollout   35.81  model  0.538  integrate  0.161  project  0.003
+frax     K= 256 T=100  tick  213.16 ms (p99  219.35)  iteration   70.38  rollout   71.72  model  0.548  integrate  0.152  project  0.003
+frax     K=  64 T= 35  tick   53.97 ms (p99   57.23)  iteration   18.14  rollout   18.77  model  0.356  integrate  0.129  project  0.013
+frax     K= 128 T= 35  tick   60.19 ms (p99   63.45)  iteration   20.61  rollout   19.94  model  0.406  integrate  0.138  project  0.003
+frax     K= 512 T= 35  tick   92.55 ms (p99   96.06)  iteration   31.65  rollout   31.54  model  0.703  integrate  0.154  project  0.014
+frax     K=1024 T= 35  tick  132.26 ms (p99  135.47)  iteration   44.06  rollout   44.63  model  1.081  integrate  0.163  project  0.015
+mjx      K= 256 T= 10  tick   28.43 ms (p99   30.17)  iteration    9.74  rollout    9.64  model  0.694  integrate  0.193  project  0.003
+mjx      K= 256 T= 25  tick   71.47 ms (p99   73.92)  iteration   23.93  rollout   24.30  model  0.694  integrate  0.182  project  0.013
+mjx      K= 256 T= 35  tick   99.83 ms (p99  102.69)  iteration   33.02  rollout   33.69  model  0.688  integrate  0.200  project  0.014
+mjx      K= 256 T= 50  tick  143.40 ms (p99  148.41)  iteration   47.47  rollout   47.84  model  0.696  integrate  0.189  project  0.003
+mjx      K= 256 T=100  tick  286.86 ms (p99  295.41)  iteration   96.20  rollout   96.09  model  0.685  integrate  0.197  project  0.003
+mjx      K=  64 T= 35  tick   82.06 ms (p99   84.66)  iteration   27.05  rollout   27.37  model  0.526  integrate  0.162  project  0.013
+mjx      K= 128 T= 35  tick   84.62 ms (p99   87.39)  iteration   28.72  rollout   28.19  model  0.559  integrate  0.162  project  0.004
+mjx      K= 512 T= 35  tick  110.42 ms (p99  114.41)  iteration   37.55  rollout   37.54  model  0.818  integrate  0.170  project  0.015
+mjx      K=1024 T= 35  tick  150.37 ms (p99  156.89)  iteration   50.05  rollout   50.39  model  1.160  integrate  0.189  project  0.014
+cusadi   K= 256 T= 10  tick   46.60 ms (p99   46.93)  iteration   15.56  rollout   15.54  model  1.403  integrate  0.134  project  0.003
+cusadi   K= 256 T= 25  tick  116.29 ms (p99  117.01)  iteration   38.64  rollout   39.04  model  1.405  integrate  0.134  project  0.014
+cusadi   K= 256 T= 35  tick  162.70 ms (p99  163.13)  iteration   54.30  rollout   54.28  model  1.403  integrate  0.134  project  0.003
+cusadi   K= 256 T= 50  tick  235.44 ms (p99  239.10)  iteration   78.03  rollout   77.07  model  1.404  integrate  0.134  project  0.003
+cusadi   K= 256 T=100  tick  465.21 ms (p99  465.94)  iteration  155.30  rollout  156.26  model  1.405  integrate  0.133  project  0.013
+cusadi   K=  64 T= 35  tick   39.85 ms (p99   40.90)  iteration   13.41  rollout   13.40  model  0.342  integrate  0.036  project  0.003
+cusadi   K= 128 T= 35  tick   77.60 ms (p99   77.88)  iteration   26.00  rollout   25.97  model  0.668  integrate  0.068  project  0.003
+cusadi   K= 512 T= 35  tick  162.96 ms (p99  163.74)  iteration   54.37  rollout   54.42  model  1.405  integrate  0.134  project  0.014
+cusadi   K=1024 T= 35  tick  163.15 ms (p99  163.96)  iteration   53.99  rollout   54.79  model  1.408  integrate  0.134  project  0.014
+cpu      K= 256 T= 10  tick    6.60 ms (p99   37.19)  iteration    2.11  rollout    2.10  model  0.166  integrate  0.032  project  0.004
+cpu      K= 256 T= 25  tick   15.90 ms (p99   19.48)  iteration    5.40  rollout    5.73  model  0.164  integrate  0.032  project  0.016
+cpu      K= 256 T= 35  tick   23.49 ms (p99   26.82)  iteration    7.67  rollout    7.81  model  0.170  integrate  0.033  project  0.016
+cpu      K= 256 T= 50  tick   32.95 ms (p99   38.61)  iteration   11.16  rollout   11.06  model  0.166  integrate  0.032  project  0.004
+cpu      K= 256 T=100  tick   66.36 ms (p99   78.89)  iteration   22.33  rollout   22.75  model  0.165  integrate  0.033  project  0.004
+cpu      K=  64 T= 35  tick    9.98 ms (p99   14.03)  iteration    3.17  rollout    3.52  model  0.056  integrate  0.020  project  0.016
+cpu      K= 128 T= 35  tick   13.48 ms (p99   16.81)  iteration    4.50  rollout    4.53  model  0.093  integrate  0.024  project  0.004
+cpu      K= 512 T= 35  tick   42.40 ms (p99   51.78)  iteration   14.12  rollout   14.52  model  0.316  integrate  0.048  project  0.017
+cpu      K=1024 T= 35  tick   80.08 ms (p99   99.16)  iteration   27.44  rollout   27.18  model  0.619  integrate  0.078  project  0.017
+=== bench run 2 13:35:50
+cusadi2  K= 256 T= 10  tick    4.85 ms (p99    5.37)  iteration    1.44  rollout    1.42  model  0.096  integrate  0.046  project  0.003
+cusadi2  K= 256 T= 25  tick   10.82 ms (p99   12.21)  iteration    3.57  rollout    3.82  model  0.096  integrate  0.046  project  0.013
+cusadi2  K= 256 T= 35  tick   15.00 ms (p99   16.17)  iteration    5.00  rollout    4.98  model  0.096  integrate  0.046  project  0.003
+cusadi2  K= 256 T= 50  tick   21.54 ms (p99   23.06)  iteration    7.31  rollout    7.31  model  0.096  integrate  0.046  project  0.003
+cusadi2  K= 256 T=100  tick   42.50 ms (p99   44.30)  iteration   14.38  rollout   14.36  model  0.096  integrate  0.046  project  0.003
+cusadi2  K=  64 T= 35  tick   14.18 ms (p99   15.16)  iteration    4.75  rollout    4.73  model  0.090  integrate  0.045  project  0.003
+cusadi2  K= 128 T= 35  tick   14.40 ms (p99   14.90)  iteration    4.82  rollout    4.80  model  0.092  integrate  0.045  project  0.003
+cusadi2  K= 512 T= 35  tick   25.16 ms (p99   25.81)  iteration    8.35  rollout    8.71  model  0.191  integrate  0.047  project  0.014
+cusadi2  K=1024 T= 35  tick   36.44 ms (p99   37.17)  iteration   12.09  rollout   12.43  model  0.293  integrate  0.051  project  0.014
+frax     K= 256 T= 10  tick   21.03 ms (p99   23.43)  iteration    7.07  rollout    7.03  model  0.525  integrate  0.146  project  0.003
+frax     K= 256 T= 25  tick   52.26 ms (p99   54.89)  iteration   17.63  rollout   18.20  model  0.524  integrate  0.147  project  0.013
+frax     K= 256 T= 35  tick   73.27 ms (p99   75.42)  iteration   24.76  rollout   24.90  model  0.522  integrate  0.163  project  0.013
+frax     K= 256 T= 50  tick  104.66 ms (p99  107.57)  iteration   35.32  rollout   35.06  model  0.521  integrate  0.146  project  0.003
+frax     K= 256 T=100  tick  210.75 ms (p99  215.59)  iteration   70.36  rollout   70.64  model  0.530  integrate  0.147  project  0.003
+frax     K=  64 T= 35  tick   54.42 ms (p99   56.20)  iteration   18.57  rollout   18.28  model  0.355  integrate  0.125  project  0.013
+frax     K= 128 T= 35  tick   59.88 ms (p99   63.24)  iteration   20.08  rollout   20.04  model  0.405  integrate  0.137  project  0.003
+frax     K= 512 T= 35  tick   91.99 ms (p99   94.83)  iteration   30.67  rollout   31.58  model  0.714  integrate  0.170  project  0.014
+frax     K=1024 T= 35  tick  132.04 ms (p99  135.33)  iteration   44.52  rollout   44.48  model  1.057  integrate  0.161  project  0.015
+mjx      K= 256 T= 10  tick   28.29 ms (p99   30.17)  iteration    9.40  rollout    9.37  model  0.681  integrate  0.180  project  0.003
+mjx      K= 256 T= 25  tick   70.92 ms (p99   72.60)  iteration   24.03  rollout   24.79  model  0.690  integrate  0.183  project  0.014
+mjx      K= 256 T= 35  tick   99.44 ms (p99  106.46)  iteration   33.73  rollout   34.01  model  0.702  integrate  0.190  project  0.013
+mjx      K= 256 T= 50  tick  141.93 ms (p99  145.40)  iteration   47.68  rollout   48.72  model  0.700  integrate  0.183  project  0.003
+mjx      K= 256 T=100  tick  285.96 ms (p99  292.34)  iteration   99.41  rollout   95.53  model  0.671  integrate  0.180  project  0.003
+mjx      K=  64 T= 35  tick   81.68 ms (p99   83.83)  iteration   27.11  rollout   27.93  model  0.547  integrate  0.166  project  0.013
+mjx      K= 128 T= 35  tick   85.45 ms (p99   87.95)  iteration   28.25  rollout   27.91  model  0.562  integrate  0.161  project  0.003
+mjx      K= 512 T= 35  tick  111.18 ms (p99  113.61)  iteration   36.88  rollout   38.19  model  0.848  integrate  0.193  project  0.015
+mjx      K=1024 T= 35  tick  148.88 ms (p99  152.19)  iteration   50.02  rollout   50.19  model  1.162  integrate  0.188  project  0.014
+cusadi   K= 256 T= 10  tick   46.57 ms (p99   46.91)  iteration   15.55  rollout   15.53  model  1.403  integrate  0.134  project  0.003
+cusadi   K= 256 T= 25  tick  116.22 ms (p99  116.88)  iteration   38.75  rollout   39.01  model  1.403  integrate  0.133  project  0.014
+cusadi   K= 256 T= 35  tick  162.67 ms (p99  163.26)  iteration   54.28  rollout   54.25  model  1.403  integrate  0.134  project  0.003
+cusadi   K= 256 T= 50  tick  232.67 ms (p99  237.78)  iteration   77.67  rollout   77.27  model  1.406  integrate  0.134  project  0.003
+cusadi   K= 256 T=100  tick  464.97 ms (p99  465.86)  iteration  155.14  rollout  156.14  model  1.404  integrate  0.134  project  0.013
+cusadi   K=  64 T= 35  tick   39.53 ms (p99   40.58)  iteration   13.31  rollout   13.29  model  0.339  integrate  0.036  project  0.003
+cusadi   K= 128 T= 35  tick   77.69 ms (p99   78.04)  iteration   26.02  rollout   26.01  model  0.669  integrate  0.068  project  0.003
+cusadi   K= 512 T= 35  tick  162.97 ms (p99  163.62)  iteration   54.36  rollout   54.42  model  1.405  integrate  0.134  project  0.014
+cusadi   K=1024 T= 35  tick  163.19 ms (p99  164.02)  iteration   54.01  rollout   54.80  model  1.408  integrate  0.134  project  0.014
+cpu      K= 256 T= 10  tick    6.66 ms (p99    7.55)  iteration    2.14  rollout    2.11  model  0.165  integrate  0.032  project  0.004
+cpu      K= 256 T= 25  tick   16.27 ms (p99   26.00)  iteration    5.44  rollout    5.64  model  0.166  integrate  0.033  project  0.016
+cpu      K= 256 T= 35  tick   23.82 ms (p99   38.53)  iteration    8.04  rollout    7.84  model  0.166  integrate  0.033  project  0.016
+cpu      K= 256 T= 50  tick   33.63 ms (p99   39.49)  iteration   11.34  rollout   11.32  model  0.166  integrate  0.032  project  0.004
+cpu      K= 256 T=100  tick   67.94 ms (p99   81.37)  iteration   22.66  rollout   22.63  model  0.167  integrate  0.033  project  0.004
+cpu      K=  64 T= 35  tick   10.11 ms (p99   13.48)  iteration    3.21  rollout    3.54  model  0.057  integrate  0.020  project  0.016
+cpu      K= 128 T= 35  tick   13.86 ms (p99   15.86)  iteration    4.60  rollout    5.09  model  0.093  integrate  0.024  project  0.004
+cpu      K= 512 T= 35  tick   42.31 ms (p99   48.11)  iteration   14.22  rollout   14.65  model  0.317  integrate  0.048  project  0.017
+cpu      K=1024 T= 35  tick   80.50 ms (p99   98.59)  iteration   26.88  rollout   27.43  model  0.623  integrate  0.077  project  0.017
+=== bench run 3 13:45:38
+cusadi2  K= 256 T= 10  tick    4.42 ms (p99    5.80)  iteration    1.44  rollout    1.42  model  0.096  integrate  0.046  project  0.003
+cusadi2  K= 256 T= 25  tick   10.76 ms (p99   11.42)  iteration    3.58  rollout    3.82  model  0.096  integrate  0.046  project  0.014
+cusadi2  K= 256 T= 35  tick   14.97 ms (p99   16.21)  iteration    5.00  rollout    4.98  model  0.096  integrate  0.046  project  0.003
+cusadi2  K= 256 T= 50  tick   21.31 ms (p99   21.97)  iteration    7.15  rollout    7.13  model  0.096  integrate  0.046  project  0.003
+cusadi2  K= 256 T=100  tick   42.41 ms (p99   43.26)  iteration   14.38  rollout   14.36  model  0.096  integrate  0.046  project  0.003
+cusadi2  K=  64 T= 35  tick   14.03 ms (p99   15.07)  iteration    4.75  rollout    4.73  model  0.090  integrate  0.045  project  0.003
+cusadi2  K= 128 T= 35  tick   14.39 ms (p99   14.92)  iteration    4.81  rollout    4.79  model  0.092  integrate  0.045  project  0.003
+cusadi2  K= 512 T= 35  tick   25.05 ms (p99   25.85)  iteration    8.35  rollout    8.71  model  0.191  integrate  0.047  project  0.014
+cusadi2  K=1024 T= 35  tick   36.42 ms (p99   37.34)  iteration   12.07  rollout   12.43  model  0.293  integrate  0.051  project  0.014
+frax     K= 256 T= 10  tick   21.02 ms (p99   22.23)  iteration    7.09  rollout    7.02  model  0.523  integrate  0.150  project  0.003
+frax     K= 256 T= 25  tick   52.49 ms (p99   53.88)  iteration   17.68  rollout   18.05  model  0.525  integrate  0.146  project  0.013
+frax     K= 256 T= 35  tick   73.43 ms (p99   75.07)  iteration   24.36  rollout   25.10  model  0.522  integrate  0.148  project  0.013
+frax     K= 256 T= 50  tick  105.09 ms (p99  108.38)  iteration   35.07  rollout   35.35  model  0.526  integrate  0.149  project  0.003
+frax     K= 256 T=100  tick  211.08 ms (p99  218.82)  iteration   69.89  rollout   71.39  model  0.528  integrate  0.147  project  0.003
+frax     K=  64 T= 35  tick   53.96 ms (p99   56.95)  iteration   18.33  rollout   18.11  model  0.353  integrate  0.129  project  0.013
+frax     K= 128 T= 35  tick   60.25 ms (p99   63.02)  iteration   20.17  rollout   20.13  model  0.408  integrate  0.141  project  0.003
+frax     K= 512 T= 35  tick   92.28 ms (p99   94.90)  iteration   31.05  rollout   31.94  model  0.709  integrate  0.160  project  0.014
+frax     K=1024 T= 35  tick  132.44 ms (p99  135.59)  iteration   44.11  rollout   44.23  model  1.059  integrate  0.160  project  0.015
+mjx      K= 256 T= 10  tick   28.25 ms (p99   30.24)  iteration    9.53  rollout    9.43  model  0.703  integrate  0.200  project  0.003
+mjx      K= 256 T= 25  tick   70.83 ms (p99   73.12)  iteration   23.62  rollout   23.88  model  0.689  integrate  0.180  project  0.013
+mjx      K= 256 T= 35  tick   99.07 ms (p99  102.18)  iteration   33.16  rollout   34.21  model  0.688  integrate  0.186  project  0.013
+mjx      K= 256 T= 50  tick  142.19 ms (p99  147.60)  iteration   47.84  rollout   47.60  model  0.684  integrate  0.179  project  0.003
+mjx      K= 256 T=100  tick  286.16 ms (p99  292.20)  iteration   95.24  rollout   94.20  model  0.667  integrate  0.179  project  0.003
+mjx      K=  64 T= 35  tick   81.70 ms (p99   84.92)  iteration   26.91  rollout   27.93  model  0.530  integrate  0.164  project  0.013
+mjx      K= 128 T= 35  tick   85.07 ms (p99   87.59)  iteration   28.44  rollout   28.21  model  0.564  integrate  0.163  project  0.003
+mjx      K= 512 T= 35  tick  110.84 ms (p99  114.03)  iteration   37.09  rollout   37.94  model  0.818  integrate  0.172  project  0.014
+mjx      K=1024 T= 35  tick  149.42 ms (p99  152.44)  iteration   49.80  rollout   49.94  model  1.164  integrate  0.202  project  0.014
+cusadi   K= 256 T= 10  tick   46.56 ms (p99   46.73)  iteration   15.54  rollout   15.38  model  1.403  integrate  0.134  project  0.003
+cusadi   K= 256 T= 25  tick  116.22 ms (p99  116.92)  iteration   38.77  rollout   38.72  model  1.403  integrate  0.134  project  0.014
+cusadi   K= 256 T= 35  tick  162.70 ms (p99  163.39)  iteration   53.93  rollout   54.26  model  1.402  integrate  0.134  project  0.003
+cusadi   K= 256 T= 50  tick  232.53 ms (p99  237.68)  iteration   77.10  rollout   77.64  model  1.404  integrate  0.134  project  0.003
+cusadi   K= 256 T=100  tick  465.05 ms (p99  465.63)  iteration  155.21  rollout  156.11  model  1.404  integrate  0.134  project  0.013
+cusadi   K=  64 T= 35  tick   39.52 ms (p99   40.47)  iteration   13.14  rollout   13.27  model  0.339  integrate  0.036  project  0.003
+cusadi   K= 128 T= 35  tick   77.60 ms (p99   78.28)  iteration   25.71  rollout   25.99  model  0.667  integrate  0.068  project  0.003
+cusadi   K= 512 T= 35  tick  162.89 ms (p99  163.64)  iteration   54.03  rollout   54.70  model  1.405  integrate  0.134  project  0.014
+cusadi   K=1024 T= 35  tick  163.22 ms (p99  163.87)  iteration   54.44  rollout   54.49  model  1.407  integrate  0.134  project  0.014
+cpu      K= 256 T= 10  tick    6.63 ms (p99   11.54)  iteration    2.14  rollout    2.14  model  0.164  integrate  0.032  project  0.004
+cpu      K= 256 T= 25  tick   16.82 ms (p99   21.45)  iteration    5.40  rollout    5.74  model  0.166  integrate  0.032  project  0.016
+cpu      K= 256 T= 35  tick   23.32 ms (p99   29.86)  iteration    8.06  rollout    8.01  model  0.169  integrate  0.033  project  0.016
+cpu      K= 256 T= 50  tick   33.82 ms (p99   45.92)  iteration   11.24  rollout   11.49  model  0.169  integrate  0.033  project  0.004
+cpu      K= 256 T=100  tick   68.23 ms (p99   81.98)  iteration   21.80  rollout   21.61  model  0.171  integrate  0.033  project  0.004
+cpu      K=  64 T= 35  tick   10.37 ms (p99   13.74)  iteration    3.15  rollout    3.57  model  0.057  integrate  0.019  project  0.015
+cpu      K= 128 T= 35  tick   14.74 ms (p99   53.90)  iteration    4.59  rollout    4.57  model  0.097  integrate  0.024  project  0.004
+cpu      K= 512 T= 35  tick   42.22 ms (p99   50.85)  iteration   14.26  rollout   14.06  model  0.317  integrate  0.048  project  0.017
+cpu      K=1024 T= 35  tick   81.32 ms (p99   93.12)  iteration   27.13  rollout   26.38  model  0.615  integrate  0.078  project  0.017
+=== bench run 4 13:55:28
+cusadi2  K= 256 T= 10  tick    4.43 ms (p99    5.29)  iteration    1.44  rollout    1.42  model  0.096  integrate  0.046  project  0.003
+cusadi2  K= 256 T= 25  tick   10.74 ms (p99   11.78)  iteration    3.57  rollout    3.83  model  0.096  integrate  0.046  project  0.014
+cusadi2  K= 256 T= 35  tick   14.98 ms (p99   15.87)  iteration    5.00  rollout    4.98  model  0.096  integrate  0.046  project  0.003
+cusadi2  K= 256 T= 50  tick   21.31 ms (p99   22.20)  iteration    7.15  rollout    7.13  model  0.096  integrate  0.046  project  0.003
+cusadi2  K= 256 T=100  tick   42.54 ms (p99   43.16)  iteration   14.22  rollout   14.34  model  0.096  integrate  0.046  project  0.003
+cusadi2  K=  64 T= 35  tick   14.18 ms (p99   15.16)  iteration    4.75  rollout    4.73  model  0.090  integrate  0.045  project  0.003
+cusadi2  K= 128 T= 35  tick   14.39 ms (p99   15.02)  iteration    4.81  rollout    4.79  model  0.092  integrate  0.045  project  0.003
+cusadi2  K= 512 T= 35  tick   25.15 ms (p99   25.50)  iteration    8.50  rollout    8.86  model  0.191  integrate  0.047  project  0.014
+cusadi2  K=1024 T= 35  tick   36.39 ms (p99   37.16)  iteration   12.28  rollout   12.60  model  0.293  integrate  0.051  project  0.014
+frax     K= 256 T= 10  tick   21.00 ms (p99   23.03)  iteration    7.21  rollout    7.28  model  0.519  integrate  0.145  project  0.013
+frax     K= 256 T= 25  tick   52.33 ms (p99   54.11)  iteration   17.51  rollout   18.12  model  0.538  integrate  0.148  project  0.014
+frax     K= 256 T= 35  tick   73.31 ms (p99   77.04)  iteration   24.72  rollout   24.94  model  0.517  integrate  0.145  project  0.013
+frax     K= 256 T= 50  tick  104.93 ms (p99  109.19)  iteration   34.92  rollout   35.55  model  0.528  integrate  0.149  project  0.003
+frax     K= 256 T=100  tick  211.01 ms (p99  215.89)  iteration   70.69  rollout   71.77  model  0.525  integrate  0.145  project  0.003
+frax     K=  64 T= 35  tick   54.00 ms (p99   55.72)  iteration   18.52  rollout   18.58  model  0.366  integrate  0.132  project  0.013
+frax     K= 128 T= 35  tick   60.19 ms (p99   63.02)  iteration   20.39  rollout   20.60  model  0.408  integrate  0.138  project  0.003
+frax     K= 512 T= 35  tick   92.63 ms (p99   95.84)  iteration   30.94  rollout   31.35  model  0.708  integrate  0.153  project  0.015
+frax     K=1024 T= 35  tick  132.08 ms (p99  135.29)  iteration   44.61  rollout   44.77  model  1.061  integrate  0.160  project  0.015
+mjx      K= 256 T= 10  tick   28.32 ms (p99   29.35)  iteration    9.38  rollout    9.36  model  0.686  integrate  0.195  project  0.003
+mjx      K= 256 T= 25  tick   70.65 ms (p99   72.48)  iteration   23.76  rollout   24.03  model  0.691  integrate  0.181  project  0.013
+mjx      K= 256 T= 35  tick   99.83 ms (p99  102.58)  iteration   33.35  rollout   33.73  model  0.690  integrate  0.179  project  0.013
+mjx      K= 256 T= 50  tick  143.11 ms (p99  152.39)  iteration   47.21  rollout   47.46  model  0.688  integrate  0.183  project  0.003
+mjx      K= 256 T=100  tick  285.43 ms (p99  289.82)  iteration   94.96  rollout   93.80  model  0.682  integrate  0.194  project  0.003
+mjx      K=  64 T= 35  tick   82.25 ms (p99   84.45)  iteration   27.42  rollout   27.57  model  0.543  integrate  0.164  project  0.013
+mjx      K= 128 T= 35  tick   84.94 ms (p99   87.42)  iteration   28.43  rollout   28.13  model  0.576  integrate  0.177  project  0.003
+mjx      K= 512 T= 35  tick  111.48 ms (p99  113.83)  iteration   37.32  rollout   38.00  model  0.824  integrate  0.190  project  0.014
+mjx      K=1024 T= 35  tick  149.79 ms (p99  152.91)  iteration   49.90  rollout   50.43  model  1.169  integrate  0.208  project  0.014
+cusadi   K= 256 T= 10  tick   46.57 ms (p99   46.92)  iteration   15.54  rollout   15.53  model  1.403  integrate  0.134  project  0.003
+cusadi   K= 256 T= 25  tick  116.20 ms (p99  116.51)  iteration   38.75  rollout   39.01  model  1.403  integrate  0.134  project  0.014
+cusadi   K= 256 T= 35  tick  162.74 ms (p99  163.34)  iteration   54.29  rollout   53.82  model  1.403  integrate  0.134  project  0.003
+cusadi   K= 256 T= 50  tick  232.51 ms (p99  233.18)  iteration   77.68  rollout   77.23  model  1.404  integrate  0.134  project  0.003
+cusadi   K= 256 T=100  tick  464.94 ms (p99  465.58)  iteration  155.15  rollout  156.13  model  1.404  integrate  0.134  project  0.013
+cusadi   K=  64 T= 35  tick   39.50 ms (p99   40.47)  iteration   13.29  rollout   13.28  model  0.339  integrate  0.036  project  0.003
+cusadi   K= 128 T= 35  tick   77.67 ms (p99   78.17)  iteration   26.02  rollout   25.87  model  0.668  integrate  0.068  project  0.003
+cusadi   K= 512 T= 35  tick  162.97 ms (p99  163.79)  iteration   54.36  rollout   54.29  model  1.405  integrate  0.134  project  0.015
+cusadi   K=1024 T= 35  tick  163.19 ms (p99  163.92)  iteration   54.04  rollout   54.80  model  1.406  integrate  0.134  project  0.014
+cpu      K= 256 T= 10  tick    6.67 ms (p99    7.59)  iteration    2.12  rollout    2.10  model  0.167  integrate  0.032  project  0.004
+cpu      K= 256 T= 25  tick   16.18 ms (p99   28.82)  iteration    5.45  rollout    5.71  model  0.165  integrate  0.032  project  0.016
+cpu      K= 256 T= 35  tick   23.66 ms (p99   27.69)  iteration    7.47  rollout    7.82  model  0.166  integrate  0.033  project  0.016
+cpu      K= 256 T= 50  tick   33.24 ms (p99   39.19)  iteration   11.43  rollout   11.28  model  0.165  integrate  0.032  project  0.004
+cpu      K= 256 T=100  tick   68.06 ms (p99  130.97)  iteration   23.24  rollout   22.73  model  0.166  integrate  0.033  project  0.004
+cpu      K=  64 T= 35  tick    9.65 ms (p99   18.83)  iteration    3.13  rollout    3.53  model  0.056  integrate  0.019  project  0.016
+cpu      K= 128 T= 35  tick   14.34 ms (p99   17.60)  iteration    4.54  rollout    4.50  model  0.094  integrate  0.024  project  0.004
+cpu      K= 512 T= 35  tick   42.93 ms (p99   72.71)  iteration   14.31  rollout   14.86  model  0.315  integrate  0.047  project  0.017
+cpu      K=1024 T= 35  tick   81.34 ms (p99  123.67)  iteration   27.29  rollout   27.58  model  0.620  integrate  0.077  project  0.017
+=== bench run 5 14:05:18
+cusadi2  K= 256 T= 10  tick    4.76 ms (p99    5.26)  iteration    1.44  rollout    1.42  model  0.096  integrate  0.046  project  0.003
+cusadi2  K= 256 T= 25  tick   10.91 ms (p99   12.04)  iteration    3.57  rollout    3.82  model  0.096  integrate  0.046  project  0.013
+cusadi2  K= 256 T= 35  tick   14.94 ms (p99   15.92)  iteration    5.00  rollout    4.98  model  0.096  integrate  0.046  project  0.003
+cusadi2  K= 256 T= 50  tick   21.33 ms (p99   22.01)  iteration    7.15  rollout    7.13  model  0.096  integrate  0.046  project  0.003
+cusadi2  K= 256 T=100  tick   42.41 ms (p99   43.16)  iteration   14.38  rollout   14.36  model  0.096  integrate  0.046  project  0.003
+cusadi2  K=  64 T= 35  tick   14.02 ms (p99   15.00)  iteration    4.75  rollout    4.73  model  0.090  integrate  0.045  project  0.003
+cusadi2  K= 128 T= 35  tick   14.40 ms (p99   15.07)  iteration    4.81  rollout    4.80  model  0.092  integrate  0.045  project  0.003
+cusadi2  K= 512 T= 35  tick   24.89 ms (p99   25.86)  iteration    8.35  rollout    8.85  model  0.191  integrate  0.047  project  0.014
+cusadi2  K=1024 T= 35  tick   36.39 ms (p99   37.21)  iteration   12.28  rollout   12.59  model  0.293  integrate  0.051  project  0.014
+frax     K= 256 T= 10  tick   20.98 ms (p99   23.44)  iteration    7.06  rollout    7.12  model  0.519  integrate  0.145  project  0.013
+frax     K= 256 T= 25  tick   52.48 ms (p99   54.34)  iteration   17.53  rollout   18.00  model  0.525  integrate  0.147  project  0.013
+frax     K= 256 T= 35  tick   73.55 ms (p99   74.62)  iteration   24.43  rollout   24.66  model  0.525  integrate  0.148  project  0.013
+frax     K= 256 T= 50  tick  105.13 ms (p99  109.36)  iteration   35.38  rollout   35.09  model  0.523  integrate  0.146  project  0.003
+frax     K= 256 T=100  tick  211.19 ms (p99  218.84)  iteration   69.93  rollout   71.29  model  0.528  integrate  0.149  project  0.003
+frax     K=  64 T= 35  tick   54.10 ms (p99   56.32)  iteration   17.81  rollout   18.45  model  0.355  integrate  0.125  project  0.013
+frax     K= 128 T= 35  tick   60.06 ms (p99   60.99)  iteration   20.12  rollout   19.89  model  0.406  integrate  0.137  project  0.003
+frax     K= 512 T= 35  tick   92.12 ms (p99   93.62)  iteration   30.81  rollout   31.67  model  0.703  integrate  0.153  project  0.014
+frax     K=1024 T= 35  tick  132.12 ms (p99  135.40)  iteration   44.09  rollout   44.59  model  1.075  integrate  0.173  project  0.015
+mjx      K= 256 T= 10  tick   28.58 ms (p99   29.57)  iteration    9.71  rollout    9.46  model  0.683  integrate  0.193  project  0.003
+mjx      K= 256 T= 25  tick   71.13 ms (p99   73.74)  iteration   24.23  rollout   24.39  model  0.690  integrate  0.180  project  0.013
+mjx      K= 256 T= 35  tick   99.56 ms (p99  102.22)  iteration   32.89  rollout   33.45  model  0.704  integrate  0.200  project  0.013
+mjx      K= 256 T= 50  tick  142.04 ms (p99  145.19)  iteration   47.48  rollout   48.09  model  0.703  integrate  0.182  project  0.003
+mjx      K= 256 T=100  tick  288.59 ms (p99  294.22)  iteration   95.74  rollout   93.61  model  0.676  integrate  0.186  project  0.003
+mjx      K=  64 T= 35  tick   81.65 ms (p99   84.51)  iteration   27.26  rollout   27.76  model  0.536  integrate  0.164  project  0.013
+mjx      K= 128 T= 35  tick   84.87 ms (p99   87.26)  iteration   28.65  rollout   28.87  model  0.577  integrate  0.179  project  0.003
+mjx      K= 512 T= 35  tick  111.33 ms (p99  114.10)  iteration   37.48  rollout   37.63  model  0.822  integrate  0.170  project  0.014
+mjx      K=1024 T= 35  tick  149.16 ms (p99  152.95)  iteration   49.98  rollout   50.21  model  1.161  integrate  0.207  project  0.014
+cusadi   K= 256 T= 10  tick   46.57 ms (p99   46.76)  iteration   15.40  rollout   15.38  model  1.404  integrate  0.134  project  0.003
+cusadi   K= 256 T= 25  tick  116.19 ms (p99  117.11)  iteration   38.75  rollout   38.70  model  1.403  integrate  0.134  project  0.014
+cusadi   K= 256 T= 35  tick  162.69 ms (p99  163.51)  iteration   53.84  rollout   54.26  model  1.403  integrate  0.134  project  0.003
+cusadi   K= 256 T= 50  tick  232.50 ms (p99  233.09)  iteration   77.25  rollout   77.63  model  1.404  integrate  0.134  project  0.003
+cusadi   K= 256 T=100  tick  464.80 ms (p99  465.56)  iteration  155.15  rollout  156.12  model  1.404  integrate  0.134  project  0.013
+cusadi   K=  64 T= 35  tick   39.51 ms (p99   40.54)  iteration   13.29  rollout   13.29  model  0.339  integrate  0.036  project  0.003
+cusadi   K= 128 T= 35  tick   77.62 ms (p99   78.25)  iteration   25.73  rollout   25.98  model  0.668  integrate  0.067  project  0.003
+cusadi   K= 512 T= 35  tick  162.92 ms (p99  163.60)  iteration   54.32  rollout   54.72  model  1.404  integrate  0.134  project  0.015
+cusadi   K=1024 T= 35  tick  163.21 ms (p99  164.12)  iteration   54.44  rollout   54.49  model  1.408  integrate  0.134  project  0.014
+cpu      K= 256 T= 10  tick    6.77 ms (p99    9.88)  iteration    2.14  rollout    2.15  model  0.165  integrate  0.032  project  0.004
+cpu      K= 256 T= 25  tick   16.72 ms (p99   19.99)  iteration    5.43  rollout    5.62  model  0.167  integrate  0.032  project  0.016
+cpu      K= 256 T= 35  tick   23.40 ms (p99   36.80)  iteration    8.24  rollout    8.37  model  0.177  integrate  0.033  project  0.016
+cpu      K= 256 T= 50  tick   33.65 ms (p99   38.66)  iteration   11.50  rollout   11.57  model  0.166  integrate  0.032  project  0.004
+cpu      K= 256 T=100  tick   68.05 ms (p99   84.89)  iteration   21.68  rollout   21.46  model  0.167  integrate  0.032  project  0.004
+cpu      K=  64 T= 35  tick   10.16 ms (p99   12.92)  iteration    3.17  rollout    3.56  model  0.056  integrate  0.019  project  0.016
+cpu      K= 128 T= 35  tick   14.58 ms (p99   17.42)  iteration    4.53  rollout    4.56  model  0.098  integrate  0.024  project  0.004
+cpu      K= 512 T= 35  tick   43.40 ms (p99   48.32)  iteration   14.53  rollout   14.10  model  0.315  integrate  0.047  project  0.017
+cpu      K=1024 T= 35  tick   80.79 ms (p99  112.33)  iteration   26.27  rollout   26.39  model  0.628  integrate  0.078  project  0.017
+=== cpu_ideal 14:15:07
+run 0 cpu_ideal K= 256 T= 10  tick    5.25 ms (p99   15.92)  iteration    1.60  rollout    1.58  model  0.124  integrate  0.015  project  0.004
+run 0 cpu_ideal K= 256 T= 25  tick   14.36 ms (p99   35.17)  iteration    8.34  rollout   10.00  model  0.124  integrate  0.015  project  0.004
+run 0 cpu_ideal K= 256 T= 35  tick   16.99 ms (p99   23.85)  iteration    5.50  rollout    5.36  model  0.125  integrate  0.015  project  0.005
+run 0 cpu_ideal K= 256 T= 50  tick   23.72 ms (p99   42.89)  iteration    7.91  rollout    7.75  model  0.124  integrate  0.015  project  0.005
+run 0 cpu_ideal K= 256 T=100  tick   47.45 ms (p99   52.48)  iteration   15.78  rollout   15.74  model  0.125  integrate  0.015  project  0.004
+run 0 cpu_ideal K=  64 T= 35  tick    4.21 ms (p99    6.95)  iteration    1.31  rollout    1.35  model  0.032  integrate  0.004  project  0.002
+run 0 cpu_ideal K= 128 T= 35  tick    8.16 ms (p99   16.43)  iteration    2.71  rollout    2.71  model  0.063  integrate  0.008  project  0.003
+run 0 cpu_ideal K= 512 T= 35  tick   33.46 ms (p99   43.45)  iteration   10.57  rollout   10.70  model  0.391  integrate  0.075  project  0.039
+run 0 cpu_ideal K=1024 T= 35  tick   67.03 ms (p99  157.91)  iteration   41.17  rollout   35.12  model  0.571  integrate  0.058  project  0.016
+run 0 cpu_ideal K=2048 T= 35  tick  127.66 ms (p99  217.65)  iteration   42.35  rollout   42.18  model  1.108  integrate  0.115  project  0.032
+run 1 cpu_ideal K= 256 T= 10  tick    5.15 ms (p99    6.56)  iteration    1.59  rollout    1.62  model  0.125  integrate  0.015  project  0.004
+run 1 cpu_ideal K= 256 T= 25  tick   11.91 ms (p99   15.55)  iteration    3.97  rollout    3.86  model  0.125  integrate  0.015  project  0.004
+run 1 cpu_ideal K= 256 T= 35  tick   16.41 ms (p99   25.61)  iteration    5.48  rollout    5.37  model  0.125  integrate  0.015  project  0.004
+run 1 cpu_ideal K= 256 T= 50  tick   23.18 ms (p99   36.69)  iteration    7.77  rollout    7.51  model  0.124  integrate  0.015  project  0.005
+run 1 cpu_ideal K= 256 T=100  tick   46.67 ms (p99   56.24)  iteration   15.04  rollout   14.88  model  0.125  integrate  0.015  project  0.005
+run 1 cpu_ideal K=  64 T= 35  tick    4.13 ms (p99    4.88)  iteration    1.34  rollout    1.33  model  0.032  integrate  0.004  project  0.002
+run 1 cpu_ideal K= 128 T= 35  tick    8.16 ms (p99   10.76)  iteration    2.69  rollout    2.69  model  0.063  integrate  0.008  project  0.003
+run 1 cpu_ideal K= 512 T= 35  tick   32.42 ms (p99   36.91)  iteration   10.74  rollout   10.85  model  0.249  integrate  0.029  project  0.008
+run 1 cpu_ideal K=1024 T= 35  tick   65.08 ms (p99   76.57)  iteration   21.06  rollout   21.15  model  0.536  integrate  0.058  project  0.016
+run 1 cpu_ideal K=2048 T= 35  tick  129.14 ms (p99  157.33)  iteration   42.13  rollout   41.78  model  1.059  integrate  0.115  project  0.031
+run 2 cpu_ideal K= 256 T= 10  tick    5.33 ms (p99    7.91)  iteration    1.57  rollout    1.59  model  0.125  integrate  0.015  project  0.004
+run 2 cpu_ideal K= 256 T= 25  tick   11.63 ms (p99   18.90)  iteration    3.91  rollout    3.94  model  0.125  integrate  0.015  project  0.004
+run 2 cpu_ideal K= 256 T= 35  tick   16.75 ms (p99   24.37)  iteration    5.37  rollout    8.41  model  0.125  integrate  0.015  project  0.004
+run 2 cpu_ideal K= 256 T= 50  tick   23.76 ms (p99   43.59)  iteration    7.80  rollout    7.50  model  0.124  integrate  0.015  project  0.004
+run 2 cpu_ideal K= 256 T=100  tick   48.35 ms (p99   58.07)  iteration   16.02  rollout   17.36  model  0.125  integrate  0.015  project  0.004
+run 2 cpu_ideal K=  64 T= 35  tick    4.88 ms (p99    8.31)  iteration    1.46  rollout    1.33  model  0.032  integrate  0.004  project  0.002
+run 2 cpu_ideal K= 128 T= 35  tick    8.15 ms (p99   11.10)  iteration    2.73  rollout    2.69  model  0.063  integrate  0.008  project  0.003
+run 2 cpu_ideal K= 512 T= 35  tick   32.84 ms (p99   71.45)  iteration   10.51  rollout   10.63  model  0.250  integrate  0.029  project  0.008
+run 2 cpu_ideal K=1024 T= 35  tick   64.32 ms (p99   79.29)  iteration   21.01  rollout   21.00  model  0.532  integrate  0.058  project  0.016
+run 2 cpu_ideal K=2048 T= 35  tick  127.16 ms (p99  144.29)  iteration   42.05  rollout   41.63  model  1.097  integrate  0.115  project  0.031
+run 3 cpu_ideal K= 256 T= 10  tick    5.06 ms (p99    6.60)  iteration    1.59  rollout    1.55  model  0.125  integrate  0.015  project  0.004
+run 3 cpu_ideal K= 256 T= 25  tick   11.72 ms (p99   15.38)  iteration    3.79  rollout    3.80  model  0.125  integrate  0.015  project  0.005
+run 3 cpu_ideal K= 256 T= 35  tick   16.15 ms (p99   23.15)  iteration    5.34  rollout    5.29  model  0.125  integrate  0.015  project  0.004
+run 3 cpu_ideal K= 256 T= 50  tick   22.74 ms (p99   27.67)  iteration    7.47  rollout    7.49  model  0.124  integrate  0.015  project  0.004
+run 3 cpu_ideal K= 256 T=100  tick   45.78 ms (p99   51.63)  iteration   15.03  rollout   14.95  model  0.125  integrate  0.015  project  0.004
+run 3 cpu_ideal K=  64 T= 35  tick    4.07 ms (p99    4.74)  iteration    1.34  rollout    1.38  model  0.032  integrate  0.004  project  0.002
+run 3 cpu_ideal K= 128 T= 35  tick    8.22 ms (p99   11.63)  iteration    2.65  rollout    2.67  model  0.063  integrate  0.008  project  0.003
+run 3 cpu_ideal K= 512 T= 35  tick   33.70 ms (p99   37.76)  iteration   11.63  rollout   18.21  model  0.360  integrate  0.029  project  0.008
+run 3 cpu_ideal K=1024 T= 35  tick  100.22 ms (p99  135.04)  iteration   21.64  rollout   21.05  model  0.527  integrate  0.058  project  0.016
+run 3 cpu_ideal K=2048 T= 35  tick  128.83 ms (p99  153.01)  iteration   42.17  rollout   42.51  model  1.087  integrate  0.115  project  0.031
+run 4 cpu_ideal K= 256 T= 10  tick    5.05 ms (p99    7.46)  iteration    1.62  rollout    1.56  model  0.125  integrate  0.015  project  0.005
+run 4 cpu_ideal K= 256 T= 25  tick   11.77 ms (p99   16.87)  iteration    3.83  rollout    3.89  model  0.125  integrate  0.015  project  0.004
+run 4 cpu_ideal K= 256 T= 35  tick   16.35 ms (p99   24.43)  iteration    5.31  rollout    5.47  model  0.125  integrate  0.015  project  0.005
+run 4 cpu_ideal K= 256 T= 50  tick   23.01 ms (p99   26.37)  iteration    7.49  rollout    7.55  model  0.124  integrate  0.015  project  0.005
+run 4 cpu_ideal K= 256 T=100  tick   46.52 ms (p99   51.46)  iteration   15.24  rollout   15.04  model  0.125  integrate  0.015  project  0.004
+run 4 cpu_ideal K=  64 T= 35  tick    4.20 ms (p99    6.84)  iteration    1.40  rollout    1.38  model  0.032  integrate  0.004  project  0.002
+run 4 cpu_ideal K= 128 T= 35  tick    8.31 ms (p99   11.24)  iteration    2.77  rollout    2.70  model  0.063  integrate  0.008  project  0.003
+run 4 cpu_ideal K= 512 T= 35  tick   32.41 ms (p99   44.77)  iteration   10.75  rollout   10.57  model  0.254  integrate  0.029  project  0.008
+run 4 cpu_ideal K=1024 T= 35  tick   69.25 ms (p99  124.62)  iteration   34.15  rollout   36.16  model  0.519  integrate  0.058  project  0.016
+run 4 cpu_ideal K=2048 T= 35  tick  134.49 ms (p99  245.09)  iteration   42.48  rollout   44.18  model  1.104  integrate  0.115  project  0.031
+=== done 14:17:36

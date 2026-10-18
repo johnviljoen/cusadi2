@@ -1,0 +1,98 @@
+{
+  "controller": "ps",
+  "K": 256,
+  "T": 35,
+  "n_iter": 3,
+  "seconds": 30.0,
+  "dtype": "float",
+  "seed": 4,
+  "noise": 0.1,
+  "sigma": [
+    0.0,
+    0.1,
+    0.1,
+    0.1,
+    0.1,
+    0.1,
+    0.1
+  ],
+  "knot_scale": "0,1,1,1,1,1,1",
+  "par": "kp=30",
+  "keep_nominal": true,
+  "waypoints_reached": 6,
+  "waypoints_timed_out": 2,
+  "time_to_reach_mean_s": 2.0633333333333335,
+  "time_to_reach_max_s": 2.9000000000000004,
+  "h_min_all": -0.004720541446057158,
+  "h_min": {
+    "joint_limits": 0.3023292658336003,
+    "singularity": 0.027481843314001875,
+    "obstacle": -0.004720541446057158,
+    "self_collision": 0.07900559496237625,
+    "floor": 0.06715287163900029
+  },
+  "ours_ms_median": 15.907487869262695,
+  "ours_ms_p99": 16.34538681030273,
+  "ours_ms_max": 36.08201599121094,
+  "frax_ms_median": null,
+  "frax_ms_p99": null,
+  "ctrl_wall_ms_median": 15.97529500577366,
+  "sim_ms_median": 1.4586455072276294,
+  "v_max": 1.8978206074485389,
+  "plan_kept_frac": 0.518,
+  "improved_iterations_mean": 0.776,
+  "cost_min_mean": 2.080345278799534,
+  "cost_start_mean": 2.1245179579357307,
+  "events": [
+    {
+      "wp": 0,
+      "t_start": 0.0,
+      "t_end": 1.7,
+      "reached": true
+    },
+    {
+      "wp": 1,
+      "t_start": 1.7,
+      "t_end": 3.56,
+      "reached": true
+    },
+    {
+      "wp": 2,
+      "t_start": 3.56,
+      "t_end": 5.48,
+      "reached": true
+    },
+    {
+      "wp": 3,
+      "t_start": 5.48,
+      "t_end": 7.140000000000001,
+      "reached": true
+    },
+    {
+      "wp": 0,
+      "t_start": 7.140000000000001,
+      "t_end": 10.040000000000001,
+      "reached": true
+    },
+    {
+      "wp": 1,
+      "t_start": 10.040000000000001,
+      "t_end": 12.38,
+      "reached": true
+    },
+    {
+      "wp": 2,
+      "t_start": 12.38,
+      "t_end": 18.400000000000002,
+      "reached": false
+    },
+    {
+      "wp": 3,
+      "t_start": 18.400000000000002,
+      "t_end": 24.42,
+      "reached": false
+    }
+  ],
+  "n_ticks": 1500,
+  "frames": 0
+}

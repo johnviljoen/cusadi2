@@ -1,0 +1,70 @@
+{
+  "T": 35,
+  "K": 256,
+  "ticks": 3,
+  "cusadi2": "cusadi2 plans safe_model (30647 nodes, 207 levels, 14596 B shared, block 256) + safe_integrate (3149 nodes, 128 levels) | R=1 K=256 T=35 n_iter=3 proj_iters=48 graph=0 keep_nominal=1 select=cost",
+  "cusadi2_selected": [
+    207,
+    159,
+    219
+  ],
+  "cusadi2_recompute": 0.0,
+  "evaluators": {
+    "frax": {
+      "info": "JAX/XLA program via PJRT (xla_cuda_plugin.so, api 0.114): safe_model_T35_B256_float.mlir + safe_integrate_B256_float.mlir, compile 4.171387 s | R=1 K=256 T=35 n_iter=3 proj_iters=48 graph=0 keep_nominal=1 select=cost",
+      "Y": 0.0,
+      "u": 3.5387559956258146e-07,
+      "traj": 3.3738223504394674e-07,
+      "cost": 3.9787302386415875e-07,
+      "selected": [
+        207,
+        159,
+        219
+      ],
+      "same_selected": true,
+      "recompute": 0.0
+    },
+    "mjx": {
+      "info": "JAX/XLA program via PJRT (xla_cuda_plugin.so, api 0.114): mjx_model_T35_B256_float.mlir + mjx_integrate_B256_float.mlir, compile 28.775195 s | R=1 K=256 T=35 n_iter=3 proj_iters=48 graph=0 keep_nominal=1 select=cost",
+      "Y": 0.0,
+      "u": 7.077511991251629e-07,
+      "traj": 4.723351290615254e-07,
+      "cost": 5.304973651522116e-07,
+      "selected": [
+        207,
+        159,
+        219
+      ],
+      "same_selected": true,
+      "recompute": 0.0
+    },
+    "cusadi": {
+      "info": "original CusADi unrolled kernels (one thread per instance, block 256): libunrolled_model_T35_float.so (sz_w 713) + libunrolled_integrate_float.so (sz_w 222) | R=1 K=256 T=35 n_iter=3 proj_iters=48 graph=0 keep_nominal=1 select=cost",
+      "Y": 0.0,
+      "u": 2.1232535973754888e-07,
+      "traj": 2.1929845277856538e-07,
+      "cost": 3.315608532201323e-07,
+      "selected": [
+        207,
+        159,
+        219
+      ],
+      "same_selected": true,
+      "recompute": 0.0
+    },
+    "cpu": {
+      "info": "CasADi C codegen on the CPU (16 OpenMP threads, GPU -> CPU -> GPU transfer in every call): libcpu_T35_float.so (sz_w 0 / 0) | R=1 K=256 T=35 n_iter=3 proj_iters=48 graph=0 keep_nominal=1 select=cost",
+      "Y": 0.0,
+      "u": 2.8310047965006515e-07,
+      "traj": 3.3738223504394674e-07,
+      "cost": 5.304973651522116e-07,
+      "selected": [
+        207,
+        159,
+        219
+      ],
+      "same_selected": true,
+      "recompute": 0.0
+    }
+  }
+}

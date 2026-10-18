@@ -1,0 +1,55 @@
+B_wpos100        seed 1: reached  8 timed out 3 h_min -0.0053 v_max 2.85 t_reach 1.38 tick 19.0/19.4
+B_wpos100        seed 2: reached  9 timed out 3 h_min -0.0083 v_max 4.74 t_reach 1.20 tick 19.0/19.1
+B_wpos100        seed 3: reached 15 timed out 1 h_min -0.0032 v_max 3.00 t_reach 1.50 tick 18.9/19.8
+B_wpos100        seed 4: reached 11 timed out 1 h_min -0.0081 v_max 2.22 t_reach 1.76 tick 19.0/19.7
+B_wpos100        seed 5: reached  8 timed out 2 h_min -0.0080 v_max 5.68 t_reach 1.51 tick 19.1/20.0
+B_wv05           seed 1: reached 13 timed out 0 h_min -0.0048 v_max 2.51 t_reach 2.28 tick 18.9/19.6
+B_wv05           seed 2: reached  4 timed out 4 h_min -0.0075 v_max 2.67 t_reach 1.38 tick 19.0/19.7
+B_wv05           seed 3: reached  5 timed out 2 h_min -0.0088 v_max 3.47 t_reach 3.18 tick 19.0/19.4
+B_wv05           seed 4: reached  1 timed out 4 h_min -0.0077 v_max 2.79 t_reach 0.90 tick 19.1/19.1
+B_wv05           seed 5: reached  5 timed out 3 h_min -0.0120 v_max 2.23 t_reach 2.02 tick 19.0/19.2
+B_wv2            seed 1: reached  1 timed out 4 h_min -0.0033 v_max 1.34 t_reach 4.10 tick 19.0/19.4
+B_wv2            seed 2: reached  5 timed out 2 h_min -0.0028 v_max 1.31 t_reach 3.16 tick 18.8/19.1
+B_wv2            seed 3: reached  2 timed out 3 h_min -0.0044 v_max 1.39 t_reach 3.07 tick 19.0/19.2
+B_wv2            seed 4: reached  2 timed out 3 h_min -0.0050 v_max 1.30 t_reach 3.84 tick 19.0/19.3
+B_wv2            seed 5: reached  5 timed out 2 h_min -0.0018 v_max 1.51 t_reach 3.38 tick 18.9/19.6
+B_wrot0          seed 1: reached  9 timed out 2 h_min -0.0030 v_max 2.65 t_reach 1.54 tick 19.0/19.1
+B_wrot0          seed 2: reached  5 timed out 3 h_min -0.0080 v_max 4.02 t_reach 2.27 tick 19.0/19.8
+B_wrot0          seed 3: reached 12 timed out 0 h_min -0.0019 v_max 1.78 t_reach 2.39 tick 18.6/19.1
+B_wrot0          seed 4: reached  5 timed out 3 h_min -0.0030 v_max 1.81 t_reach 1.57 tick 19.0/19.1
+B_wrot0          seed 5: reached 12 timed out 0 h_min -0.0021 v_max 1.95 t_reach 2.10 tick 18.9/19.5
+B_kp30           seed 1: reached 12 timed out 0 h_min -0.0027 v_max 1.93 t_reach 2.44 tick 18.7/19.4
+B_kp30           seed 2: reached  9 timed out 1 h_min -0.0027 v_max 1.84 t_reach 2.60 tick 18.9/19.1
+B_kp30           seed 3: reached  8 timed out 1 h_min -0.0018 v_max 1.79 t_reach 2.89 tick 18.8/19.5
+B_kp30           seed 4: reached 10 timed out 0 h_min -0.0059 v_max 1.72 t_reach 2.59 tick 18.6/19.1
+B_kp30           seed 5: reached  5 timed out 3 h_min -0.0042 v_max 1.69 t_reach 2.35 tick 19.0/19.3
+B_kp80           seed 1: reached 10 timed out 0 h_min -0.0082 v_max 2.06 t_reach 2.73 tick 18.9/19.7
+B_kp80           seed 2: reached  7 timed out 1 h_min -0.0035 v_max 2.44 t_reach 2.72 tick 19.0/19.2
+B_kp80           seed 3: reached  5 timed out 3 h_min -0.0066 v_max 3.09 t_reach 2.17 tick 19.0/19.3
+B_kp80           seed 4: reached 10 timed out 0 h_min -0.0021 v_max 1.88 t_reach 2.91 tick 18.9/19.8
+B_kp80           seed 5: reached  8 timed out 1 h_min -0.0090 v_max 3.13 t_reach 2.93 tick 19.0/19.7
+B_nonom          seed 1: reached  4 timed out 3 h_min -0.0102 v_max 3.35 t_reach 2.38 tick 19.1/19.3
+B_nonom          seed 2: reached  9 timed out 0 h_min -0.0019 v_max 1.74 t_reach 2.72 tick 19.0/19.8
+B_nonom          seed 3: reached  6 timed out 2 h_min -0.0037 v_max 1.77 t_reach 2.36 tick 19.0/19.4
+B_nonom          seed 4: reached  9 timed out 1 h_min -0.0055 v_max 2.23 t_reach 2.44 tick 18.9/19.7
+B_nonom          seed 5: reached  7 timed out 1 h_min -0.0076 v_max 1.81 t_reach 3.37 tick 19.0/19.4
+T30_n4           seed 1: reached  6 timed out 2 h_min -0.0070 v_max 2.13 t_reach 2.38 tick 18.2/18.6
+T30_n4           seed 2: reached  9 timed out 1 h_min -0.0033 v_max 1.71 t_reach 2.55 tick 18.1/18.3
+T30_n4           seed 3: reached 10 timed out 0 h_min -0.0019 v_max 1.71 t_reach 2.51 tick 18.1/18.3
+T30_n4           seed 4: reached  6 timed out 1 h_min -0.0048 v_max 1.78 t_reach 3.03 tick 18.2/19.0
+T30_n4           seed 5: reached  6 timed out 3 h_min -0.0231 v_max 4.62 t_reach 1.97 tick 18.2/18.4
+T35_n3           seed 1: reached  9 timed out 1 h_min -0.0023 v_max 1.98 t_reach 2.56 tick 15.9/16.5
+T35_n3           seed 2: reached 14 timed out 0 h_min -0.0075 v_max 2.11 t_reach 2.09 tick 15.8/16.4
+T35_n3           seed 3: reached  3 timed out 4 h_min -0.0032 v_max 1.84 t_reach 1.61 tick 15.9/16.0
+T35_n3           seed 4: reached  9 timed out 1 h_min -0.0058 v_max 2.07 t_reach 2.35 tick 15.9/16.6
+T35_n3           seed 5: reached 11 timed out 2 h_min -0.0076 v_max 2.30 t_reach 1.42 tick 15.9/16.0
+config             seeds  reached timed out    h_min  v_max  t_reach  tick p99  args
+B_wpos100              5     10.2       2.0  -0.0083   5.68     1.47      20.0  --T 25 --K 256 --n-iter 5 --sigma 0.10 --knot-scale 0,1,1,1,1,1,1 --par w_pos=100
+T35_n3                 5      9.2       1.6  -0.0076   2.30     2.01      16.6  --T 35 --K 256 --n-iter 3 --sigma 0.10 --knot-scale 0,1,1,1,1,1,1
+B_kp30                 5      8.8       1.0  -0.0059   1.93     2.57      19.5  --T 25 --K 256 --n-iter 5 --sigma 0.10 --knot-scale 0,1,1,1,1,1,1 --par kp=30
+B_wrot0                5      8.6       1.6  -0.0080   4.02     1.97      19.8  --T 25 --K 256 --n-iter 5 --sigma 0.10 --knot-scale 0,1,1,1,1,1,1 --par w_rot=0
+B_kp80                 5      8.0       1.0  -0.0090   3.13     2.69      19.8  --T 25 --K 256 --n-iter 5 --sigma 0.10 --knot-scale 0,1,1,1,1,1,1 --par kp=80
+T30_n4                 5      7.4       1.4  -0.0231   4.62     2.49      19.0  --T 30 --K 256 --n-iter 4 --sigma 0.10 --knot-scale 0,1,1,1,1,1,1
+B_nonom                5      7.0       1.4  -0.0102   3.35     2.65      19.8  --T 25 --K 256 --n-iter 5 --sigma 0.10 --knot-scale 0,1,1,1,1,1,1 --no-nominal
+B_wv05                 5      5.6       2.6  -0.0120   3.47     1.95      19.7  --T 25 --K 256 --n-iter 5 --sigma 0.10 --knot-scale 0,1,1,1,1,1,1 --par w_v=0.5
+B_wv2                  5      3.0       2.8  -0.0050   1.51     3.51      19.6  --T 25 --K 256 --n-iter 5 --sigma 0.10 --knot-scale 0,1,1,1,1,1,1 --par w_v=2

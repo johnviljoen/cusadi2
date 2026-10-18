@@ -1,0 +1,104 @@
+{
+  "controller": "ps",
+  "K": 256,
+  "T": 25,
+  "n_iter": 5,
+  "seconds": 30.0,
+  "dtype": "float",
+  "seed": 3,
+  "noise": 0.1,
+  "sigma": [
+    0.0,
+    0.1,
+    0.1,
+    0.1,
+    0.1,
+    0.1,
+    0.1
+  ],
+  "knot_scale": "0,1,1,1,1,1,1",
+  "par": "kp=30",
+  "keep_nominal": true,
+  "waypoints_reached": 8,
+  "waypoints_timed_out": 1,
+  "time_to_reach_mean_s": 2.8875,
+  "time_to_reach_max_s": 5.859999999999999,
+  "h_min_all": -0.0018320398475134003,
+  "h_min": {
+    "joint_limits": 0.22542871625530836,
+    "singularity": 0.026523729722418718,
+    "obstacle": -0.0018320398475134003,
+    "self_collision": 0.07903106301876978,
+    "floor": 0.08645681817009486
+  },
+  "ours_ms_median": 18.790271759033203,
+  "ours_ms_p99": 19.51006917953491,
+  "ours_ms_max": 42.84502410888672,
+  "frax_ms_median": null,
+  "frax_ms_p99": null,
+  "ctrl_wall_ms_median": 18.86750850098906,
+  "sim_ms_median": 1.4785500025027432,
+  "v_max": 1.7881540232680437,
+  "plan_kept_frac": 0.3913333333333333,
+  "improved_iterations_mean": 1.24,
+  "cost_min_mean": 1.6845448401272296,
+  "cost_start_mean": 1.7120420086681842,
+  "events": [
+    {
+      "wp": 0,
+      "t_start": 0.0,
+      "t_end": 2.1,
+      "reached": true
+    },
+    {
+      "wp": 1,
+      "t_start": 2.1,
+      "t_end": 3.46,
+      "reached": true
+    },
+    {
+      "wp": 2,
+      "t_start": 3.46,
+      "t_end": 5.48,
+      "reached": true
+    },
+    {
+      "wp": 3,
+      "t_start": 5.48,
+      "t_end": 11.5,
+      "reached": false
+    },
+    {
+      "wp": 0,
+      "t_start": 11.5,
+      "t_end": 15.32,
+      "reached": true
+    },
+    {
+      "wp": 1,
+      "t_start": 15.32,
+      "t_end": 18.68,
+      "reached": true
+    },
+    {
+      "wp": 2,
+      "t_start": 18.68,
+      "t_end": 21.8,
+      "reached": true
+    },
+    {
+      "wp": 3,
+      "t_start": 21.8,
+      "t_end": 23.26,
+      "reached": true
+    },
+    {
+      "wp": 0,
+      "t_start": 23.26,
+      "t_end": 29.12,
+      "reached": true
+    }
+  ],
+  "n_ticks": 1500,
+  "frames": 0
+}

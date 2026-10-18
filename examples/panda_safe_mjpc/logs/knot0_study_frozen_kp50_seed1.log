@@ -1,0 +1,41 @@
+cusadi2 plans safe_model (30647 nodes, 207 levels, 14596 B shared, block 256) + safe_integrate (3149 nodes, 128 levels) | R=1 K=256 T=35 n_iter=3 proj_iters=48 graph=1 keep_nominal=1 knot sigma [0.0, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
+t=  0.0 reached 0 timed out 0
+t=  5.0 reached 3 timed out 0
+t= 10.0 reached 8 timed out 0
+t= 15.0 reached 12 timed out 0
+t= 20.0 reached 14 timed out 0
+t= 25.0 reached 15 timed out 1
+/home/jovi/code/cusecmpc/cusadi2/examples/panda_safe_mjpc/knot0_study.py:93: RuntimeWarning: Mean of empty slice
+  cost_toward_minus_away_mean=float(np.nanmean(A["cost_toward"] - A["cost_away"])),
+{
+ "variant": "frozen_kp50",
+ "seed": 1,
+ "kp": 50.0,
+ "seconds": 30.0,
+ "knot_scale": [
+  0.0,
+  1.0,
+  1.0,
+  1.0,
+  1.0,
+  1.0,
+  1.0
+ ],
+ "waypoints_reached": 19,
+ "waypoints_timed_out": 1,
+ "time_to_reach_mean_s": 1.2378947368421052,
+ "h_min": -0.005376181859080009,
+ "v_max": 2.751282175669644,
+ "du_median": 1.541286740269796,
+ "du_p90": 5.374497208318685,
+ "du_p99": 12.530162073328615,
+ "du_max": 21.9518224190681,
+ "plan_kept_frac": 0.442,
+ "improved_iters_mean": 1.0066666666666666,
+ "frac_better_mean": 0.009830729166666666,
+ "cost_toward_minus_away_mean": NaN,
+ "cost_toward_lower_frac": 0.0,
+ "frac_toward_among_better_mean": 0.0,
+ "d_win_minus_d_nom_mean_when_switched": 0.0,
+ "d_nom_mean": 0.9160326276868799
+}

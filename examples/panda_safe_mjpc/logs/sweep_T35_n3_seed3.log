@@ -1,0 +1,9 @@
+cusadi2 plans safe_model (30647 nodes, 207 levels, 14596 B shared, block 256) + safe_integrate (3149 nodes, 128 levels) | R=1 K=256 T=35 n_iter=3 proj_iters=48 graph=1 keep_nominal=1 sigma [0.0, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1] par {'kp': np.float64(50.0), 'kd': np.float64(20.0), 'w_pos': np.float64(50.0), 'w_rot': np.float64(2.0), 'w_v': np.float64(1.0), 'w_u': np.float64(0.0001)}
+t=  0.0s wall=  0.6s wp 0 dist 0.230 reached 0 ours 36.56 ms h_min 0.0794
+t=  5.0s wall=  4.9s wp 3 dist 0.660 reached 3 ours 15.59 ms h_min 0.0169
+t= 10.0s wall=  9.4s wp 3 dist 0.093 reached 3 ours 15.94 ms h_min -0.0020
+t= 15.0s wall= 13.9s wp 0 dist 0.056 reached 3 ours 15.95 ms h_min -0.0020
+t= 20.0s wall= 18.4s wp 1 dist 0.151 reached 3 ours 15.95 ms h_min -0.0029
+t= 25.0s wall= 22.8s wp 2 dist 0.162 reached 3 ours 15.95 ms h_min -0.0032
+{'controller': 'ps', 'K': 256, 'T': 35, 'n_iter': 3, 'seconds': 30.0, 'dtype': 'float', 'seed': 3, 'noise': 0.1, 'sigma': [0.0, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1], 'knot_scale': '0,1,1,1,1,1,1', 'par': '', 'keep_nominal': True, 'waypoints_reached': 3, 'waypoints_timed_out': 4, 'time_to_reach_mean_s': 1.6133333333333333, 'time_to_reach_max_s': 1.8399999999999999, 'h_min_all': -0.0032294164263125813, 'ours_ms_median': 15.949760437011719, 'ours_ms_p99': 16.020117778778076, 'ours_ms_max': 36.5648307800293, 'frax_ms_median': None, 'frax_ms_p99': None, 'ctrl_wall_ms_median': 16.022422998503316, 'sim_ms_median': 1.4826184924459085, 'v_max': 1.8358772955023936, 'plan_kept_frac': 0.46266666666666667, 'improved_iterations_mean': 0.8193333333333334, 'cost_min_mean': 3.3034554871122044, 'cost_start_mean': 3.5779343706170716, 'n_ticks': 1500, 'frames': 0}
+h_min per group: {'joint_limits': 0.2391693744100869, 'singularity': 0.0317067747435751, 'obstacle': -0.0032294164263125813, 'self_collision': 0.09182826375485159, 'floor': 0.10660442726839356}

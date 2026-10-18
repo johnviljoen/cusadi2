@@ -1,0 +1,10 @@
+<frozen importlib._bootstrap>:488: RuntimeWarning: to-Python converter for pinocchio::python::DeprecatedBool already registered; second conversion method ignored.
+cusadi2 plans safe_model (30647 nodes, 207 levels, 14596 B shared, block 256) + safe_integrate (3149 nodes, 128 levels) | R=1 K=256 T=35 n_iter=3 proj_iters=0 graph=1 keep_nominal=1 sigma [0.0, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1] par {'kp': np.float64(20.0), 'kd': np.float64(20.0), 'w_pos': np.float64(100.0), 'w_rot': np.float64(2.0), 'w_v': np.float64(1.0), 'w_u': np.float64(0.0001)}
+t=  0.0s wall=  0.5s wp 0 dist 0.230 reached 0 ours 35.73 ms h_min 0.0794
+t=  5.0s wall=  4.9s wp 0 dist 0.710 reached 4 ours 14.82 ms h_min -0.0278
+t= 10.0s wall=  9.2s wp 1 dist 0.060 reached 5 ours 14.82 ms h_min -0.0305
+t= 15.0s wall= 13.6s wp 2 dist 0.070 reached 6 ours 14.82 ms h_min -0.0305
+t= 20.0s wall= 18.1s wp 0 dist 0.252 reached 7 ours 14.82 ms h_min -0.0305
+t= 25.0s wall= 22.5s wp 1 dist 0.687 reached 8 ours 14.82 ms h_min -0.0305
+{'controller': 'ps', 'filter_output_only': True, 'K': 256, 'T': 35, 'n_iter': 3, 'seconds': 30.0, 'dtype': 'float', 'seed': 2, 'noise': 0.1, 'sigma': [0.0, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1], 'knot_scale': '0,1,1,1,1,1,1', 'par': 'kp=20,w_pos=100', 'proj_iters': 48, 'keep_nominal': True, 'waypoints_reached': 8, 'waypoints_timed_out': 2, 'time_to_reach_mean_s': 1.8875, 'time_to_reach_max_s': 4.16, 'h_min_all': -0.03050603721412526, 'ours_ms_median': 14.820832252502441, 'ours_ms_p99': 16.877641849517822, 'ours_ms_max': 35.73459243774414, 'frax_ms_median': None, 'frax_ms_p99': None, 'ctrl_wall_ms_median': 15.563941997243091, 'sim_ms_median': 1.4970270021876786, 'v_max': 10.534225358911238, 'plan_kept_frac': 0.212, 'improved_iterations_mean': 1.872, 'cost_min_mean': 7.517141837994258, 'cost_start_mean': 7.781184656123321, 'n_ticks': 1500, 'frames': 0}
+h_min per group: {'joint_limits': -0.011077853111237879, 'singularity': -0.0005111766259359185, 'obstacle': -0.03050603721412526, 'self_collision': -0.027792671669249758, 'floor': -0.0212223831181678}

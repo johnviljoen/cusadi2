@@ -1,0 +1,98 @@
+{
+  "controller": "ps",
+  "K": 1024,
+  "T": 25,
+  "n_iter": 2,
+  "seconds": 30.0,
+  "dtype": "float",
+  "seed": 3,
+  "noise": 0.1,
+  "sigma": [
+    0.0,
+    0.1,
+    0.1,
+    0.1,
+    0.1,
+    0.1,
+    0.1
+  ],
+  "knot_scale": "0,1,1,1,1,1,1",
+  "par": "",
+  "keep_nominal": true,
+  "waypoints_reached": 5,
+  "waypoints_timed_out": 3,
+  "time_to_reach_mean_s": 1.9000000000000004,
+  "time_to_reach_max_s": 2.4800000000000004,
+  "h_min_all": -0.005301863154838993,
+  "h_min": {
+    "joint_limits": 0.19668518956954628,
+    "singularity": 0.017727167450013848,
+    "obstacle": -0.005301863154838993,
+    "self_collision": 0.0914485683942462,
+    "floor": 0.09612221885397222
+  },
+  "ours_ms_median": 17.705055236816406,
+  "ours_ms_p99": 18.601909885406496,
+  "ours_ms_max": 39.65568161010742,
+  "frax_ms_median": null,
+  "frax_ms_p99": null,
+  "ctrl_wall_ms_median": 17.776239503291436,
+  "sim_ms_median": 1.4695869977003895,
+  "v_max": 1.8601890693791294,
+  "plan_kept_frac": 0.4646666666666667,
+  "improved_iterations_mean": 0.746,
+  "cost_min_mean": 1.7613634785413743,
+  "cost_start_mean": 1.809992702027162,
+  "events": [
+    {
+      "wp": 0,
+      "t_start": 0.0,
+      "t_end": 1.9000000000000001,
+      "reached": true
+    },
+    {
+      "wp": 1,
+      "t_start": 1.9000000000000001,
+      "t_end": 4.1,
+      "reached": true
+    },
+    {
+      "wp": 2,
+      "t_start": 4.1,
+      "t_end": 10.120000000000001,
+      "reached": false
+    },
+    {
+      "wp": 3,
+      "t_start": 10.120000000000001,
+      "t_end": 16.14,
+      "reached": false
+    },
+    {
+      "wp": 0,
+      "t_start": 16.14,
+      "t_end": 18.62,
+      "reached": true
+    },
+    {
+      "wp": 1,
+      "t_start": 18.62,
+      "t_end": 19.36,
+      "reached": true
+    },
+    {
+      "wp": 2,
+      "t_start": 19.36,
+      "t_end": 25.38,
+      "reached": false
+    },
+    {
+      "wp": 3,
+      "t_start": 25.38,
+      "t_end": 27.560000000000002,
+      "reached": true
+    }
+  ],
+  "n_ticks": 1500,
+  "frames": 0
+}

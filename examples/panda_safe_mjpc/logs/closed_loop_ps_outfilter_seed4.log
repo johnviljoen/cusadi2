@@ -1,0 +1,10 @@
+<frozen importlib._bootstrap>:488: RuntimeWarning: to-Python converter for pinocchio::python::DeprecatedBool already registered; second conversion method ignored.
+cusadi2 plans safe_model (30647 nodes, 207 levels, 14596 B shared, block 256) + safe_integrate (3149 nodes, 128 levels) | R=1 K=256 T=35 n_iter=3 proj_iters=0 graph=1 keep_nominal=1 sigma [0.0, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1] par {'kp': np.float64(20.0), 'kd': np.float64(20.0), 'w_pos': np.float64(100.0), 'w_rot': np.float64(2.0), 'w_v': np.float64(1.0), 'w_u': np.float64(0.0001)}
+t=  0.0s wall=  0.6s wp 0 dist 0.230 reached 0 ours 38.45 ms h_min 0.0794
+t=  5.0s wall=  5.0s wp 0 dist 0.712 reached 4 ours 14.84 ms h_min -0.0310
+t= 10.0s wall=  9.4s wp 1 dist 0.688 reached 5 ours 14.83 ms h_min -0.0313
+t= 15.0s wall= 13.8s wp 2 dist 0.072 reached 5 ours 14.84 ms h_min -0.0313
+t= 20.0s wall= 18.2s wp 3 dist 0.083 reached 5 ours 14.84 ms h_min -0.0313
+t= 25.0s wall= 22.6s wp 0 dist 0.586 reached 5 ours 14.84 ms h_min -0.0313
+{'controller': 'ps', 'filter_output_only': True, 'K': 256, 'T': 35, 'n_iter': 3, 'seconds': 30.0, 'dtype': 'float', 'seed': 4, 'noise': 0.1, 'sigma': [0.0, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1], 'knot_scale': '0,1,1,1,1,1,1', 'par': 'kp=20,w_pos=100', 'proj_iters': 48, 'keep_nominal': True, 'waypoints_reached': 6, 'waypoints_timed_out': 3, 'time_to_reach_mean_s': 1.256666666666667, 'time_to_reach_max_s': 1.4400000000000013, 'h_min_all': -0.031328470054754254, 'ours_ms_median': 14.835359573364258, 'ours_ms_p99': 16.832981033325193, 'ours_ms_max': 38.4496955871582, 'frax_ms_median': None, 'frax_ms_p99': None, 'ctrl_wall_ms_median': 15.573044500342803, 'sim_ms_median': 1.4945024995540734, 'v_max': 9.78361770967652, 'plan_kept_frac': 0.208, 'improved_iterations_mean': 1.87, 'cost_min_mean': 7.1651692730188365, 'cost_start_mean': 7.372896850009759, 'n_ticks': 1500, 'frames': 0}
+h_min per group: {'joint_limits': -0.009505360575160271, 'singularity': -0.0003047668912284315, 'obstacle': -0.031328470054754254, 'self_collision': -0.030955237157495985, 'floor': -0.019678819091615653}

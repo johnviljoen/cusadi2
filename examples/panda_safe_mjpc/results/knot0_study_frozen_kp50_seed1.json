@@ -1,0 +1,154 @@
+{
+ "variant": "frozen_kp50",
+ "seed": 1,
+ "kp": 50.0,
+ "seconds": 30.0,
+ "knot_scale": [
+  0.0,
+  1.0,
+  1.0,
+  1.0,
+  1.0,
+  1.0,
+  1.0
+ ],
+ "waypoints_reached": 19,
+ "waypoints_timed_out": 1,
+ "time_to_reach_mean_s": 1.2378947368421052,
+ "h_min": -0.005376181859080009,
+ "v_max": 2.751282175669644,
+ "du_median": 1.541286740269796,
+ "du_p90": 5.374497208318685,
+ "du_p99": 12.530162073328615,
+ "du_max": 21.9518224190681,
+ "plan_kept_frac": 0.442,
+ "improved_iters_mean": 1.0066666666666666,
+ "frac_better_mean": 0.009830729166666666,
+ "cost_toward_minus_away_mean": NaN,
+ "cost_toward_lower_frac": 0.0,
+ "frac_toward_among_better_mean": 0.0,
+ "d_win_minus_d_nom_mean_when_switched": 0.0,
+ "d_nom_mean": 0.9160326276868799,
+ "events": [
+  {
+   "wp": 0,
+   "t_start": 0.0,
+   "t_end": 0.78,
+   "reached": true
+  },
+  {
+   "wp": 1,
+   "t_start": 0.78,
+   "t_end": 1.76,
+   "reached": true
+  },
+  {
+   "wp": 2,
+   "t_start": 1.76,
+   "t_end": 4.36,
+   "reached": true
+  },
+  {
+   "wp": 3,
+   "t_start": 4.36,
+   "t_end": 5.1000000000000005,
+   "reached": true
+  },
+  {
+   "wp": 0,
+   "t_start": 5.1000000000000005,
+   "t_end": 6.58,
+   "reached": true
+  },
+  {
+   "wp": 1,
+   "t_start": 6.58,
+   "t_end": 7.96,
+   "reached": true
+  },
+  {
+   "wp": 2,
+   "t_start": 7.96,
+   "t_end": 9.36,
+   "reached": true
+  },
+  {
+   "wp": 3,
+   "t_start": 9.36,
+   "t_end": 10.0,
+   "reached": true
+  },
+  {
+   "wp": 0,
+   "t_start": 10.0,
+   "t_end": 11.200000000000001,
+   "reached": true
+  },
+  {
+   "wp": 1,
+   "t_start": 11.200000000000001,
+   "t_end": 12.5,
+   "reached": true
+  },
+  {
+   "wp": 2,
+   "t_start": 12.5,
+   "t_end": 14.040000000000001,
+   "reached": true
+  },
+  {
+   "wp": 3,
+   "t_start": 14.040000000000001,
+   "t_end": 14.74,
+   "reached": true
+  },
+  {
+   "wp": 0,
+   "t_start": 14.74,
+   "t_end": 16.14,
+   "reached": true
+  },
+  {
+   "wp": 1,
+   "t_start": 16.14,
+   "t_end": 17.240000000000002,
+   "reached": true
+  },
+  {
+   "wp": 2,
+   "t_start": 17.240000000000002,
+   "t_end": 23.26,
+   "reached": false
+  },
+  {
+   "wp": 3,
+   "t_start": 23.26,
+   "t_end": 24.1,
+   "reached": true
+  },
+  {
+   "wp": 0,
+   "t_start": 24.1,
+   "t_end": 25.16,
+   "reached": true
+  },
+  {
+   "wp": 1,
+   "t_start": 25.16,
+   "t_end": 26.38,
+   "reached": true
+  },
+  {
+   "wp": 2,
+   "t_start": 26.38,
+   "t_end": 28.16,
+   "reached": true
+  },
+  {
+   "wp": 3,
+   "t_start": 28.16,
+   "t_end": 29.54,
+   "reached": true
+  }
+ ]
+}

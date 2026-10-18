@@ -1,0 +1,20 @@
+{
+ "K": 256,
+ "T": 35,
+ "worst": {
+  "samples": 0.0,
+  "u": 1.6586637522838763e-07,
+  "xT": 3.930886480041654e-07,
+  "plan": 1.4855496132470618e-07,
+  "plant": 2.5296996861958135e-08,
+  "cost_sel": 6.530620774688358e-08
+ },
+ "same_selected_index": true,
+ "monotone": {
+  "gpu": true,
+  "cpu": true
+ },
+ "gpu_info": "cusadi2 plans safe_model (30647 nodes, 207 levels, 14596 B shared, block 256) + safe_integrate (3149 nodes, 128 levels) | R=1 K=256 T=35 n_iter=3 proj_iters=48 graph=1 keep_nominal=1 select=cost",
+ "cpu_info": "CPU idealized: CasADi C codegen, 16 OpenMP threads pinned over 8 physical cores, whole controller on the CPU, no transfer: libcpu_T35_float.so (sz_w 0 / 0) | K=256 T=35 n_iter=3 proj_iters=48 keep_nominal=1 scalar=float",
+ "ok": true
+}

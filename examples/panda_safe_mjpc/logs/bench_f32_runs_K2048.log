@@ -1,0 +1,31 @@
+=== bench K2048 run 1 14:18:25
+cusadi2  K=2048 T= 35  tick   64.12 ms (p99   69.06)  iteration   20.79  rollout   20.71  model  0.485  integrate  0.100  project  0.004
+frax     K=2048 T= 35  tick  216.03 ms (p99  222.86)  iteration   72.12  rollout   72.84  model  1.812  integrate  0.176  project  0.005
+mjx      K=2048 T= 35  tick  223.56 ms (p99  230.58)  iteration   74.45  rollout   74.39  model  1.848  integrate  0.205  project  0.005
+cusadi   K=2048 T= 35  tick  163.64 ms (p99  164.99)  iteration   54.58  rollout   54.57  model  1.411  integrate  0.134  project  0.004
+cpu      K=2048 T= 35  tick  169.82 ms (p99  531.00)  iteration   55.08  rollout   55.68  model  1.261  integrate  0.142  project  0.006
+=== bench K2048 run 2 14:20:06
+cusadi2  K=2048 T= 35  tick   62.80 ms (p99   71.96)  iteration   20.54  rollout   20.52  model  0.485  integrate  0.100  project  0.004
+frax     K=2048 T= 35  tick  211.35 ms (p99  215.86)  iteration   70.56  rollout   70.69  model  1.806  integrate  0.173  project  0.004
+mjx      K=2048 T= 35  tick  222.43 ms (p99  226.64)  iteration   76.13  rollout   76.99  model  1.865  integrate  0.205  project  0.005
+cusadi   K=2048 T= 35  tick  167.79 ms (p99  181.38)  iteration   57.06  rollout   56.07  model  1.414  integrate  0.135  project  0.005
+cpu      K=2048 T= 35  tick  170.67 ms (p99  926.28)  iteration   50.58  rollout   50.63  model  1.254  integrate  0.143  project  0.006
+=== bench K2048 run 3 14:21:52
+cusadi2  K=2048 T= 35  tick   61.40 ms (p99   65.06)  iteration   20.53  rollout   20.51  model  0.486  integrate  0.100  project  0.004
+frax     K=2048 T= 35  tick  211.93 ms (p99  217.33)  iteration   70.93  rollout   70.77  model  1.809  integrate  0.175  project  0.004
+mjx      K=2048 T= 35  tick  222.41 ms (p99  226.68)  iteration   74.42  rollout   74.25  model  1.846  integrate  0.198  project  0.004
+cusadi   K=2048 T= 35  tick  162.46 ms (p99  165.92)  iteration   54.23  rollout   54.22  model  1.413  integrate  0.134  project  0.004
+cpu      K=2048 T= 35  tick  151.27 ms (p99  196.57)  iteration   50.44  rollout   50.37  model  1.244  integrate  0.143  project  0.006
+=== bench K2048 run 4 14:23:31
+cusadi2  K=2048 T= 35  tick   61.43 ms (p99   65.33)  iteration   20.55  rollout   20.53  model  0.485  integrate  0.100  project  0.004
+frax     K=2048 T= 35  tick  211.47 ms (p99  216.46)  iteration   70.23  rollout   71.15  model  1.812  integrate  0.191  project  0.004
+mjx      K=2048 T= 35  tick  223.60 ms (p99  245.04)  iteration   74.50  rollout   74.27  model  1.848  integrate  0.206  project  0.005
+cusadi   K=2048 T= 35  tick  163.32 ms (p99  173.05)  iteration   54.29  rollout   54.44  model  1.414  integrate  0.135  project  0.004
+cpu      K=2048 T= 35  tick  274.99 ms (p99  462.31)  iteration   94.07  rollout   89.76  model  1.418  integrate  0.147  project  0.006
+=== bench K2048 run 5 14:25:19
+cusadi2  K=2048 T= 35  tick   63.04 ms (p99   70.83)  iteration   21.38  rollout   20.55  model  0.486  integrate  0.100  project  0.004
+frax     K=2048 T= 35  tick  212.81 ms (p99  225.09)  iteration   71.13  rollout   70.97  model  1.801  integrate  0.173  project  0.004
+mjx      K=2048 T= 35  tick  235.33 ms (p99  241.14)  iteration   78.65  rollout   78.60  model  2.013  integrate  0.207  project  0.004
+cusadi   K=2048 T= 35  tick  164.57 ms (p99  180.88)  iteration   55.75  rollout   56.22  model  1.414  integrate  0.134  project  0.004
+cpu      K=2048 T= 35  tick  178.69 ms (p99  409.49)  iteration   60.32  rollout   55.86  model  1.334  integrate  0.142  project  0.006
+=== done 14:27:04

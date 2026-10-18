@@ -1,0 +1,98 @@
+{
+  "controller": "ps",
+  "K": 256,
+  "T": 25,
+  "n_iter": 5,
+  "seconds": 30.0,
+  "dtype": "float",
+  "seed": 2,
+  "noise": 0.1,
+  "sigma": [
+    0.0,
+    0.1,
+    0.1,
+    0.1,
+    0.1,
+    0.1,
+    0.1
+  ],
+  "knot_scale": "0,1,1,1,1,1,1",
+  "par": "w_rot=0",
+  "keep_nominal": true,
+  "waypoints_reached": 5,
+  "waypoints_timed_out": 3,
+  "time_to_reach_mean_s": 2.2679999999999993,
+  "time_to_reach_max_s": 5.66,
+  "h_min_all": -0.008024368732360121,
+  "h_min": {
+    "joint_limits": -0.0013181866090792305,
+    "singularity": -0.00010194570871714377,
+    "obstacle": -0.008024368732360121,
+    "self_collision": 0.06892655367763612,
+    "floor": 0.07920115303458512
+  },
+  "ours_ms_median": 19.00598430633545,
+  "ours_ms_p99": 19.807412071228025,
+  "ours_ms_max": 42.93772888183594,
+  "frax_ms_median": null,
+  "frax_ms_p99": null,
+  "ctrl_wall_ms_median": 19.079286001215223,
+  "sim_ms_median": 1.484326996433083,
+  "v_max": 4.015978175199653,
+  "plan_kept_frac": 0.30466666666666664,
+  "improved_iterations_mean": 1.5453333333333332,
+  "cost_min_mean": 4.211118080814679,
+  "cost_start_mean": 5.399873401135206,
+  "events": [
+    {
+      "wp": 0,
+      "t_start": 0.0,
+      "t_end": 1.26,
+      "reached": true
+    },
+    {
+      "wp": 1,
+      "t_start": 1.26,
+      "t_end": 2.86,
+      "reached": true
+    },
+    {
+      "wp": 2,
+      "t_start": 2.86,
+      "t_end": 8.52,
+      "reached": true
+    },
+    {
+      "wp": 3,
+      "t_start": 8.52,
+      "t_end": 14.540000000000001,
+      "reached": false
+    },
+    {
+      "wp": 0,
+      "t_start": 14.540000000000001,
+      "t_end": 20.56,
+      "reached": false
+    },
+    {
+      "wp": 1,
+      "t_start": 20.56,
+      "t_end": 26.560000000000002,
+      "reached": false
+    },
+    {
+      "wp": 2,
+      "t_start": 26.560000000000002,
+      "t_end": 28.46,
+      "reached": true
+    },
+    {
+      "wp": 3,
+      "t_start": 28.46,
+      "t_end": 29.38,
+      "reached": true
+    }
+  ],
+  "n_ticks": 1500,
+  "frames": 0
+}

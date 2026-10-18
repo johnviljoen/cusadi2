@@ -1,0 +1,38 @@
+cusadi2 plans safe_model (30647 nodes, 207 levels, 14596 B shared, block 256) + safe_integrate (3149 nodes, 128 levels) | R=1 K=256 T=35 n_iter=3 proj_iters=48 graph=1 keep_nominal=1 knot sigma [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
+t=  0.0 reached 0 timed out 0
+t=  5.0 reached 4 timed out 0
+t= 10.0 reached 6 timed out 0
+t= 15.0 reached 9 timed out 0
+t= 20.0 reached 12 timed out 0
+t= 25.0 reached 16 timed out 0
+{
+ "variant": "noisy",
+ "seed": 4,
+ "seconds": 30.0,
+ "knot_scale": [
+  1.0,
+  1.0,
+  1.0,
+  1.0,
+  1.0,
+  1.0,
+  1.0
+ ],
+ "waypoints_reached": 18,
+ "waypoints_timed_out": 0,
+ "time_to_reach_mean_s": 1.6122222222222222,
+ "h_min": -0.015989547983183694,
+ "v_max": 3.0134810670281427,
+ "du_median": 6.797745910160214,
+ "du_p90": 18.380185524479767,
+ "du_p99": 32.4309104338639,
+ "du_max": 44.55534499587255,
+ "plan_kept_frac": 0.254,
+ "improved_iters_mean": 1.61,
+ "frac_better_mean": 0.026354166666666668,
+ "cost_toward_minus_away_mean": 0.011069525704421634,
+ "cost_toward_lower_frac": 0.4,
+ "frac_toward_among_better_mean": 0.45231260188018724,
+ "d_win_minus_d_nom_mean_when_switched": 0.033216170279385275,
+ "d_nom_mean": 1.8396256456107942
+}

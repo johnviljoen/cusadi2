@@ -1,0 +1,11 @@
+<frozen importlib._bootstrap>:488: RuntimeWarning: to-Python converter for pinocchio::python::DeprecatedBool already registered; second conversion method ignored.
+/home/jovi/code/cusecmpc/cusadi2/profiling/third_party/frax/frax/__init__.py:80: UserWarning: [frax] CPU backend detected but some performance settings are not configured.
+These are optional, but should lead to better precision and speed. See the frax README for more details.
+- Detected JAX version 0.11.1. Consider using a version before JAX 0.4.32 for best CPU performance.
+  check_env_vars()
+nvcc libunrolled_integrate_float.so: 2.1 s
+nvcc libunrolled_model_T10_float.so: 19.9 s
+nvcc libunrolled_model_T25_float.so: 19.4 s
+nvcc libunrolled_model_T35_float.so: 19.6 s
+nvcc libunrolled_model_T50_float.so: 19.2 s
+nvcc libunrolled_model_T100_float.so: 19.2 s

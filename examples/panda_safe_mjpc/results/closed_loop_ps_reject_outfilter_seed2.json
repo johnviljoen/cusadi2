@@ -1,0 +1,157 @@
+{
+  "controller": "ps",
+  "filter_output_only": true,
+  "select": "feasible",
+  "feasible_candidates_mean": 99.92733333333334,
+  "ticks_without_feasible_frac": 0.10133333333333333,
+  "K": 256,
+  "T": 35,
+  "n_iter": 3,
+  "seconds": 30.0,
+  "dtype": "float",
+  "seed": 2,
+  "noise": 0.1,
+  "sigma": [
+    0.0,
+    0.1,
+    0.1,
+    0.1,
+    0.1,
+    0.1,
+    0.1
+  ],
+  "knot_scale": "0,1,1,1,1,1,1",
+  "par": "kp=20,w_pos=100",
+  "proj_iters": 48,
+  "keep_nominal": true,
+  "waypoints_reached": 17,
+  "waypoints_timed_out": 0,
+  "time_to_reach_mean_s": 1.6105882352941177,
+  "time_to_reach_max_s": 3.4399999999999977,
+  "h_min_all": -0.004025039769496641,
+  "h_min": {
+    "joint_limits": 0.2312640188407471,
+    "singularity": 0.006339256856334126,
+    "obstacle": -0.004025039769496641,
+    "self_collision": 0.002761826704131859,
+    "floor": 0.0032116748913504443
+  },
+  "ours_ms_median": 19.873600006103516,
+  "ours_ms_p99": 22.10682621002197,
+  "ours_ms_max": 47.64883041381836,
+  "frax_ms_median": null,
+  "frax_ms_p99": null,
+  "ctrl_wall_ms_median": 20.492875002673827,
+  "sim_ms_median": 1.3361474993871525,
+  "v_max": 1.7510602030627946,
+  "plan_kept_frac": 0.26266666666666666,
+  "improved_iterations_mean": 1.6066666666666667,
+  "cost_min_mean": 7.894057279159625,
+  "cost_start_mean": 8.163104368070762,
+  "events": [
+    {
+      "wp": 0,
+      "t_start": 0.0,
+      "t_end": 0.84,
+      "reached": true
+    },
+    {
+      "wp": 1,
+      "t_start": 0.84,
+      "t_end": 1.78,
+      "reached": true
+    },
+    {
+      "wp": 2,
+      "t_start": 1.78,
+      "t_end": 3.14,
+      "reached": true
+    },
+    {
+      "wp": 3,
+      "t_start": 3.14,
+      "t_end": 5.98,
+      "reached": true
+    },
+    {
+      "wp": 0,
+      "t_start": 5.98,
+      "t_end": 7.0600000000000005,
+      "reached": true
+    },
+    {
+      "wp": 1,
+      "t_start": 7.0600000000000005,
+      "t_end": 9.88,
+      "reached": true
+    },
+    {
+      "wp": 2,
+      "t_start": 9.88,
+      "t_end": 11.1,
+      "reached": true
+    },
+    {
+      "wp": 3,
+      "t_start": 11.1,
+      "t_end": 12.56,
+      "reached": true
+    },
+    {
+      "wp": 0,
+      "t_start": 12.56,
+      "t_end": 13.700000000000001,
+      "reached": true
+    },
+    {
+      "wp": 1,
+      "t_start": 13.700000000000001,
+      "t_end": 16.82,
+      "reached": true
+    },
+    {
+      "wp": 2,
+      "t_start": 16.82,
+      "t_end": 18.06,
+      "reached": true
+    },
+    {
+      "wp": 3,
+      "t_start": 18.06,
+      "t_end": 19.3,
+      "reached": true
+    },
+    {
+      "wp": 0,
+      "t_start": 19.3,
+      "t_end": 20.44,
+      "reached": true
+    },
+    {
+      "wp": 1,
+      "t_start": 20.44,
+      "t_end": 23.88,
+      "reached": true
+    },
+    {
+      "wp": 2,
+      "t_start": 23.88,
+      "t_end": 25.1,
+      "reached": true
+    },
+    {
+      "wp": 3,
+      "t_start": 25.1,
+      "t_end": 26.3,
+      "reached": true
+    },
+    {
+      "wp": 0,
+      "t_start": 26.3,
+      "t_end": 27.38,
+      "reached": true
+    }
+  ],
+  "n_ticks": 1500,
+  "frames": 0
+}
