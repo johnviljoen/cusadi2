@@ -53,6 +53,18 @@ FRAX_COLOR = "#e377c2"
 # the frax campaign lives in its own results root (run.py --frax-only with CUSADI2_RESULTS)
 FRAX_RESULTS = os.environ.get("CUSADI2_FRAX_RESULTS", os.path.join(os.path.dirname(os.path.abspath(__file__)), "results_frax"))
 FRAX_BASELINE = ("frax", "frax", FRAX_COLOR)
+# the native CPU baselines (run.py --native-only with CUSADI2_RESULTS; native_cpu.py):
+# pure Pinocchio C++ (idealized / + transfer, fp64 and fp32) and libmujoco C
+# (idealized / + transfer, fp64 only -- mjtNum is double; drawn against both
+# cusadi2 precisions in the single-precision figures, labelled as fp64).
+# NOT drawn by default (an exploration: CasADi-C codegen is the faster CPU
+# baseline everywhere above B=16); pass baselines=BASELINES + NATIVE_BASELINES
+# or _absolute_series(native=True) to add them.
+NATIVE_RESULTS = os.environ.get("CUSADI2_NATIVE_RESULTS", os.path.join(os.path.dirname(os.path.abspath(__file__)), "results_native"))
+PIN_IDEAL_COLOR, PIN_COLOR, MJCPU_IDEAL_COLOR, MJCPU_COLOR = "#ff7f0e", "#d62728", "#17becf", "#7f7f7f"
+NATIVE_BASELINES = [("pin_ideal", "Pinocchio idealized", PIN_IDEAL_COLOR), ("pin", "Pinocchio + transfer", PIN_COLOR),
+                    ("mjcpu_ideal", "MuJoCo CPU idealized (fp64)", MJCPU_IDEAL_COLOR), ("mjcpu", "MuJoCo CPU + transfer (fp64)", MJCPU_COLOR)]
+NATIVE_FIXED_FP = {"mjcpu_ideal": "fp64", "mjcpu": "fp64"}      # baselines with one precision only
 CUSADI_CONFIG = "batch"  # the campaign config that runs the original cusadi's execution model
 BASELINES = [("mjx", "MuJoCo XLA", MJX_COLOR), ("warp", "MuJoCo Warp", WARP_COLOR),
              ("cpu_ideal", "CPU idealized", CPU_IDEAL_COLOR), ("cpu", "CPU + transfer", CPU_COLOR),
@@ -111,10 +123,12 @@ def _json_results(rdir, name):
     return _avg(acc)
 
 
-def _cpu_wall(rdir, dtype, key="seq_transfer_us", threads=CPU_THREADS):
-    """{func: {B: mean us}} of the CPU reference (idealized: seq_us; transfer: seq_transfer_us)."""
+def _cpu_wall(rdir, dtype, key="seq_transfer_us", threads=CPU_THREADS, name=None):
+    """{func: {B: mean us}} of the CPU reference (idealized: seq_us; transfer:
+    seq_transfer_us), or of any cpu-schema json `name` under runs/<k>/ (the
+    native baselines' pin_<dtype>.json / mjcpu.json, keys as above + rollout_us)."""
     acc = {}
-    for path in _run_files(rdir, f"cpu_{dtype}.json"):
+    for path in _run_files(rdir, name or f"cpu_{dtype}.json"):
         try:
             d = json.load(open(path)).get(key) or {}
         except Exception:
@@ -128,6 +142,15 @@ def _cpu_wall(rdir, dtype, key="seq_transfer_us", threads=CPU_THREADS):
 
 def _baseline_wall_us(rdir, baseline, dtype, fp, func, kind):
     """{B: baseline wall us} for one robot / precision / function, or {}."""
+    ndir = os.path.join(NATIVE_RESULTS, os.path.basename(rdir))
+    if baseline in ("pin_ideal", "pin"):
+        return _cpu_wall(ndir, dtype, "seq_us" if baseline == "pin_ideal" else "seq_transfer_us",
+                         name=f"pin_{dtype}.json").get(func) or {}
+    if baseline in ("mjcpu_ideal", "mjcpu"):           # fp64 only: the same numbers against either cusadi2 precision
+        if kind == "hess":
+            return {}
+        return _cpu_wall(ndir, "double", "seq_us" if baseline == "mjcpu_ideal" else "seq_transfer_us",
+                         name="mjcpu.json").get(func) or {}
     if baseline == "mjx":
         return {b: v * 1e6 for b, v in (_json_results(rdir, f"mjx_{fp}.json").get(f"{kind}_batched") or {}).items()}
     if baseline == "warp":
@@ -271,7 +294,7 @@ def plot_speedup_vs_batch(baseline="mjx", ymax=None, config="full"):
     print(f"wrote {stem}.png/.pdf  (raw max {m:.1f})")
 
 
-def plot_speedup_vs_batch_all(yscale="log", config="full", baselines=BASELINES, stem="paper_speedup_vs_batch_all",
+def plot_speedup_vs_batch_all(yscale="log", config="full", baselines=None, stem="paper_speedup_vs_batch_all",
                               fps=("fp32", "fp64"), height_in=None, palatino=True, print_pt=None, textwidth_in=7.16):
     """All baselines on one set of axes per function: colour = baseline, solid
     line + filled marker = fp64, dashed + open = fp32. Median + IQR band per
@@ -293,6 +316,7 @@ def plot_speedup_vs_batch_all(yscale="log", config="full", baselines=BASELINES, 
         from paper_fonts import use_palatino
         use_palatino()
 
+    baselines = list(BASELINES) if baselines is None else baselines
     series = [sr for sr in SERIES if sr[1] in fps]
     single = len(series) == 1
     style = {"fp64": ("-", "o", True), "fp32": ("-", "o", True) if single else ("--", "o", False)}
@@ -336,6 +360,8 @@ def _draw_speedup_vs_batch_all(plt, matplotlib, yscale, config, baselines, serie
         for baseline, blabel, color in baselines:
             data = _speedups(func, kind, baseline=baseline, config=config)
             for _, fp, _ in series:
+                if not single and NATIVE_FIXED_FP.get(baseline, fp) != fp:     # one-precision baseline: drawn once
+                    continue
                 per = data.get(fp) or {}
                 xs, ns, med, lo, hi = _ensemble(per)
                 if not xs:
@@ -416,14 +442,19 @@ def _absolute_rows(B, func, kind):
             d[f"cpu_{fp}"] = _baseline_wall_us(rdir, "cpu", dtype, fp, func, kind).get(B)
             d[f"cpu_ideal_{fp}"] = _baseline_wall_us(rdir, "cpu_ideal", dtype, fp, func, kind).get(B)
             d[f"frax_{fp}"] = _baseline_wall_us(rdir, "frax", dtype, fp, func, kind).get(B)
+            d[f"pin_ideal_{fp}"] = _baseline_wall_us(rdir, "pin_ideal", dtype, fp, func, kind).get(B)
+            d[f"pin_{fp}"] = _baseline_wall_us(rdir, "pin", dtype, fp, func, kind).get(B)
         d["warp"] = _baseline_wall_us(rdir, "warp", "float", "fp32", func, kind).get(B)
+        d["mjcpu_ideal"] = _baseline_wall_us(rdir, "mjcpu_ideal", "double", "fp64", func, kind).get(B)
+        d["mjcpu"] = _baseline_wall_us(rdir, "mjcpu", "double", "fp64", func, kind).get(B)
         rows[robot] = d
     return rows
 
 
-def _absolute_series(fps=("fp32", "fp64")):
+def _absolute_series(fps=("fp32", "fp64"), native=False):
     """(key, linestyle, marker, label, color, filled) in draw order, for the
-    precisions in `fps`; the precision is left off the labels when there is one."""
+    precisions in `fps`; the precision is left off the labels when there is one.
+    native=True appends the native CPU baselines (off by default: exploration only)."""
     series = [(d, fp, c) for d, fp, c in SERIES if fp in fps]
     tag = (lambda fp: f" {fp}") if len(series) > 1 else (lambda fp: "")
     out = []
@@ -440,6 +471,14 @@ def _absolute_series(fps=("fp32", "fp64")):
         out.append((f"cpu_ideal_{fp}", (0, (3, 1, 1, 1)), "v", f"CPU idealized{tag(fp)}", CPU_IDEAL_COLOR, fp == "fp32"))
     for _, fp, _ in series:
         out.append((f"cpu_{fp}", (0, (3, 1, 1, 1)), "P", f"CPU + transfer{tag(fp)}", CPU_COLOR, fp == "fp32"))
+    if not native:
+        return out
+    for _, fp, _ in series:
+        out.append((f"pin_ideal_{fp}", (0, (3, 1, 1, 1)), "<", f"Pinocchio idealized{tag(fp)}", PIN_IDEAL_COLOR, fp == "fp32"))
+    for _, fp, _ in series:
+        out.append((f"pin_{fp}", (0, (3, 1, 1, 1)), ">", f"Pinocchio + transfer{tag(fp)}", PIN_COLOR, fp == "fp32"))
+    out.append(("mjcpu_ideal", (0, (3, 1, 1, 1)), "x", "MuJoCo CPU idealized (fp64)", MJCPU_IDEAL_COLOR, False))
+    out.append(("mjcpu", (0, (3, 1, 1, 1)), "+", "MuJoCo CPU + transfer (fp64)", MJCPU_COLOR, False))
     return out
 
 
@@ -683,7 +722,7 @@ def plot_dag_shape_speedup(baseline="mjx", fp="fp32", batches=(64, 256), config=
     use_palatino()
     P = PRINT_PT
 
-    blabel = dict((b, l) for b, l, _ in BASELINES + [FRAX_BASELINE])[baseline]
+    blabel = dict((b, l) for b, l, _ in BASELINES + [FRAX_BASELINE] + NATIVE_BASELINES)[baseline]
     shape = _dag_shape()
     sp_by_func = {func: _speedups(func, kind, baseline=baseline, config=config)[fp] for func, _, kind in FUNCS}
     # points: (B, func, robot, mean_width, depth, speedup)
@@ -784,6 +823,7 @@ def plot_speedup_dag_banner(fp="fp32", baseline_dag="cusadi", batches=(64, 256),
     s_line = textwidth_in / (4.4 * 3)                              # the print scale of plot_speedup_vs_batch_all's lines (drawn 13.2 in wide)
     lw, ms, mew, raw_s = 1.6 * s_line, 3.5 * s_line, 1.2 * s_line, 5 * s_line ** 2
     baselines = list(BASELINES) + [FRAX_BASELINE] if baselines is None else baselines
+    panel_title = {"fk": "forward kinematics", "fkjac": "Jacobians", "fkhess": "Hessians"}   # the left panels' titles (shorter than FUNCS')
     # ---- the speedup panels' data (as plot_speedup_vs_batch_all)
     sp, band_max, band_min, raw_max = {}, 0.0, np.inf, 0.0
     for func, title, kind in FUNCS:
@@ -839,7 +879,7 @@ def plot_speedup_dag_banner(fp="fp32", baseline_dag="cusadi", batches=(64, 256),
             ax.xaxis.set_minor_locator(matplotlib.ticker.NullLocator())
             ax.set_xlim(BATCHES[0] / 1.35, BATCHES[-1] * 1.35)
             ax.set_xlabel("batch size B")
-            ax.set_title(title, fontsize=F)
+            ax.set_title(panel_title.get(func, title), fontsize=F)
             ax.grid(True, which="major", ls=":", alpha=0.4, lw=P["grid_lw"] + 0.2)
             if ax is not axL[0]:
                 ax.tick_params(labelleft=False)

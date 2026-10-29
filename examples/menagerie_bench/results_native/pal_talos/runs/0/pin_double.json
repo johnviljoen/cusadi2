@@ -1,0 +1,118 @@
+{
+  "robot": "pal_talos",
+  "dtype": "double",
+  "backend": "pinocchio",
+  "pinocchio": "4.1.0",
+  "pin_march": "",
+  "composites_expanded": 0,
+  "cpu": "AMD Ryzen 7 5800X3D 8-Core Processor",
+  "threads": 16,
+  "n_stages": 8,
+  "cpu_threads": [
+    16
+  ],
+  "n_timed": 2000,
+  "sizes": {
+    "fk": {
+      "nnz_in": 51,
+      "nnz_out": 540
+    },
+    "fkjac": {
+      "nnz_in": 51,
+      "nnz_out": 13500
+    },
+    "fkhess": {
+      "nnz_in": 51,
+      "nnz_out": 675000
+    }
+  },
+  "hess_convention": "getFrameKinematicHessian LOCAL_WORLD_ALIGNED, dense 6 x nv x nv per frame",
+  "latency_us": {
+    "fk": 2.144,
+    "fkjac": 6.843,
+    "fkhess": 73.019
+  },
+  "seq_us": {
+    "fk": {
+      "16": {
+        "1": 4.379,
+        "4": 29.466,
+        "16": 146.059,
+        "64": 159.403,
+        "256": 497.508,
+        "1024": 3819.293,
+        "4096": 8608.543,
+        "16384": 35975.8
+      }
+    },
+    "fkjac": {
+      "16": {
+        "1": 10.189,
+        "4": 52.229,
+        "16": 95.08,
+        "64": 605.651,
+        "256": 2431.208,
+        "1024": 9711.056,
+        "4096": 39612.654,
+        "16384": 92607.506
+      }
+    },
+    "fkhess": {
+      "16": {
+        "1": 101.874,
+        "4": 359.984,
+        "16": 1442.27,
+        "64": 3107.413,
+        "256": 12404.944,
+        "1024": 51336.717,
+        "4096": 285881.309,
+        "16384": 804252.814
+      }
+    }
+  },
+  "seq_transfer_us": {
+    "fk": {
+      "16": {
+        "1": 16.802,
+        "4": 47.641,
+        "16": 67.949,
+        "64": 354.135,
+        "256": 983.793,
+        "1024": 3739.471,
+        "4096": 18021.379,
+        "16384": 71640.047
+      }
+    },
+    "fkjac": {
+      "16": {
+        "1": 69.021,
+        "4": 197.435,
+        "16": 634.966,
+        "64": 2811.771,
+        "256": 14520.793,
+        "1024": 67205.336,
+        "4096": 246803.171,
+        "16384": null
+      }
+    },
+    "fkhess": {
+      "16": {
+        "1": 2224.736,
+        "4": 21270.897,
+        "16": 85819.908,
+        "64": 349593.363,
+        "256": 1371590.47,
+        "1024": null,
+        "4096": null,
+        "16384": null
+      }
+    }
+  },
+  "skipped": {
+    "fkjac_transfer B*N=131072 thr=16": "device buffers 13.2 GB > cap 12 GB",
+    "fkhess_transfer B*N=8192 thr=16": "host buffers 41.2 GB > 90% of available 23.6 GB",
+    "fkhess_transfer B*N=32768 thr=16": "host buffers 164.8 GB > 90% of available 23.6 GB",
+    "fkhess_transfer B*N=131072 thr=16": "host buffers 659.2 GB > 90% of available 23.6 GB"
+  },
+  "failed": {}
+}

@@ -1,0 +1,40 @@
+{
+  "robot": "shadow_dexee",
+  "xml": "shadow_dexee/shadow_dexee.xml",
+  "menagerie_commit": "8161bba264d7fa7c99ca301e91e7fb44737676ad",
+  "manifest_commit": "8161bba264d7fa7c99ca301e91e7fb44737676ad",
+  "gate": {
+    "status": "pass",
+    "reason": null,
+    "nq": 12,
+    "nv": 12,
+    "n_bodies": 19,
+    "n_bodies_unnamed": 0,
+    "floating": false,
+    "fk_max_err": 1.6653345369377348e-15,
+    "root_corr": false,
+    "preproc": {
+      "includes_flattened": false,
+      "multitree_wrapped": true,
+      "anchors_fixed": 0
+    }
+  },
+  "stages": {
+    "gate": {
+      "status": "pass",
+      "cached": true,
+      "seconds": 0
+    },
+    "native_gate": {
+      "status": "skip",
+      "reason": "native_gate_error: CalledProcessError: Command '['/home/jovi/code/cusecmpc/cusadi2/examples/menagerie_bench/build/native/mj', '/home/jovi/code/cusecmpc/cusadi2/examples/menagerie_bench/build/shadow_dexee/native/model.mjb', '/home/jovi/code/cusecmpc/cusadi2/examples/menagerie_bench/build/shadow_dexee/native/bodies.txt', 'fk', 'check', '/home/jovi/code/cusecmpc/cusadi2/examples/menagerie_bench/build/shadow_dexee/native/check_q_321598.bin', '/home/jovi/code/cusecmpc/cusadi2/examples/menagerie_bench",
+      "cached": false,
+      "failed": null,
+      "err": null,
+      "hess_reference": null,
+      "composites_expanded": null
+    }
+  },
+  "runs": {},
+  "complete": false
+}

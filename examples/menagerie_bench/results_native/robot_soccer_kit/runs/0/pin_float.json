@@ -1,0 +1,119 @@
+{
+  "robot": "robot_soccer_kit",
+  "dtype": "float",
+  "backend": "pinocchio",
+  "pinocchio": "4.1.0",
+  "pin_march": "",
+  "composites_expanded": 0,
+  "cpu": "AMD Ryzen 7 5800X3D 8-Core Processor",
+  "threads": 16,
+  "n_stages": 8,
+  "cpu_threads": [
+    16
+  ],
+  "n_timed": 2000,
+  "sizes": {
+    "fk": {
+      "nnz_in": 71,
+      "nnz_out": 780
+    },
+    "fkjac": {
+      "nnz_in": 71,
+      "nnz_out": 27300
+    },
+    "fkhess": {
+      "nnz_in": 71,
+      "nnz_out": 1911000
+    }
+  },
+  "hess_convention": "getFrameKinematicHessian LOCAL_WORLD_ALIGNED, dense 6 x nv x nv per frame",
+  "latency_us": {
+    "fk": 2.866,
+    "fkjac": 5.801,
+    "fkhess": 20.128
+  },
+  "seq_us": {
+    "fk": {
+      "16": {
+        "1": 5.7,
+        "4": 12.774,
+        "16": 86.124,
+        "64": 191.414,
+        "256": 669.654,
+        "1024": 4757.268,
+        "4096": 10456.137,
+        "16384": 42696.965
+      }
+    },
+    "fkjac": {
+      "16": {
+        "1": 8.997,
+        "4": 50.436,
+        "16": 158.672,
+        "64": 597.757,
+        "256": 2372.061,
+        "1024": 9528.352,
+        "4096": 21271.957,
+        "16384": 85670.637
+      }
+    },
+    "fkhess": {
+      "16": {
+        "1": 32.412,
+        "4": 158.762,
+        "16": 321.361,
+        "64": 2290.006,
+        "256": 9200.328,
+        "1024": 20818.596,
+        "4096": 83948.865,
+        "16384": 338378.432
+      }
+    }
+  },
+  "seq_transfer_us": {
+    "fk": {
+      "16": {
+        "1": 17.143,
+        "4": 47.601,
+        "16": 68.049,
+        "64": 375.654,
+        "256": 1455.278,
+        "1024": 5818.025,
+        "4096": 14738.632,
+        "16384": 62090.269
+      }
+    },
+    "fkjac": {
+      "16": {
+        "1": 54.664,
+        "4": 165.615,
+        "16": 706.464,
+        "64": 2462.163,
+        "256": 11312.825,
+        "1024": 49817.217,
+        "4096": 211412.75,
+        "16384": null
+      }
+    },
+    "fkhess": {
+      "16": {
+        "1": 4259.251,
+        "4": 32117.707,
+        "16": 127296.412,
+        "64": 506171.665,
+        "256": null,
+        "1024": null,
+        "4096": null,
+        "16384": null
+      }
+    }
+  },
+  "skipped": {
+    "fkjac_transfer B*N=131072 thr=16": "device buffers 13.4 GB > cap 12 GB",
+    "fkhess_transfer B*N=2048 thr=16": "device buffers 14.6 GB > cap 12 GB",
+    "fkhess_transfer B*N=8192 thr=16": "host buffers 58.3 GB > 90% of available 23.4 GB",
+    "fkhess_transfer B*N=32768 thr=16": "host buffers 233.3 GB > 90% of available 23.4 GB",
+    "fkhess_transfer B*N=131072 thr=16": "host buffers 933.1 GB > 90% of available 23.4 GB"
+  },
+  "failed": {}
+}

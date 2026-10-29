@@ -12,18 +12,18 @@ configurations, and they agree with the committed results once divided by 8.
 
 ## 1. Execution model, side by side
 
-| | XLA:GPU (plain `jax.jit`) | cusadi2 |
-|---|---|---|
-| unit of a kernel | one *fusion*: a connected producer/consumer subgraph, at most 96 operands+outputs (`gpu_fusible.h:88`), about 10k emitted ops (`gpu_hlo_cost_analysis.h:43`) | the whole function DAG, one interpreter kernel |
-| in-kernel parallelism | the output elements of the fusion's array shape, one thread per element (`launch_dimensions.cc:62-82`, 128 threads per block) | batch × stages × level width |
-| where intermediates live | registers inside a fusion; a full-shape HBM buffer between fusions (kernel args are `BufferAllocation::Slice`s, `thunk_emitter.cc:1779-1812`; shared memory only inside reduction/transpose emitters) | shared memory for the whole evaluation |
-| sync between dependent ops | kernel boundary on one stream (`thunk_executor.cc:87-124`) | `__syncthreads` per level |
-| overlap of independent ops | none by default: one compute stream, extra streams only for async collectives/copies or the opt-in `_xla_stream_annotation` (`execution_stream_assignment.cc:223-266`); CUDA-graph commands are chained in `LHS` mode (`command_buffer_cmd_emitter.cc:69-90`); horizontal fusion was deleted in July 2025 (commit `50f16da8fb`) | same level, same block |
-| grows with function size | number of kernels | levels and shared-memory footprint |
-| grows with batch size | grid of every kernel; kernel count fixed | number of blocks |
+|                            | XLA:GPU (plain `jax.jit`)                                                                                                                                                                                                                                                                                                       | cusadi2                                        |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| unit of a kernel           | one _fusion_: a connected producer/consumer subgraph, at most 96 operands+outputs (`gpu_fusible.h:88`), about 10k emitted ops (`gpu_hlo_cost_analysis.h:43`)                                                                                                                                                                    | the whole function DAG, one interpreter kernel |
+| in-kernel parallelism      | the output elements of the fusion's array shape, one thread per element (`launch_dimensions.cc:62-82`, 128 threads per block)                                                                                                                                                                                                   | batch × stages × level width                   |
+| where intermediates live   | registers inside a fusion; a full-shape HBM buffer between fusions (kernel args are `BufferAllocation::Slice`s, `thunk_emitter.cc:1779-1812`; shared memory only inside reduction/transpose emitters)                                                                                                                           | shared memory for the whole evaluation         |
+| sync between dependent ops | kernel boundary on one stream (`thunk_executor.cc:87-124`)                                                                                                                                                                                                                                                                      | `__syncthreads` per level                      |
+| overlap of independent ops | none by default: one compute stream, extra streams only for async collectives/copies or the opt-in `_xla_stream_annotation` (`execution_stream_assignment.cc:223-266`); CUDA-graph commands are chained in `LHS` mode (`command_buffer_cmd_emitter.cc:69-90`); horizontal fusion was deleted in July 2025 (commit `50f16da8fb`) | same level, same block                         |
+| grows with function size   | number of kernels                                                                                                                                                                                                                                                                                                               | levels and shared-memory footprint             |
+| grows with batch size      | grid of every kernel; kernel count fixed                                                                                                                                                                                                                                                                                        | number of blocks                               |
 
 Fusion decisions: `priority_fusion.cc` fuses a producer into a consumer only if
-it can fuse into *all* users (`:1166-1215`), duplicating it (`:1423-1453`);
+it can fuse into _all_ users (`:1166-1215`), duplicating it (`:1423-1453`);
 dot, sort, custom-call, while, conditional and scatter outputs are hard
 boundaries (`:98-139`, `gpu_fusible.cc:553-577`); gather, slice, concatenate,
 transpose and small reductions fuse. Every unfused op gets wrapped as its own
@@ -32,7 +32,7 @@ strength-reduced to multiply+reduce (`dot_strength_reduction.cc:202-254`), so
 MJX's `rotmat.T @ v` style products never reach cuBLAS; the dumped FK/jac/hess
 modules contain zero `dot` and zero cuBLAS calls. (Caveat for other code: the
 "too small for GEMM rewriting" exemption, threshold 100, is gated on
-f16/bf16/f32 (`matmul_utils.cc:1207-1222`), so an fp64 *matrix-matrix* 3×3
+f16/bf16/f32 (`matmul_utils.cc:1207-1222`), so an fp64 _matrix-matrix_ 3×3
 product would go to Triton or cuBLAS regardless of size.)
 
 ## 2. What the benchmark's FK actually compiles to
@@ -43,11 +43,11 @@ vmapped body function per group in a Python loop (`mjx/_src/scan.py:337`), with
 through HBM, so the kernel count is set by tree depth × joint-type groups, not
 by the amount of arithmetic:
 
-| G1 function | kernels (fusions) at B=1 | at B=16384 | fp64 B=16384 | fp32 B=16384 |
-|---|---|---|---|---|
-| fk | 42 | 92 | 3.3 ms | 0.44 ms |
-| jac | 114 | 141 | 2.9 ms | 1.37 ms |
-| hess (B=256) | 208 | 297 | 2.2 ms | 0.95 ms |
+| G1 function  | kernels (fusions) at B=1 | at B=16384 | fp64 B=16384 | fp32 B=16384 |
+| ------------ | ------------------------ | ---------- | ------------ | ------------ |
+| fk           | 42                       | 92         | 3.3 ms       | 0.44 ms      |
+| jac          | 114                      | 141        | 2.9 ms       | 1.37 ms      |
+| hess (B=256) | 208                      | 297        | 2.2 ms       | 0.95 ms      |
 
 All of them are captured into one CUDA graph by default
 (`thunk_sequence_after_thunk_passes.txt`: one `kCommandBuffer` holding every
@@ -76,11 +76,11 @@ kernel; defaults at `debug_options_flags.cc:307-321`, min graph size 5).
 
 Per-kernel profile of FK at B=16384:
 
-| | fp64 | fp32 | ratio |
-|---|---|---|---|
-| final `input_concatenate_fusion` (the ROOT fusion) | 2467 µs | 207 µs | 12× |
-| the other 91/95 kernels together | 660 µs | 169 µs | 3.9× |
-| total device busy | 3127 µs | 376 µs | 8.3× |
+|                                                    | fp64    | fp32   | ratio |
+| -------------------------------------------------- | ------- | ------ | ----- |
+| final `input_concatenate_fusion` (the ROOT fusion) | 2467 µs | 207 µs | 12×   |
+| the other 91/95 kernels together                   | 660 µs  | 169 µs | 3.9×  |
+| total device busy                                  | 3127 µs | 376 µs | 8.3×  |
 
 One kernel is 79% of the fp64 time. It is the ROOT fusion that assembles the
 `(B,360)` output from the 30 bodies' `xpos`/`xmat`: a concatenate hero with
@@ -119,7 +119,7 @@ remaining cost is kernel count, partial waves (a `(B,3)` output at B=16384 is
 
 - All non-parameter, non-output values are packed into one temp allocation
   whose size is fixed at compile time (`buffer_assignment.cc:2194-2208,
-  2786-2801`) and requested as one contiguous `Allocate` per call
+2786-2801`) and requested as one contiguous `Allocate` per call
   (`gpu_executable_buffer_allocator.cc:56-62, 172-182`); the request must fit
   or the call fails with `ResourceExhausted` (`gpu_executable.cc:1246-1251`).
 - `vmap` and `jacfwd` add the batch and the tangent dimension to every HLO

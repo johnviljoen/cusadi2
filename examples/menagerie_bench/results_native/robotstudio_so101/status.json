@@ -1,0 +1,67 @@
+{
+  "robot": "robotstudio_so101",
+  "xml": "robotstudio_so101/so101.xml",
+  "menagerie_commit": "8161bba264d7fa7c99ca301e91e7fb44737676ad",
+  "manifest_commit": "8161bba264d7fa7c99ca301e91e7fb44737676ad",
+  "gate": {
+    "status": "pass",
+    "reason": null,
+    "nq": 6,
+    "nv": 6,
+    "n_bodies": 8,
+    "n_bodies_unnamed": 0,
+    "floating": false,
+    "fk_max_err": 2.3314683517128287e-15,
+    "root_corr": false,
+    "preproc": {
+      "includes_flattened": false,
+      "multitree_wrapped": false,
+      "anchors_fixed": 0
+    }
+  },
+  "stages": {
+    "gate": {
+      "status": "pass",
+      "cached": true,
+      "seconds": 0
+    },
+    "native_gate": {
+      "status": "pass",
+      "reason": null,
+      "cached": false,
+      "failed": {},
+      "err": {
+        "fk": 1.3877787807814457e-17,
+        "fkjac": 6.938893903907228e-18,
+        "fkhess": 1.887379141862766e-15,
+        "fk_float": 8.198247891666455e-08,
+        "fkjac_float": 8.144865248915778e-08,
+        "fkhess_float": 8.144865248915778e-08,
+        "mj_fk": 0.0,
+        "mj_jac": 0.0,
+        "mj_fk_rollout": 0.0,
+        "mj_jac_rollout": 0.0
+      },
+      "hess_reference": "casadi",
+      "composites_expanded": 0
+    }
+  },
+  "runs": {},
+  "complete": false,
+  "native_runs": {
+    "0": {
+      "pin_double": {
+        "status": "pass",
+        "seconds": 8.34
+      },
+      "pin_float": {
+        "status": "pass",
+        "seconds": 6.17
+      },
+      "mjcpu": {
+        "status": "pass",
+        "seconds": 13.78
+      }
+    }
+  }
+}

@@ -1,0 +1,67 @@
+{
+  "robot": "flexiv_rizon4s",
+  "xml": "flexiv_rizon4s/flexiv_rizon4s.xml",
+  "menagerie_commit": "8161bba264d7fa7c99ca301e91e7fb44737676ad",
+  "manifest_commit": "8161bba264d7fa7c99ca301e91e7fb44737676ad",
+  "gate": {
+    "status": "pass",
+    "reason": null,
+    "nq": 7,
+    "nv": 7,
+    "n_bodies": 8,
+    "n_bodies_unnamed": 0,
+    "floating": false,
+    "fk_max_err": 4.440892098500626e-16,
+    "root_corr": false,
+    "preproc": {
+      "includes_flattened": false,
+      "multitree_wrapped": false,
+      "anchors_fixed": 0
+    }
+  },
+  "stages": {
+    "gate": {
+      "status": "pass",
+      "cached": true,
+      "seconds": 0
+    },
+    "native_gate": {
+      "status": "pass",
+      "reason": null,
+      "cached": false,
+      "failed": {},
+      "err": {
+        "fk": 5.551115123125783e-17,
+        "fkjac": 1.1102230246251565e-16,
+        "fkhess": 6.661338147750939e-16,
+        "fk_float": 8.601032575050738e-08,
+        "fkjac_float": 1.7042625355401242e-07,
+        "fkhess_float": 2.2873396821054826e-07,
+        "mj_fk": 0.0,
+        "mj_jac": 0.0,
+        "mj_fk_rollout": 0.0,
+        "mj_jac_rollout": 0.0
+      },
+      "hess_reference": "casadi",
+      "composites_expanded": 0
+    }
+  },
+  "runs": {},
+  "complete": false,
+  "native_runs": {
+    "0": {
+      "pin_double": {
+        "status": "pass",
+        "seconds": 9.92
+      },
+      "pin_float": {
+        "status": "pass",
+        "seconds": 6.93
+      },
+      "mjcpu": {
+        "status": "pass",
+        "seconds": 9.58
+      }
+    }
+  }
+}

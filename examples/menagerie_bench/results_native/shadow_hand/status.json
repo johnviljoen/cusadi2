@@ -1,0 +1,69 @@
+{
+  "robot": "shadow_hand",
+  "xml": "shadow_hand/left_hand.xml",
+  "menagerie_commit": "8161bba264d7fa7c99ca301e91e7fb44737676ad",
+  "manifest_commit": "8161bba264d7fa7c99ca301e91e7fb44737676ad",
+  "gate": {
+    "status": "pass",
+    "reason": null,
+    "nq": 24,
+    "nv": 24,
+    "n_bodies": 25,
+    "n_bodies_unnamed": 0,
+    "floating": false,
+    "fk_max_err": 9.658940314238862e-15,
+    "root_corr": false,
+    "preproc": {
+      "includes_flattened": false,
+      "multitree_wrapped": false,
+      "anchors_fixed": 0
+    }
+  },
+  "stages": {
+    "gate": {
+      "status": "pass",
+      "cached": true,
+      "seconds": 0
+    },
+    "native_gate": {
+      "status": "pass",
+      "reason": null,
+      "cached": false,
+      "failed": {},
+      "err": {
+        "fk": 2.220446049250313e-16,
+        "fkjac": 2.220446049250313e-16,
+        "fkhess": 4.107825191113079e-15,
+        "fk_float": 1.6334986097099602e-07,
+        "fkjac_float": 1.217973050193777e-07,
+        "fkhess_float": 1.6402467883924743e-07,
+        "mj_fk": 0.0,
+        "mj_jac": 0.0,
+        "mj_fk_rollout": 0.0,
+        "mj_jac_rollout": 0.0
+      },
+      "hess_reference": "casadi",
+      "composites_expanded": 0
+    }
+  },
+  "runs": {},
+  "complete": false,
+  "native_runs": {
+    "0": {
+      "pin_double": {
+        "status": "pass",
+        "seconds": 23.7,
+        "skipped": 2
+      },
+      "pin_float": {
+        "status": "pass",
+        "seconds": 30.81,
+        "skipped": 1
+      },
+      "mjcpu": {
+        "status": "pass",
+        "seconds": 25.93
+      }
+    }
+  }
+}

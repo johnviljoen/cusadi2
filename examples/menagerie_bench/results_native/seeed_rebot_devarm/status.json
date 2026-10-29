@@ -1,0 +1,67 @@
+{
+  "robot": "seeed_rebot_devarm",
+  "xml": "seeed_rebot_devarm/seeed_rebot_devarm.xml",
+  "menagerie_commit": "8161bba264d7fa7c99ca301e91e7fb44737676ad",
+  "manifest_commit": "8161bba264d7fa7c99ca301e91e7fb44737676ad",
+  "gate": {
+    "status": "pass",
+    "reason": null,
+    "nq": 8,
+    "nv": 8,
+    "n_bodies": 10,
+    "n_bodies_unnamed": 0,
+    "floating": false,
+    "fk_max_err": 4.9960036108132044e-15,
+    "root_corr": false,
+    "preproc": {
+      "includes_flattened": false,
+      "multitree_wrapped": false,
+      "anchors_fixed": 0
+    }
+  },
+  "stages": {
+    "gate": {
+      "status": "pass",
+      "cached": true,
+      "seconds": 0
+    },
+    "native_gate": {
+      "status": "pass",
+      "reason": null,
+      "cached": false,
+      "failed": {},
+      "err": {
+        "fk": 1.1102230246251565e-16,
+        "fkjac": 2.7755575615628914e-17,
+        "fkhess": 2.220446049250313e-15,
+        "fk_float": 1.102703919286796e-07,
+        "fkjac_float": 7.776015098492906e-08,
+        "fkhess_float": 1.6449471251789305e-07,
+        "mj_fk": 0.0,
+        "mj_jac": 0.0,
+        "mj_fk_rollout": 0.0,
+        "mj_jac_rollout": 0.0
+      },
+      "hess_reference": "casadi",
+      "composites_expanded": 0
+    }
+  },
+  "runs": {},
+  "complete": false,
+  "native_runs": {
+    "0": {
+      "pin_double": {
+        "status": "pass",
+        "seconds": 13.31
+      },
+      "pin_float": {
+        "status": "pass",
+        "seconds": 8.74
+      },
+      "mjcpu": {
+        "status": "pass",
+        "seconds": 15.2
+      }
+    }
+  }
+}

@@ -20,7 +20,9 @@ TARGET = "oscbf_cusadi2"
 
 def build(dtype="double", force=False, max_live=0):
     """Build plan + FFI library (one .so serves both execution modes)."""
-    import jax, cusadi2
+    import jax
+
+    import cusadi2
     out = HERE / "build" / dtype
     so = out / "liboscbf_ffi.so"
     plan = out / (f"oscbf_panda_ml{max_live}.plan" if max_live else "oscbf_panda.plan")
@@ -37,7 +39,8 @@ def build(dtype="double", force=False, max_live=0):
 
 class Cusadi2Oscbf:
     def __init__(self, dtype="double", mode="level", max_live=0):
-        import jax, jax.numpy as jnp
+        import jax
+        import jax.numpy as jnp
         assert dtype == "double", "the FFI handler is compiled for float64"
         out, plan = build(dtype, max_live=max_live)
         self.max_live = max_live
@@ -65,7 +68,8 @@ class Cusadi2Oscbf:
 
     def model_part(self, z, z_des):
         """(B,14),(B,18) -> u_nom (B,7), P (B,7,7), q (B,7), G (B,78,7), h (B,78)"""
-        import jax, jax.numpy as jnp
+        import jax
+        import jax.numpy as jnp
         B = z.shape[0]
         outs = jax.ffi.ffi_call(self.target, [jax.ShapeDtypeStruct((B, n), jnp.float64) for n in self.nnz])(z, z_des)
         dense = []

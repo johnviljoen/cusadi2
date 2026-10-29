@@ -196,6 +196,8 @@ failure, not a campaign abort:
 | `warp`            | `run.py --warp --robot R --runs K`           | `runs/<k>/warp.json` |
 | `frax_gate`       | `run.py --frax-gate --robot R` (CPU)         | `build/<R>/frax.urdf`, `build/<R>/frax_gate.json` → `status.json` |
 | `frax_<fpXX>`     | `run.py --frax --robot R --dtype fpXX --runs K` | `runs/<k>/frax_<fpXX>.json` |
+| `native_gate`     | `run.py --native-prep --robot R` (CPU)       | `build/<R>/native/{model.pin,frames.txt,model.mjb,bodies.txt,native_gate.json}` → `status.json` |
+| `pin_<dtype>`, `mjcpu` | in-process, sequential, per run k (`--native-only`) | `runs/<k>/pin_<dtype>.json`, `runs/<k>/mjcpu.json` (native CPU baselines, see below) |
 | `plot`            | in-process, best-effort                      | per-robot figures |
 
 - `results/<robot>/status.json` records per-stage `pass`/`fail`/`skip`/`timeout`
@@ -269,6 +271,84 @@ failure, not a campaign abort:
 > `python run.py --frax-only --runs 5` runs the gates and the frax stages and
 > nothing else (no plots, no summary). With `CUSADI2_RESULTS=results_frax` the
 > frax files and their `status.json` stay out of `results/`.
+
+> **The native CPU baselines: pure Pinocchio and MuJoCo on the CPU.** Two more
+> CPU references next to the paper's CasADi-C-codegen one, the libraries' own
+> compiled algorithms with no CasADi and no code generation, timed with the
+> same protocol as paper_results' CPU driver (n_items problems split statically
+> over OpenMP threads, each thread with its own workspace and output buffer,
+> median of `max(5, 2000 // n_items)` repetitions; 16 threads, the paper's
+> setting, plus `latency_us` for one problem on one thread) by two drivers in
+> this directory, each in an idealized build (data in host memory) and a
+> `-DTRANSFER` build (inputs copied GPU→CPU before and outputs CPU→GPU after,
+> inside the timed region), as the CasADi reference:
+>
+> - `pin_driver.cpp` — Pinocchio 4.1 C++ on the gated Pinocchio model
+>   (`model.load_pinocchio`, the one the CasADi functions are built from):
+>   `framesForwardKinematics` (fk), `computeJointJacobians` +
+>   `getFrameJacobian` LOCAL_WORLD_ALIGNED (fkjac),
+>   `computeJointKinematicHessians` + `getFrameKinematicHessian`
+>   LOCAL_WORLD_ALIGNED (fkhess), in double and float (`Model::cast<float>()`).
+>   The outputs are what the library writes (the per-frame Jacobian / Hessian
+>   buffers *are* the output, zeroed once since those routines write only the
+>   frame's supporting columns); the dense 6×nv×nv-per-frame Hessian is its
+>   native format, so the transfer build ships that (37 MB per item on
+>   flybody; the RAM / VRAM guards null most of its large batches). Built
+>   header-only with `-O3` and **no** `-march=native`: measured here,
+>   `-march=native` makes Pinocchio's Eigen kinematics 20–45 % *slower* (fk /
+>   fkjac on a1 and flybody) while the generic build matches conda-forge's
+>   prebuilt library — the faster one is the baseline (`CUSADI2_PIN_MARCH`
+>   overrides). **Pinocchio's kinematic Hessian is wrong for the pairs of
+>   columns inside one `JointModelComposite`** (the parser builds one for every
+>   body with several `<joint>`s: 8 robots; flybody: 1356 entries off by O(1)
+>   against central differences, every cross-joint pair exact), so
+>   `native_cpu.expand_composites` replaces each composite by its sub-joints in
+>   sequence (massless intermediate bodies, same q) — what a URDF load gives to
+>   begin with; `CUSADI2_PIN_EXPAND=0` keeps the composites (fkhess then fails
+>   its gate and is not timed).
+> - `mj_driver.c` — libmujoco C (double only: `mjtNum`) on the campaign's MJCF
+>   with contact detection and the constraint solver disabled, exactly the MJX
+>   / warp model (`_disable_contacts_and_constraints`, saved as an mjb):
+>   `mj_kinematics` + `mj_comPos` (fk), + `mj_jacBody` per named body (fkjac,
+>   MuJoCo's analytical body Jacobian), no Hessian (no autodiff), and the MJX
+>   rollout series (`rollout_us`: B instances × N `mj_step`s with the fk / jac
+>   block extracted after every step, one thread per instance as
+>   `mujoco.rollout` does it; on a few models the random initial
+>   configurations diverge without the constraint solver and MuJoCo logs
+>   "huge value in QACC" warnings to `MUJOCO_LOG.TXT` and resets the instance
+>   mid-rollout, so the rollout series is a timing of the step, not a
+>   physically meaningful trajectory).
+>
+> The native gate (`build/<robot>/native/native_gate.json`, status stage
+> `native_gate`) runs the drivers' check mode at 3 random configurations: fk
+> and the dense fkjac against the CasADi functions the GPU kernels are built
+> from (1e-8); fkhess against CasADi's `d(vec J)/dq` for nq == nv models (1e-6;
+> agrees to 1e-14) or, with quaternion joints (nq > nv, where the CasADi
+> Hessian is taken in q and Pinocchio's in the tangent), against central
+> differences of the driver model's own Jacobian along the tangent (1e-4;
+> agrees to 1e-10); the MuJoCo fk / jac / rollout against MuJoCo's Python
+> bindings on the same model (1e-10; exact). All 67 robots pass.
+>
+> `CUSADI2_RESULTS=results_native python run.py --native-only --runs 5` runs
+> the gates and the native sweeps and nothing else, into
+> `results_native/<robot>/runs/<k>/pin_<dtype>.json` (the `cpu_<dtype>.json`
+> schema: `latency_us`, `seq_us` / `seq_transfer_us[func][threads][B]`, plus
+> `sizes`, `composites_expanded`, `failed`) and `runs/<k>/mjcpu.json` (the
+> same for fk / fkjac plus `rollout_us` / `rollout_transfer_us`);
+> `run.py --summarize-native` writes `results_native/native_summary.csv`
+> (one row per robot × func × dtype × B ∈ {256, 16384}: the four native walls,
+> the CasADi CPU pair, cusadi2's best config and the speedups) and
+> `native_summary.md` (median speedups). `paper_plots.py` can read them from
+> `CUSADI2_NATIVE_RESULTS` (default `results_native`) as the baselines
+> `pin_ideal` / `pin` / `mjcpu_ideal` / `mjcpu` (the MuJoCo pair is fp64 only
+> and is drawn against either cusadi2 precision, labelled as fp64), but **no
+> figure draws them by default** — this was an exploration: one run over 63
+> robots (2026-10-18) showed CasADi's C codegen is the faster CPU baseline at
+> every batch above the fork/join floor (Pinocchio ~3x slower on fk / Hessians
+> and ~4.5x on Jacobians, MuJoCo CPU 5–6x slower on fk / Jacobians, independent
+> of model size), so the paper keeps the stronger CPU reference. Pass
+> `baselines=BASELINES + NATIVE_BASELINES` (banner / speedup-vs-batch) or
+> `_absolute_series(native=True)` to add them.
 
 ## Knobs (identical to paper_results)
 
@@ -349,6 +429,9 @@ with `--summarize`), in `results/`:
 - `model.py` — MJCF loading for both backends, qpos index map, root-placement
   correction, CasADi FK / frame-Jacobian / frame-Hessian builders, horizon
   unroll, and the gate.
+- `native_cpu.py` — the native CPU baselines: driver builds (`build/native/`),
+  per-robot model export + gate, the sweeps, the orchestration phase and the
+  cross-robot summary; `pin_driver.cpp` / `mj_driver.c` are the drivers.
 - `frax_model.py` — the frax side: the gated Pinocchio model as a URDF of
   one-dof joints, the coordinate maps to Pinocchio and MuJoCo, the frax
   FK / frame-Jacobian / frame-Hessian functions, and the frax gate.

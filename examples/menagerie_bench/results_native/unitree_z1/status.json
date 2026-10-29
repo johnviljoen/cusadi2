@@ -1,0 +1,67 @@
+{
+  "robot": "unitree_z1",
+  "xml": "unitree_z1/z1.xml",
+  "menagerie_commit": "8161bba264d7fa7c99ca301e91e7fb44737676ad",
+  "manifest_commit": "8161bba264d7fa7c99ca301e91e7fb44737676ad",
+  "gate": {
+    "status": "pass",
+    "reason": null,
+    "nq": 6,
+    "nv": 6,
+    "n_bodies": 7,
+    "n_bodies_unnamed": 0,
+    "floating": false,
+    "fk_max_err": 6.661338147750939e-16,
+    "root_corr": false,
+    "preproc": {
+      "includes_flattened": false,
+      "multitree_wrapped": false,
+      "anchors_fixed": 0
+    }
+  },
+  "stages": {
+    "gate": {
+      "status": "pass",
+      "cached": true,
+      "seconds": 0
+    },
+    "native_gate": {
+      "status": "pass",
+      "reason": null,
+      "cached": false,
+      "failed": {},
+      "err": {
+        "fk": 0.0,
+        "fkjac": 0.0,
+        "fkhess": 3.3306690738754696e-16,
+        "fk_float": 9.72379128327816e-08,
+        "fkjac_float": 4.8536979990743134e-08,
+        "fkhess_float": 4.8536979990743134e-08,
+        "mj_fk": 0.0,
+        "mj_jac": 0.0,
+        "mj_fk_rollout": 0.0,
+        "mj_jac_rollout": 0.0
+      },
+      "hess_reference": "casadi",
+      "composites_expanded": 0
+    }
+  },
+  "runs": {},
+  "complete": false,
+  "native_runs": {
+    "0": {
+      "pin_double": {
+        "status": "pass",
+        "seconds": 7.77
+      },
+      "pin_float": {
+        "status": "pass",
+        "seconds": 5.96
+      },
+      "mjcpu": {
+        "status": "pass",
+        "seconds": 10.54
+      }
+    }
+  }
+}

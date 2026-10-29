@@ -1,0 +1,69 @@
+{
+  "robot": "hello_robot_stretch_3",
+  "xml": "hello_robot_stretch_3/stretch.xml",
+  "menagerie_commit": "8161bba264d7fa7c99ca301e91e7fb44737676ad",
+  "manifest_commit": "8161bba264d7fa7c99ca301e91e7fb44737676ad",
+  "gate": {
+    "status": "pass",
+    "reason": null,
+    "nq": 27,
+    "nv": 26,
+    "n_bodies": 37,
+    "n_bodies_unnamed": 0,
+    "floating": true,
+    "fk_max_err": 6.5503158452884236e-15,
+    "root_corr": false,
+    "preproc": {
+      "includes_flattened": false,
+      "multitree_wrapped": false,
+      "anchors_fixed": 0
+    }
+  },
+  "stages": {
+    "gate": {
+      "status": "pass",
+      "cached": true,
+      "seconds": 0
+    },
+    "native_gate": {
+      "status": "pass",
+      "reason": null,
+      "cached": false,
+      "failed": {},
+      "err": {
+        "fk": 2.220446049250313e-16,
+        "fkjac": 2.220446049250313e-16,
+        "fkhess": 3.330462294837133e-10,
+        "fk_float": 1.5990113388930638e-07,
+        "fkjac_float": 1.801294909897777e-07,
+        "fkhess_float": 2.1030911145913933e-07,
+        "mj_fk": 0.0,
+        "mj_jac": 0.0,
+        "mj_fk_rollout": 0.0,
+        "mj_jac_rollout": 0.0
+      },
+      "hess_reference": "finite_differences",
+      "composites_expanded": 2
+    }
+  },
+  "runs": {},
+  "complete": false,
+  "native_runs": {
+    "0": {
+      "pin_double": {
+        "status": "pass",
+        "seconds": 39.52,
+        "skipped": 2
+      },
+      "pin_float": {
+        "status": "pass",
+        "seconds": 23.41,
+        "skipped": 2
+      },
+      "mjcpu": {
+        "status": "pass",
+        "seconds": 47.06
+      }
+    }
+  }
+}

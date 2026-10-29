@@ -1,0 +1,69 @@
+{
+  "robot": "google_barkour_v0",
+  "xml": "google_barkour_v0/barkour_v0.xml",
+  "menagerie_commit": "8161bba264d7fa7c99ca301e91e7fb44737676ad",
+  "manifest_commit": "8161bba264d7fa7c99ca301e91e7fb44737676ad",
+  "gate": {
+    "status": "pass",
+    "reason": null,
+    "nq": 19,
+    "nv": 18,
+    "n_bodies": 13,
+    "n_bodies_unnamed": 0,
+    "floating": true,
+    "fk_max_err": 2.7755575615628914e-15,
+    "root_corr": false,
+    "preproc": {
+      "includes_flattened": false,
+      "multitree_wrapped": false,
+      "anchors_fixed": 0
+    }
+  },
+  "stages": {
+    "gate": {
+      "status": "pass",
+      "cached": true,
+      "seconds": 0
+    },
+    "native_gate": {
+      "status": "pass",
+      "reason": null,
+      "cached": false,
+      "failed": {},
+      "err": {
+        "fk": 2.220446049250313e-16,
+        "fkjac": 1.1102230246251565e-16,
+        "fkhess": 2.0250266047350252e-10,
+        "fk_float": 1.717333407702526e-07,
+        "fkjac_float": 1.1103606700757496e-07,
+        "fkhess_float": 1.28551935985044e-07,
+        "mj_fk": 0.0,
+        "mj_jac": 0.0,
+        "mj_fk_rollout": 0.0,
+        "mj_jac_rollout": 0.0
+      },
+      "hess_reference": "finite_differences",
+      "composites_expanded": 0
+    }
+  },
+  "runs": {},
+  "complete": false,
+  "native_runs": {
+    "0": {
+      "pin_double": {
+        "status": "pass",
+        "seconds": 20.67,
+        "skipped": 1
+      },
+      "pin_float": {
+        "status": "pass",
+        "seconds": 12.7,
+        "skipped": 1
+      },
+      "mjcpu": {
+        "status": "pass",
+        "seconds": 17.92
+      }
+    }
+  }
+}

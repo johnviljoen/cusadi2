@@ -1532,6 +1532,8 @@ def main() -> int:
     ap.add_argument("--warp", action="store_true", help="(internal) run the mujoco-warp FK bench and exit")
     ap.add_argument("--frax", action="store_true", help="(internal) run the frax bench and exit")
     ap.add_argument("--frax-gate", action="store_true", help="(internal) run the frax compatibility gate and exit")
+    ap.add_argument("--native-prep", action="store_true",
+                    help="(internal) export the native CPU drivers' models for one robot and run their gate")
     ap.add_argument("--summarize", action="store_true", help="rebuild the cross-robot summary outputs and exit")
     ap.add_argument("--at-batch", type=int, help="(--summarize) fixed batch size for the speedup figure/CSV")
     ap.add_argument("--robot", help="run only this manifest robot")
@@ -1552,6 +1554,10 @@ def main() -> int:
                     help="only the frax baseline (gates, frax stages); no plots or summary")
     ap.add_argument("--baselines-only", action="store_true",
                     help="only the MJX / mujoco-warp phase (gate, baselines), then plots + summary")
+    ap.add_argument("--summarize-native", action="store_true",
+                    help="rebuild results_native's cross-robot summary (CUSADI2_NATIVE_RESULTS) against RESULTS and exit")
+    ap.add_argument("--native-only", action="store_true",
+                    help="only the native CPU baselines (pure Pinocchio C++, MuJoCo C; gates, sweeps); no plots or summary")
     args = ap.parse_args()
 
     manifest = load_manifest(args.manifest)
@@ -1587,6 +1593,20 @@ def main() -> int:
         with open(args.out, "w") as f:
             json.dump(out, f, indent=2)
         print(f"[frax_gate] {args.robot}: {out['status']}" + (f" ({out.get('reason')})" if out.get("reason") else ""))
+        return 0
+    if args.native_prep:
+        import native_cpu
+        try:
+            native_cpu.compile_drivers()
+            out = native_cpu.gate_robot(manifest, args.robot)
+        except Exception as e:
+            import traceback
+            out = {"status": "skip", "reason": f"native_gate_error: {type(e).__name__}: {e}"[:500],
+                   "traceback": traceback.format_exc()[-4000:]}
+            os.makedirs(native_cpu.prep_dir(args.robot), exist_ok=True)
+            with open(os.path.join(native_cpu.prep_dir(args.robot), "native_gate.json"), "w") as f:
+                json.dump(out, f, indent=2)
+        print(f"[native_gate] {args.robot}: {out['status']}" + (f" ({out.get('reason')})" if out.get("reason") else ""))
         return 0
     if args.compile:
         return compile_robot(manifest, args.robot, args.dtype)
@@ -1626,6 +1646,10 @@ def main() -> int:
         import summarize
         summarize.summarize(RESULTS, manifest, n_stages=N_STAGES, at_batch=args.at_batch)
         return 0
+    if args.summarize_native:
+        import native_cpu
+        native_cpu.summarize(os.environ.get("CUSADI2_NATIVE_RESULTS", os.path.join(HERE, "results_native")), RESULTS)
+        return 0
 
     robots = [args.robot] if args.robot else list(manifest.ROBOTS)
     for r in robots:
@@ -1636,6 +1660,10 @@ def main() -> int:
     statuses = gate_phase(manifest, robots, head, args.force)
     if args.frax_only:
         baseline_phase(manifest, statuses, args.runs, args.force, frax_only=True)
+        return 0
+    if args.native_only:
+        import native_cpu
+        native_cpu.native_phase(manifest, statuses, args.runs, args.force, args.jobs)
         return 0
     cusadi2_phases = not (args.cpu_only or args.baselines_only)
     cpu_phases = not (args.no_cpu or args.baselines_only)

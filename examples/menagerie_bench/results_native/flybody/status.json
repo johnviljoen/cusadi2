@@ -1,0 +1,51 @@
+{
+  "robot": "flybody",
+  "xml": "flybody/fruitfly.xml",
+  "menagerie_commit": "8161bba264d7fa7c99ca301e91e7fb44737676ad",
+  "manifest_commit": "8161bba264d7fa7c99ca301e91e7fb44737676ad",
+  "gate": {
+    "status": "pass",
+    "reason": null,
+    "nq": 109,
+    "nv": 108,
+    "n_bodies": 67,
+    "n_bodies_unnamed": 0,
+    "floating": true,
+    "fk_max_err": 4.418687638008123e-14,
+    "root_corr": false,
+    "preproc": {
+      "includes_flattened": false,
+      "multitree_wrapped": false,
+      "anchors_fixed": 0
+    }
+  },
+  "stages": {
+    "gate": {
+      "status": "pass",
+      "cached": true,
+      "seconds": 0
+    },
+    "native_gate": {
+      "status": "pass",
+      "reason": null,
+      "cached": true,
+      "failed": {},
+      "err": {
+        "fk": 8.881784197001252e-16,
+        "fkjac": 3.6637359812630166e-15,
+        "fkhess": 2.594868209193635e-10,
+        "fk_float": 3.2140586014861583e-07,
+        "fkjac_float": 3.2140586014861583e-07,
+        "fkhess_float": 2.8781435901237273e-07,
+        "mj_fk": 0.0,
+        "mj_jac": 0.0,
+        "mj_fk_rollout": 0.0,
+        "mj_jac_rollout": 0.0
+      },
+      "hess_reference": "finite_differences",
+      "composites_expanded": 25
+    }
+  },
+  "runs": {},
+  "complete": false
+}

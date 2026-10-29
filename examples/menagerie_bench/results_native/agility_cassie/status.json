@@ -1,0 +1,69 @@
+{
+  "robot": "agility_cassie",
+  "xml": "agility_cassie/cassie.xml",
+  "menagerie_commit": "8161bba264d7fa7c99ca301e91e7fb44737676ad",
+  "manifest_commit": "8161bba264d7fa7c99ca301e91e7fb44737676ad",
+  "gate": {
+    "status": "pass",
+    "reason": null,
+    "nq": 35,
+    "nv": 32,
+    "n_bodies": 25,
+    "n_bodies_unnamed": 0,
+    "floating": true,
+    "fk_max_err": 9.992007221626409e-16,
+    "root_corr": false,
+    "preproc": {
+      "includes_flattened": false,
+      "multitree_wrapped": false,
+      "anchors_fixed": 0
+    }
+  },
+  "stages": {
+    "gate": {
+      "status": "pass",
+      "cached": true,
+      "seconds": 0
+    },
+    "native_gate": {
+      "status": "pass",
+      "reason": null,
+      "cached": true,
+      "failed": {},
+      "err": {
+        "fk": 1.6653345369377348e-16,
+        "fkjac": 1.6653345369377348e-16,
+        "fkhess": 3.8613942598964e-10,
+        "fk_float": 1.973354897266688e-07,
+        "fkjac_float": 1.883152020987211e-07,
+        "fkhess_float": 2.735981965429346e-07,
+        "mj_fk": 0.0,
+        "mj_jac": 0.0,
+        "mj_fk_rollout": 0.0,
+        "mj_jac_rollout": 0.0
+      },
+      "hess_reference": "finite_differences",
+      "composites_expanded": 0
+    }
+  },
+  "runs": {},
+  "complete": false,
+  "native_runs": {
+    "0": {
+      "pin_double": {
+        "status": "pass",
+        "seconds": 37.26,
+        "skipped": 2
+      },
+      "pin_float": {
+        "status": "pass",
+        "seconds": 21.21,
+        "skipped": 2
+      },
+      "mjcpu": {
+        "status": "pass",
+        "seconds": 33.33
+      }
+    }
+  }
+}
