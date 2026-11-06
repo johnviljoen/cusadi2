@@ -186,6 +186,34 @@ in the lifted inverse-dynamics transcription on `rbd`, exported, solved with
 IPOPT and timed through `jax_function` on the GPU (JSON-configured, writes
 `runs/go2_jump_nlp/<name>/`).
 
+### Stage-parallel plans for horizon problems (`cusadi2.jax.staged`)
+
+```python
+from cusadi2.jax.staged import StagedFunction
+sf = StagedFunction(c_stage, n_stages=N, specs=[           # c_stage(x_k, x_k1, u_k, p, c_k) -> (ny,)
+        dict(name="x_k",  size=37, mode="coupled", offset=0, span=1),
+        dict(name="x_k1", size=37, mode="coupled", offset=1, span=1, alias="x_k"),
+        dict(name="u_k",  size=42, mode="stage"),
+        dict(name="p",    size=49, mode="shared", param=True),
+        dict(name="c_k",  size=4,  mode="stage",  param=True)])
+y = sf(X, X, U, P, C)                     # (N*ny,), or (B, N*ny) under vmap; stage-major
+J = sf.jacobian()(X, X, U, P, C)          # (N*nnz,) values; .global_pattern() -> global (rows, cols)
+H = sf.hessian(weighted=True)(X, X, U, P, C, lam=LAM)
+```
+
+An MPC's constraints are N copies of one stage function. Tracing the whole
+horizon gives one graph whose derivative plans no longer fit the level-parallel
+kernel; `StagedFunction` traces the stage once and cusadi2's stage mode
+replicates it (`n_stages`, grid (batch, n_stages), per-argument "stage" /
+"coupled" / "shared" indexing). Go2 jump, N = 28, the dynamics stage block
+(67 rows): trace 1.2 s instead of 31 s, derivative plans built in a second and
+level-parallel; per call, batch 1: Jacobian 119 us and Lagrangian Hessian
+217 us instead of 14.5 ms and 377 ms (whole-horizon, serial fallback); batch
+1024: 18 ms and 48 ms instead of 179 ms and 922 ms. `global_pattern()` maps
+the stage-local pattern to the whole-horizon (row, col) for a knot-major
+global layout, in the stage-major order of the value stream, which is what an
+IPM needs to assemble its KKT system from staged plans.
+
 Plans whose level windows do not fit the device's shared memory fall back to
 the serial (thread-per-instance) kernel automatically, with a warning;
 `jax_function(..., serial=True)` forces it, `max_live=` sets the window budget.
@@ -206,6 +234,7 @@ NVCC=.venv/lib/python3.12/site-packages/nvidia/cu13/bin/nvcc uv run pytest tests
 - `cusadi2/plan.py` — plan / reference file writers (format documented there)
 - `cusadi2/jax/rbd.py` — rigid-body dynamics (RNEA, ABA, kinematics) in JAX from a MuJoCo-parsed MJCF / URDF
 - `cusadi2/jax/ipm.py` — export of a JAX NLP to cuipm's nine plans; IPOPT reference solve
+- `cusadi2/jax/staged.py` — stage-parallel plans from a per-stage JAX function (cusadi2 n_stages mode)
 - `cusadi2/unrolled.py` — original-cusadi-style unrolled kernel emitter (baseline)
 - `cusadi2/cusadi2.h` — loader and `Program` runtime
 - `cusadi2/jax/` — JAX front end: `interpret.py` (jaxpr -> SX), `function.py` (`jax_function`, derivative plans), `primitive.py` (JAX primitive, vmap rule), `ffi.cu` (XLA FFI handler + plan registry)
