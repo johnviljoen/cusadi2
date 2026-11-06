@@ -45,6 +45,7 @@ not part of the plan contract:
     per input  a: i32 len, f64 data[len]     (count * nnz, batch of one)
     per output a: i32 len, f64 data[len]     (n_stages * nnz)
 """
+import io
 import os
 import struct
 
@@ -85,11 +86,44 @@ def device_max_live(dtype: str = "double", device: int = 0) -> int:
     memory holds (CUDA runtime queried through ctypes)."""
     import ctypes
     import ctypes.util
-    cudart = ctypes.CDLL(ctypes.util.find_library("cudart") or "libcudart.so")
+    cudart = None
+    for name in [ctypes.util.find_library("cudart"), "libcudart.so", "libcudart.so.13", "libcudart.so.12"]:
+        if name:
+            try:
+                cudart = ctypes.CDLL(name)
+                break
+            except OSError:
+                pass
+    if cudart is None:   # pip CUDA (nvidia-cuda-runtime): versioned .so only, under site-packages/nvidia
+        import glob
+        from importlib.util import find_spec
+        spec = find_spec("nvidia")
+        for root in (spec.submodule_search_locations or []) if spec else []:
+            for lib in sorted(glob.glob(os.path.join(root, "*", "lib", "libcudart.so*"))):
+                try:
+                    cudart = ctypes.CDLL(lib)
+                    break
+                except OSError:
+                    pass
+            if cudart:
+                break
+    if cudart is None:
+        raise RuntimeError("cusadi2: libcudart not found (system CUDA or the nvidia-cuda-runtime wheel)")
     v = ctypes.c_int()
     if cudart.cudaDeviceGetAttribute(ctypes.byref(v), 97, device):   # cudaDevAttrMaxSharedMemoryPerBlockOptin
         raise RuntimeError(f"cudaDeviceGetAttribute failed for device {device}")
     return v.value // {"double": 8, "float": 4}[dtype]
+
+
+def plan_bytes(fn: ca.Function, n_stages: int = 1, in_mode=None, in_offset=None,
+               in_span=None, out_mode=None, block_size=None, max_live=None,
+               plan: LevelPlan = None, serial: SerialProgram = None) -> bytes:
+    """The plan file for `fn` as bytes (same format as `write_plan`), for consumers
+    that upload plans without touching the filesystem (cusadi2.jax)."""
+    buf = io.BytesIO()
+    _write_plan_stream(buf, fn, n_stages, in_mode, in_offset, in_span, out_mode, block_size,
+                       max_live, plan, serial)
+    return buf.getvalue()
 
 
 def write_plan(fn: ca.Function, path: str, n_stages: int = 1, in_mode=None,
@@ -99,13 +133,21 @@ def write_plan(fn: ca.Function, path: str, n_stages: int = 1, in_mode=None,
     the stage specs and horizon baked in, to `path`. `max_live` (slots; see
     `device_max_live`) makes the planner window the levels until the plan fits.
     Pass `plan` / `serial` to reuse already extracted ones."""
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    with open(path, "wb") as f:
+        _write_plan_stream(f, fn, n_stages, in_mode, in_offset, in_span, out_mode, block_size,
+                           max_live, plan, serial)
+    return path
+
+
+def _write_plan_stream(f, fn, n_stages, in_mode, in_offset, in_span, out_mode, block_size,
+                       max_live, plan, serial):
     in_mode, in_offset, in_span, out_mode = _specs(fn, n_stages, in_mode, in_offset,
                                                    in_span, out_mode)
     plan = plan or extract_level_plan(fn, max_live=max_live)
     serial = serial or extract_serial_program(fn)
     name = fn.name().encode()
-    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
-    with open(path, "wb") as f:
+    if True:
         w = _W(f)
         f.write(PLAN_MAGIC)
         w.i(VERSION, len(name))
@@ -127,7 +169,6 @@ def write_plan(fn: ca.Function, path: str, n_stages: int = 1, in_mode=None,
         w.i(serial.sz_w)
         w.i(serial.n_instr); w.ia(serial.ops); w.ia(serial.outs); w.ia(serial.in_a); w.ia(serial.in_b)
         w.i(len(serial.const_vals)); w.fa(serial.const_vals)
-    return path
 
 
 def read_plan(path: str) -> dict:

@@ -19,7 +19,9 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <fstream>
+#include <iterator>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -42,6 +44,12 @@
     } while (0)
 #endif
 
+// Most buffer pointers a by-value launch (cusadi2_launch_v) carries per side;
+// must match the emitted kernel's definition.
+#ifndef CUSADI2_MAX_ARGS
+#define CUSADI2_MAX_ARGS 16
+#endif
+
 // --- kernel entry points (defined in the emitted kernel .cu) -----------------
 int cusadi2_launch(
     const CUSADI2_SCALAR* const* inputs, CUSADI2_SCALAR* const* outputs,
@@ -55,6 +63,24 @@ int cusadi2_launch(
     cudaStream_t stream);
 int cusadi2_launch_serial(
     const CUSADI2_SCALAR* const* inputs, CUSADI2_SCALAR* const* outputs,
+    int total_instances, int n_stages, int block_size,
+    const int* nnz_in, const int* in_stage_mode, const int* in_stage_offset,
+    const int* in_stage_count, const int* nnz_out, const int* out_stage_count,
+    int n_instr, const int* s_ops, const int* s_outs, const int* s_in_a, const int* s_in_b,
+    const CUSADI2_SCALAR* s_const_vals, CUSADI2_SCALAR* scratch, int n_threads,
+    int sz_w, int thread_major, cudaStream_t stream);
+int cusadi2_launch_v(
+    const CUSADI2_SCALAR* const* h_inputs, CUSADI2_SCALAR* const* h_outputs, int n_in, int n_out,
+    int total_instances, int n_stages, int block_size, int shared_bytes,
+    int n_consts, const int* const_slots, const CUSADI2_SCALAR* const_vals,
+    const int* nnz_in, const int* in_stage_mode, const int* in_stage_offset,
+    const int* in_stage_count,
+    int n_levels, const int* level_offsets, const int* level_widths,
+    const int* node_ops, const int* node_outs, const int* node_in_a, const int* node_in_b,
+    const int* nnz_out, const int* out_stage_mode, const int* out_stage_count,
+    cudaStream_t stream);
+int cusadi2_launch_serial_v(
+    const CUSADI2_SCALAR* const* h_inputs, CUSADI2_SCALAR* const* h_outputs, int n_in, int n_out,
     int total_instances, int n_stages, int block_size,
     const int* nnz_in, const int* in_stage_mode, const int* in_stage_offset,
     const int* in_stage_count, const int* nnz_out, const int* out_stage_count,
@@ -137,14 +163,21 @@ inline int pick_block_size(const Plan& p) {
 
 namespace detail {
 struct Reader {
-    std::ifstream f;
-    std::string path;
-    explicit Reader(const std::string& p) : f(p, std::ios::binary), path(p) {
+    std::string owned;  // file contents when constructed from a path
+    const char* data;
+    size_t size, pos = 0;
+    std::string path;   // for messages
+    Reader(const void* d, size_t n, const std::string& p) : data((const char*)d), size(n), path(p) {}
+    explicit Reader(const std::string& p) : path(p) {
+        std::ifstream f(p, std::ios::binary);
         if (!f) throw std::runtime_error("cusadi2: cannot open plan file: " + p);
+        owned.assign(std::istreambuf_iterator<char>(f), std::istreambuf_iterator<char>());
+        data = owned.data(); size = owned.size();
     }
     void raw(void* dst, size_t bytes) {
-        f.read((char*)dst, (std::streamsize)bytes);
-        if (!f) throw std::runtime_error("cusadi2: short read in " + path);
+        if (pos + bytes > size) throw std::runtime_error("cusadi2: short read in " + path);
+        std::memcpy(dst, data + pos, bytes);
+        pos += bytes;
     }
     int32_t i() { int32_t v; raw(&v, 4); return v; }
     template <class T> std::vector<T> arr(size_t n) {
@@ -168,14 +201,16 @@ template <class T> const T* dev(const std::vector<T>& h) {
 }
 }  // namespace detail
 
-inline Plan load_plan(const std::string& path) {
-    detail::Reader r(path);
+// Parse a plan from memory (the bytes of a plan file), e.g. produced by
+// cusadi2.plan_bytes() without touching the filesystem.
+inline Plan load_plan_from_memory(const void* data, size_t size, const std::string& what = "<memory>") {
+    detail::Reader r(data, size, what);
     char magic[4]; r.raw(magic, 4);
     if (std::string(magic, 4) != "CS2P")
-        throw std::runtime_error("cusadi2: bad magic in " + path);
+        throw std::runtime_error("cusadi2: bad magic in " + what);
     int version = r.i();
     if (version != 3)
-        throw std::runtime_error("cusadi2: unsupported plan version in " + path);
+        throw std::runtime_error("cusadi2: unsupported plan version in " + what);
     Plan p;
     int name_len = r.i();
     p.name.resize(name_len); if (name_len) r.raw(&p.name[0], name_len);
@@ -200,6 +235,11 @@ inline Plan load_plan(const std::string& path) {
     n = r.i(); r.ia(p.serial_ops, n); r.ia(p.serial_outs, n); r.ia(p.serial_in_a, n); r.ia(p.serial_in_b, n);
     n = r.i(); p.serial_const_vals = r.arr<double>(n);
     return p;
+}
+
+inline Plan load_plan(const std::string& path) {
+    detail::Reader r(path);
+    return load_plan_from_memory(r.data, r.size, path);
 }
 
 // A plan uploaded to the device. evaluate() is a single kernel launch on the
@@ -288,6 +328,29 @@ public:
         }
         return cusadi2_launch(d_in, d_out, batch, h_.n_stages, h_.block_size, h_.shared_bytes,
             h_.n_consts, d_.const_slots, d_.const_vals,
+            d_.nnz_in, d_.in_mode, d_.in_offset, d_.in_count,
+            h_.n_levels, d_.level_offsets, d_.level_widths,
+            d_.node_ops, d_.node_outs, d_.node_in_a, d_.node_in_b,
+            d_.nnz_out, d_.out_mode, d_.out_count, stream);
+    }
+
+    // Same launch with the buffer pointers given as host arrays (n_in / n_out
+    // device pointers, at most CUSADI2_MAX_ARGS each) passed by value in the
+    // kernel parameters: nothing is staged through device memory, so callers
+    // whose buffer addresses change every call (the JAX FFI handler) need no
+    // per-call copy. Graph-capturable like evaluate().
+    int evaluate_ptrs(const Scalar* const* h_in, Scalar* const* h_out, int batch,
+                      cudaStream_t stream = 0) const {
+        if (d_.scratch) {
+            long long items = (long long)batch * h_.n_stages;
+            int threads = items < h_.serial_threads ? (int)items : h_.serial_threads;
+            return cusadi2_launch_serial_v(h_in, h_out, h_.n_in, h_.n_out, batch, h_.n_stages,
+                h_.serial_block, d_.nnz_in, d_.in_mode, d_.in_offset, d_.in_count, d_.nnz_out,
+                d_.out_count, h_.n_instr, d_.s_ops, d_.s_outs, d_.s_in_a, d_.s_in_b, d_.s_const_vals,
+                d_.scratch, threads, h_.sz_w, h_.thread_major, stream);
+        }
+        return cusadi2_launch_v(h_in, h_out, h_.n_in, h_.n_out, batch, h_.n_stages, h_.block_size,
+            h_.shared_bytes, h_.n_consts, d_.const_slots, d_.const_vals,
             d_.nnz_in, d_.in_mode, d_.in_offset, d_.in_count,
             h_.n_levels, d_.level_offsets, d_.level_widths,
             d_.node_ops, d_.node_outs, d_.node_in_a, d_.node_in_b,

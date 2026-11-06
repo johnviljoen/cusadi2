@@ -28,6 +28,8 @@ stage arithmetic lives only in the input/output moves.
 Emitted host entry points (declared in cusadi2.h):
     cusadi2_launch(...)              one level-parallel launch on a stream
     cusadi2_launch_serial(...)       one serial launch on a stream
+    cusadi2_launch_v / _serial_v     the same with the buffer pointers passed by
+                                     value (host arrays, <= CUSADI2_MAX_ARGS each)
     cusadi2_set_shared_memory(bytes) raise-only dynamic shared-memory cap
     cusadi2_max_active_blocks(b, bytes) occupancy calculator: resident blocks per SM
 """
@@ -60,9 +62,27 @@ enum CasadiOp {
 
 __EXEC_OP__
 
+// Where a launch's argument buffers come from. Dev: device-resident arrays of
+// buffer pointers (cusadi2_launch). Val: the pointers themselves in the kernel
+// parameters (cusadi2_launch_v), for callers whose buffer addresses change per
+// call and must not stage them through device memory (the JAX FFI handler).
+#ifndef CUSADI2_MAX_ARGS
+#define CUSADI2_MAX_ARGS 16
+#endif
+struct cusadi2_dev_ptrs {
+    const {dtype} * const * __restrict__ in;
+    {dtype} * const * __restrict__ out;
+    __device__ __forceinline__ const {dtype}* input(int a) const { return in[a]; }
+    __device__ __forceinline__ {dtype}* output(int a) const { return out[a]; }
+};
+struct cusadi2_val_ptrs {
+    const {dtype}* in[CUSADI2_MAX_ARGS];
+    {dtype}* out[CUSADI2_MAX_ARGS];
+    __device__ __forceinline__ const {dtype}* input(int a) const { return in[a]; }
+    __device__ __forceinline__ {dtype}* output(int a) const { return out[a]; }
+};
+
 #define CUSADI2_KERNEL_PARAMS                                                  \
-        const {dtype} * const * __restrict__ inputs,                           \
-        {dtype} * const * __restrict__ outputs,                                \
         const int total_instances, const int n_stages,                         \
         const int n_consts,                                                    \
         const int * __restrict__ const_slots,                                  \
@@ -82,7 +102,8 @@ __EXEC_OP__
         const int * __restrict__ out_stage_mode,                               \
         const int * __restrict__ out_stage_count
 
-__global__ void cusadi2_kernel(CUSADI2_KERNEL_PARAMS) {
+template <class Ptrs>
+__global__ void cusadi2_kernel(const Ptrs ptrs, CUSADI2_KERNEL_PARAMS) {
     extern __shared__ {dtype} w[];
     const int inst  = blockIdx.x;
     const int stage = blockIdx.y;
@@ -106,10 +127,10 @@ __global__ void cusadi2_kernel(CUSADI2_KERNEL_PARAMS) {
                 w[o] = exec_op(op, w[a], w[b]);
             } else if (op == OP_INPUT) {
                 int s = (in_stage_mode[a] == 1) ? 0 : (stage + in_stage_offset[a]);
-                w[o] = inputs[a][((long long)inst * in_stage_count[a] + s) * nnz_in[a] + b];
+                w[o] = ptrs.input(a)[((long long)inst * in_stage_count[a] + s) * nnz_in[a] + b];
             } else if (op == OP_OUTPUT) {
                 int s = (out_stage_mode[a] == 1) ? 0 : stage;
-                outputs[a][((long long)inst * out_stage_count[a] + s) * nnz_out[a] + b] = w[o];
+                ptrs.output(a)[((long long)inst * out_stage_count[a] + s) * nnz_out[a] + b] = w[o];
             } else {
                 w[o] = exec_op_late(op, w[a], w[b]);
             }
@@ -120,9 +141,8 @@ __global__ void cusadi2_kernel(CUSADI2_KERNEL_PARAMS) {
 
 // CasADi's instruction stream verbatim, one thread per (instance, stage).
 // IO moves are inline where CasADi placed them (its slot reuse forbids hoisting).
-__global__ void cusadi2_kernel_serial(
-        const {dtype} * const * __restrict__ inputs,
-        {dtype} * const * __restrict__ outputs,
+template <class Ptrs>
+__global__ void cusadi2_kernel_serial(const Ptrs ptrs,
         const int total_instances, const int n_stages,
         const int * __restrict__ nnz_in,
         const int * __restrict__ in_stage_mode,
@@ -156,9 +176,9 @@ __global__ void cusadi2_kernel_serial(
                 W(o) = s_const_vals[a];
             } else if (op == OP_INPUT) {          // a: arg, b: element
                 int s = (in_stage_mode[a] == 1) ? 0 : (stage + in_stage_offset[a]);
-                W(o) = inputs[a][((long long)inst * in_stage_count[a] + s) * nnz_in[a] + b];
+                W(o) = ptrs.input(a)[((long long)inst * in_stage_count[a] + s) * nnz_in[a] + b];
             } else if (op == OP_OUTPUT) {         // o read into arg a element b
-                outputs[a][((long long)inst * out_stage_count[a] + stage) * nnz_out[a] + b] = W(o);
+                ptrs.output(a)[((long long)inst * out_stage_count[a] + stage) * nnz_out[a] + b] = W(o);
             } else {
                 W(o) = exec_op_late(op, W(a), W(b));
             }
@@ -179,8 +199,9 @@ int cusadi2_launch(
         const int *node_ops, const int *node_outs, const int *node_in_a, const int *node_in_b,
         const int *nnz_out, const int *out_stage_mode, const int *out_stage_count,
         cudaStream_t stream) {
-    cusadi2_kernel<<<dim3(total_instances, n_stages), block_size, shared_bytes, stream>>>(
-        inputs, outputs, total_instances, n_stages,
+    cusadi2_dev_ptrs ptrs{inputs, outputs};
+    cusadi2_kernel<cusadi2_dev_ptrs><<<dim3(total_instances, n_stages), block_size, shared_bytes, stream>>>(
+        ptrs, total_instances, n_stages,
         n_consts, const_slots, const_vals, nnz_in,
         in_stage_mode, in_stage_offset, in_stage_count,
         n_levels, level_offsets, level_widths,
@@ -199,8 +220,61 @@ int cusadi2_launch_serial(
         int n_instr, const int *s_ops, const int *s_outs, const int *s_in_a, const int *s_in_b,
         const {dtype} *s_const_vals, {dtype} *scratch, int n_threads, int sz_w, int thread_major,
         cudaStream_t stream) {
-    cusadi2_kernel_serial<<<(n_threads + block_size - 1) / block_size, block_size, 0, stream>>>(
-        inputs, outputs, total_instances, n_stages,
+    cusadi2_dev_ptrs ptrs{inputs, outputs};
+    cusadi2_kernel_serial<cusadi2_dev_ptrs><<<(n_threads + block_size - 1) / block_size, block_size, 0, stream>>>(
+        ptrs, total_instances, n_stages,
+        nnz_in, in_stage_mode, in_stage_offset, in_stage_count, nnz_out, out_stage_count,
+        n_instr, s_ops, s_outs, s_in_a, s_in_b, s_const_vals, scratch, n_threads, sz_w, thread_major);
+    return (int)cudaPeekAtLastError();
+}
+
+// Same launches with the buffer pointers passed by value (host arrays of n_in /
+// n_out device pointers, at most CUSADI2_MAX_ARGS each): no device-side pointer
+// table, so nothing to stage when the addresses change on every call.
+static int cusadi2_val_ptrs_from(cusadi2_val_ptrs& v, const {dtype} * const * h_inputs,
+                                 {dtype} * const * h_outputs, int n_in, int n_out) {
+    if (n_in > CUSADI2_MAX_ARGS || n_out > CUSADI2_MAX_ARGS) return (int)cudaErrorInvalidValue;
+    for (int a = 0; a < CUSADI2_MAX_ARGS; a++) {
+        v.in[a] = a < n_in ? h_inputs[a] : nullptr;
+        v.out[a] = a < n_out ? h_outputs[a] : nullptr;
+    }
+    return 0;
+}
+
+int cusadi2_launch_v(
+        const {dtype} * const * h_inputs, {dtype} * const * h_outputs, int n_in, int n_out,
+        int total_instances, int n_stages, int block_size, int shared_bytes,
+        int n_consts, const int *const_slots, const {dtype} *const_vals,
+        const int *nnz_in, const int *in_stage_mode, const int *in_stage_offset,
+        const int *in_stage_count,
+        int n_levels, const int *level_offsets, const int *level_widths,
+        const int *node_ops, const int *node_outs, const int *node_in_a, const int *node_in_b,
+        const int *nnz_out, const int *out_stage_mode, const int *out_stage_count,
+        cudaStream_t stream) {
+    cusadi2_val_ptrs ptrs;
+    if (int e = cusadi2_val_ptrs_from(ptrs, h_inputs, h_outputs, n_in, n_out)) return e;
+    cusadi2_kernel<cusadi2_val_ptrs><<<dim3(total_instances, n_stages), block_size, shared_bytes, stream>>>(
+        ptrs, total_instances, n_stages,
+        n_consts, const_slots, const_vals, nnz_in,
+        in_stage_mode, in_stage_offset, in_stage_count,
+        n_levels, level_offsets, level_widths,
+        node_ops, node_outs, node_in_a, node_in_b, nnz_out,
+        out_stage_mode, out_stage_count);
+    return (int)cudaPeekAtLastError();
+}
+
+int cusadi2_launch_serial_v(
+        const {dtype} * const * h_inputs, {dtype} * const * h_outputs, int n_in, int n_out,
+        int total_instances, int n_stages, int block_size,
+        const int *nnz_in, const int *in_stage_mode, const int *in_stage_offset,
+        const int *in_stage_count, const int *nnz_out, const int *out_stage_count,
+        int n_instr, const int *s_ops, const int *s_outs, const int *s_in_a, const int *s_in_b,
+        const {dtype} *s_const_vals, {dtype} *scratch, int n_threads, int sz_w, int thread_major,
+        cudaStream_t stream) {
+    cusadi2_val_ptrs ptrs;
+    if (int e = cusadi2_val_ptrs_from(ptrs, h_inputs, h_outputs, n_in, n_out)) return e;
+    cusadi2_kernel_serial<cusadi2_val_ptrs><<<(n_threads + block_size - 1) / block_size, block_size, 0, stream>>>(
+        ptrs, total_instances, n_stages,
         nnz_in, in_stage_mode, in_stage_offset, in_stage_count, nnz_out, out_stage_count,
         n_instr, s_ops, s_outs, s_in_a, s_in_b, s_const_vals, scratch, n_threads, sz_w, thread_major);
     return (int)cudaPeekAtLastError();
@@ -214,9 +288,11 @@ int cusadi2_set_shared_memory(int shared_bytes) {
     static int configured = 49152;
     if (shared_bytes <= configured) return 0;
     configured = shared_bytes;
-    return (int)cudaFuncSetAttribute(cusadi2_kernel,
-                                     cudaFuncAttributeMaxDynamicSharedMemorySize,
-                                     shared_bytes);
+    int e = (int)cudaFuncSetAttribute(cusadi2_kernel<cusadi2_dev_ptrs>,
+                                      cudaFuncAttributeMaxDynamicSharedMemorySize, shared_bytes);
+    if (e) return e;
+    return (int)cudaFuncSetAttribute(cusadi2_kernel<cusadi2_val_ptrs>,
+                                     cudaFuncAttributeMaxDynamicSharedMemorySize, shared_bytes);
 }
 
 // Blocks of block_size threads with shared_bytes of dynamic shared memory that
@@ -224,7 +300,7 @@ int cusadi2_set_shared_memory(int shared_bytes) {
 // this device and this build); 0 if none.
 int cusadi2_max_active_blocks(int block_size, int shared_bytes) {
     int n = 0;
-    if (cudaOccupancyMaxActiveBlocksPerMultiprocessor(&n, cusadi2_kernel, block_size, shared_bytes))
+    if (cudaOccupancyMaxActiveBlocksPerMultiprocessor(&n, cusadi2_kernel<cusadi2_dev_ptrs>, block_size, shared_bytes))
         return 0;
     return n;
 }

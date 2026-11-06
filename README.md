@@ -11,9 +11,18 @@ runtime plus a binary plan file per function.
 
 ## Install
 
+uv is the environment and build frontend:
+
 ```bash
-pip install -e .          # casadi, numpy
+uv sync                      # cusadi2 (casadi, numpy) + the JAX extension if the toolchain resolves
+uv sync --extra jax --extra test   # + jax[cuda13] runtime, pytest
 ```
+
+The only compiled part is the JAX FFI extension (`cusadi2/jax/_ffi`); its
+toolchain (nvcc, cudart, XLA headers) comes entirely from pip wheels listed in
+`build-system.requires`, so no system CUDA is needed. The build backend is
+scikit-build-core (uv's own backend cannot compile extensions); the kernel
+source is generated from the op tables at build time.
 
 ## Build time (Python)
 
@@ -59,10 +68,111 @@ emits the original cusadi's unrolled per-function kernel from the same stream
 (symbols `<name>_unrolled_launch` / `_sz_w` / `_n_stages`), for comparison; it
 costs a per-function nvcc compile.
 
+## JAX front end (`cusadi2.jax`)
+
+Plain JAX code becomes a cusadi2 plan with exact-sparsity derivatives formed
+symbolically in CasADi, callable under `jit` and `vmap`:
+
+```python
+import jax, jax.numpy as jnp
+from cusadi2.jax import jax_function
+jax.config.update("jax_enable_x64", True)
+
+fn  = jax_function(c, param_argnums=(1,))   # c(z, p): p is a parameter, never differentiated
+y   = fn(z, p)                              # dense output, same as c(z, p); jit / vmap as usual
+jac = fn.jacobian()                         # one plan: jac(z, p) -> (nnz,) values, (B, nnz) under vmap
+coo = jac.coo(z, p)                         # (nnz, 2) int32 [row, col], fixed per argument signature
+hes = fn.hessian()                          # true Hessian of each vector output: coo (nnz, 3) = (k, i, j)
+whs = fn.hessian(weighted=True)             # Lagrangian Hessian: whs(z, p, lam=lam) -> (nnz,), coo (nnz, 2)
+```
+
+How it works: `jax.make_jaxpr` is interpreted with one CasADi SX scalar per
+array element (`cusadi2/jax/interpret.py`), which keeps the exact sparsity of
+vectorized code (masks, `where`, dense matmuls with sparse constants, `vmap`,
+`scan`) because CasADi folds constant zeros at construction. Derivatives are
+`ca.jacobian` / `ca.jacobian(ca.jacobian(.))` / `ca.hessian(lam.y)` on that
+graph, each its own plan (never fused with the value). Shapes come from the
+arguments at first call and every (variant, signature) is planned once.
+Arguments not in `param_argnums` are the variables, flattened row-major and
+concatenated in order. Boundaries: static-trip-count `scan` / `fori_loop`
+unroll, `cond` becomes `if_else` (union sparsity), a dynamic `while_loop` or
+a `gather` with traced indices or a `sort` of traced values raises
+`cusadi2.jax.Unsupported`. Any primitive whose inputs are all constants (index
+bookkeeping: `argsort`, `nonzero`, masks) is evaluated by JAX itself at trace
+time, so only the symbolic path needs SX rules; `isfinite` of a symbol is
+taken as true. The dtype follows the JAX arrays: float32 when `jax_enable_x64` is off or the inputs are float32, float64 otherwise (`dtype=` overrides); each dtype is its own kernel build (`_ffi_f64`, `_ffi_f32`).
+
+Runtime: `cusadi2/jax/ffi.cu` is an XLA FFI handler (spineax pattern: plans
+live in a registry keyed by id, each custom call holds a state pointing at its
+entry) that launches `Program::evaluate_ptrs`, the kernel with the buffer
+pointers passed by value, on XLA's stream. `vmap` folds the mapped axis into
+the plan's instance axis.
+
+### Rigid-body dynamics from a model file (`cusadi2.jax.rbd`)
+
+```python
+from cusadi2.jax import rbd
+model = rbd.load("robot.xml")             # MJCF or URDF, parsed by MuJoCo
+tau = model.inverse_dynamics(q, qd, qdd)  # == mj_inverse (constraints and actuation disabled)
+qdd = model.forward_dynamics(q, qd, tau)  # == mj_forward (smooth dynamics)
+xpos, xmat = model.forward_kinematics(q)  # body frames like MjData.xpos / xmat
+q1 = model.integrate_position(q, qd, dt)  # == mj_integratePos
+```
+
+Featherstone's recursive Newton-Euler and articulated-body algorithms in body
+coordinates as plain JAX, with MuJoCo's conventions (qpos / qvel layouts,
+free-joint linear velocity in the world frame, `ref`, `springref`): free, ball,
+slide and hinge joints, several joints per body, jointless bodies, armature,
+damping, joint springs, gravity compensation (tendons and fluid forces raise).
+Verified against MuJoCo to round-off (`tests/test_rbd.py`). Body-frame
+recursions are the formulation of Pinocchio and give the smallest symbolic
+graphs; the alternatives were measured on the G1 inverse dynamics (q, qd, qdd
+in, 35 torques out; the Lagrangian Hessian is what an interior-point method
+consumes):
+
+| backend | Jacobian nnz structural / numerical (of 3710) | Lagrangian Hessian nnz (of 11236) | Lagrangian Hessian instructions |
+|---|---|---|---|
+| `cusadi2.jax.rbd` | 1871 / 1756 | 3466 | 0.27 M |
+| jaxsim (URDF) | 1976 / 1750 | 4093 | 0.95 M |
+| MuJoCo MJX `mjx.inverse` | 2545 / 1756 | 6974 | 1.82 M |
+| brax generalized | 2545 / 1756 | 6974 | 2.03 M |
+
+MuJoCo (and brax, its port) express spatial quantities at the subtree centre
+of mass, which depends on every joint angle; the dependence cancels in the
+torques but symbolic sparsity cannot see cancellation. Forward dynamics are
+dense through the inverse mass matrix for every formulation, so a sparse
+transcription imposes the inverse dynamics with the accelerations as decision
+variables, contact forces entering linearly.
+
+Examples (`uv sync --extra jax --extra examples`):
+
+- `examples/jax/g1_dynamics.py`: the Unitree G1 through `rbd`: value, Jacobian
+  and Lagrangian Hessian plans of the inverse dynamics (`--true-hessian` adds
+  the full 35 x 106 x 106 tensor), value and Jacobian of the forward dynamics
+  (`--fd-hessian`), each checked against MuJoCo and JAX autodiff and timed at
+  batch 1024.
+- `examples/jax/g1_mjx.py`: the same inverse dynamics through `mjx.inverse`,
+  the comparison baseline (structural and numerical nnz are both printed).
+
+```bash
+uv run examples/jax/g1_dynamics.py            # --jax-only checks the JAX dynamics vs MuJoCo without cusadi2
+uv run examples/jax/g1_mjx.py                 # needs mujoco-mjx
+```
+
+Both examples set `XLA_PYTHON_CLIENT_PREALLOCATE=false` before importing JAX:
+cusadi2 plans are allocated outside XLA's pool, so the pool must not grow over
+the whole device.
+
+Plans whose level windows do not fit the device's shared memory fall back to
+the serial (thread-per-instance) kernel automatically, with a warning;
+`jax_function(..., serial=True)` forces it, `max_live=` sets the window budget.
+
 ## Tests
 
 ```bash
-pytest                    # host: plan verification + file round-trip; GPU: nvcc self-check
+uv run pytest             # host: plan verification, file round-trip, jaxpr->SX interpreter;
+                          # GPU: jax_function + quadcopter NMPC acceptance test
+NVCC=.venv/lib/python3.12/site-packages/nvidia/cu13/bin/nvcc uv run pytest tests/test_gpu.py   # kernel self-check
 ```
 
 ## Layout
@@ -71,8 +181,10 @@ pytest                    # host: plan verification + file round-trip; GPU: nvcc
 - `cusadi2/ops.py` — the op table (CUDA double/float forms, Python form)
 - `cusadi2/kernel_template.py` — the kernel source
 - `cusadi2/plan.py` — plan / reference file writers (format documented there)
+- `cusadi2/jax/rbd.py` — rigid-body dynamics (RNEA, ABA, kinematics) in JAX from a MuJoCo-parsed MJCF / URDF
 - `cusadi2/unrolled.py` — original-cusadi-style unrolled kernel emitter (baseline)
 - `cusadi2/cusadi2.h` — loader and `Program` runtime
+- `cusadi2/jax/` — JAX front end: `interpret.py` (jaxpr -> SX), `function.py` (`jax_function`, derivative plans), `primitive.py` (JAX primitive, vmap rule), `ffi.cu` (XLA FFI handler + plan registry)
 - `examples/paper_results/` — A1/H1 kinematics, Jacobian and Hessian latency benchmark (`bench.py`, `latency.cu`; results committed), and the CusADi paper's KKT solves (`bench_orig.py`)
 - `examples/menagerie_bench/` — the same benchmark once per MuJoCo Menagerie robot (`run.py`; needs the Menagerie checkout at `examples/mujoco_menagerie/`)
 - `examples/humanoid_mit/` — MIT humanoid dynamics functions, and in `mpc/` a staged MPC QP solve with cuDSS in one CUDA graph

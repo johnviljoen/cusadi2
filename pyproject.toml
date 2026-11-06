@@ -1,13 +1,31 @@
 [build-system]
-requires = ["setuptools>=77"]
-build-backend = "setuptools.build_meta"
+# scikit-build-core drives CMake for the one compiled part, the JAX FFI
+# extension (cusadi2/jax/_ffi). Its toolchain is pip-only: nvcc, cudart and the
+# XLA headers come from these wheels, so no system CUDA is needed. uv is the
+# frontend (uv sync / uv build); its own backend (uv_build) cannot compile
+# extensions, hence scikit-build-core here.
+requires = [
+    "scikit-build-core>=0.10",
+    "nanobind>=2.4",
+    "ninja",
+    "cmake>=3.26",
+    "casadi",
+    "numpy",
+    "jax>=0.8",
+    "nvidia-cuda-nvcc>=13,<14",
+    "nvidia-cuda-runtime>=13,<14",
+    "nvidia-cuda-cccl>=13,<14",
+    "nvidia-cuda-crt>=13,<14",
+    "nvidia-nvvm>=13,<14",
+]
+build-backend = "scikit_build_core.build"
 
 [project]
 name = "cusadi2"
-version = "0.2.0"
-description = "Level- and stage-parallel GPU evaluation of batched CasADi functions."
+version = "0.3.0"
+description = "Level- and stage-parallel GPU evaluation of batched CasADi functions, with a JAX front end."
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.11"
 license = "MIT"
 authors = [
     { name = "John Viljoen", email = "john_viljoen@berkeley.edu" },
@@ -15,13 +33,31 @@ authors = [
 dependencies = ["casadi", "numpy"]
 
 [project.optional-dependencies]
+# cusadi2.jax.jax_function: JAX with the CUDA 13 plugin (runtime side of the extension)
+jax = ["jax[cuda13]>=0.8", "mujoco"]
 test = ["pytest"]
+# examples/jax: MuJoCo parses the models and provides reference values; MJX is the dynamics
+examples = ["mujoco", "mujoco-mjx"]
 
-[tool.setuptools.packages.find]
-include = ["cusadi2*"]
+[dependency-groups]
+dev = ["pytest", "jax[cuda13]>=0.8"]
 
-[tool.setuptools.package-data]
-cusadi2 = ["*.h"]
+[tool.scikit-build]
+minimum-version = "build-system.requires"
+build-dir = "build/{wheel_tag}"
+wheel.packages = ["cusadi2"]
+cmake.build-type = "Release"
+sdist.exclude = ["examples/", "profiling/", "build/", ".venv/"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.uv]
+# rebuild the extension when its sources change, not only when pyproject.toml does
+cache-keys = [
+    { file = "pyproject.toml" },
+    { file = "CMakeLists.txt" },
+    { file = "cusadi2/**/*.py" },
+    { file = "cusadi2/**/*.cu" },
+    { file = "cusadi2/**/*.h" },
+]

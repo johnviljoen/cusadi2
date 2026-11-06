@@ -4,3 +4,4 @@ build/
 *.plan
 *.ref
 examples/humanoid_mit/mpc/vendor/
+.venv/
