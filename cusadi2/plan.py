@@ -16,19 +16,32 @@ its compiled scalar type on upload.
 
 Layout (little-endian; i32 = int32, f64 = float64; arrays are contiguous):
 
-    magic "CS2P", i32 version = 3
+    magic "CS2P", i32 version = 4
     i32 name_len, bytes name
     i32 n_in, n_out, n_stages, block_size, peak_live_slots
-    per input  a: i32 rows, cols, nnz, mode, offset, span, count
-                  i32 colptr[cols+1], i32 rowidx[nnz]
-    per output a: i32 rows, cols, nnz, mode, count
-                  i32 colptr[cols+1], i32 rowidx[nnz]
+    per declared input  a: i32 rows, cols, nnz, mode, offset, span, count
+                           i32 colptr[cols+1], i32 rowidx[nnz]
+    per declared output a: i32 rows, cols, nnz, mode, count
+                           i32 colptr[cols+1], i32 rowidx[nnz]
+    i32 n_stage_in;    per function input  a: i32 src, nnz;  i32 table[n_stages * nnz]
+    i32 n_stage_out;   per function output k: i32 dst, nnz;  i32 table[n_stages * nnz]
+    i32 n_reduce;      per reduce: i32 dst, G; i32 segptr[G+1]; i32 n_seg; i32 segidx[n_seg]
+    i32 scratch_per_instance
     i32 n_consts;      i32 const_slots[], f64 const_vals[]
     i32 n_levels;      i32 level_offsets[], level_widths[]
     i32 n_nodes;       i32 node_ops[], node_outs[], node_in_a[], node_in_b[]
     i32 sz_w
     i32 n_instr;       i32 serial_ops[], serial_outs[], serial_in_a[], serial_in_b[]
     i32 n_serial_consts; f64 serial_const_vals[]
+
+The declared arguments are the buffers the caller passes; the stage tables say,
+per (stage, element), where each function argument reads inside the declared
+input's instance block (-1: zero) and where each function output writes inside
+the declared output's instance block (-1: discard; dst -1: the scratch stream
+that the reduces sum, see ``cusadi2.compose``). Plain stage specs are the
+special case where each function argument is its own declared buffer
+(``compose.legacy_composition``); a version-3 file (before the tables) is read
+back as that case.
 
 The level program (node arrays) is SSA-renamed and hazard-free per level, with
 INPUT / OUTPUT as nodes (slot, argument, element) and constants preloaded; the
@@ -40,10 +53,10 @@ only its own program.
 the kernel reads them, plus CasADi's outputs) for the GPU test; it is test data,
 not part of the plan contract:
 
-    magic "CS2R", i32 version = 3        (the plan VERSION; readers skip it)
+    magic "CS2R", i32 version = 4        (the plan VERSION; readers skip it)
     i32 n_in, n_out, n_stages
-    per input  a: i32 len, f64 data[len]     (count * nnz, batch of one)
-    per output a: i32 len, f64 data[len]     (n_stages * nnz)
+    per declared input  a: i32 len, f64 data[len]     (batch of one)
+    per declared output a: i32 len, f64 data[len]
 """
 import io
 import os
@@ -52,19 +65,31 @@ import struct
 import casadi as ca
 import numpy as np
 
-from cusadi2.dag import (STAGE_MODES, LevelPlan, SerialProgram, extract_level_plan,
-                         extract_serial_program, stage_count, validate_specs)
+from cusadi2.compose import Composition, DeclaredArg, Reduce, StageMap, evaluate_composition, legacy_composition
+from cusadi2.dag import (STAGE_MODES, LevelPlan, SerialProgram, extract_level_plan, extract_serial_program,
+                         validate_specs)
 
-PLAN_MAGIC, REF_MAGIC, VERSION = b"CS2P", b"CS2R", 3
+PLAN_MAGIC, REF_MAGIC, VERSION = b"CS2P", b"CS2R", 4
 
 
 def _specs(fn, n_stages, in_mode, in_offset, in_span, out_mode):
+    """The stage specs with defaults filled in and validated (the unrolled emitter
+    still works from them)."""
     in_mode = in_mode or ["stage"] * fn.n_in()
     in_offset = in_offset or [0] * fn.n_in()
     in_span = in_span or [0] * fn.n_in()
     out_mode = out_mode or ["stage"] * fn.n_out()
     validate_specs(fn, n_stages, in_mode, in_offset, in_span, out_mode)
     return in_mode, in_offset, in_span, out_mode
+
+
+def _composition(fn, n_stages, in_mode, in_offset, in_span, out_mode, composition):
+    if composition is None:
+        return legacy_composition(fn, n_stages, in_mode, in_offset, in_span, out_mode)
+    if any(v is not None for v in (in_mode, in_offset, in_span, out_mode)) or n_stages not in (1, composition.n_stages):
+        raise ValueError("write_plan: give either stage specs or a composition, not both")
+    composition.validate(fn)
+    return composition
 
 
 class _W:
@@ -117,33 +142,36 @@ def device_max_live(dtype: str = "double", device: int = 0) -> int:
 
 def plan_bytes(fn: ca.Function, n_stages: int = 1, in_mode=None, in_offset=None,
                in_span=None, out_mode=None, block_size=None, max_live=None,
-               plan: LevelPlan = None, serial: SerialProgram = None) -> bytes:
+               plan: LevelPlan = None, serial: SerialProgram = None,
+               composition: Composition = None) -> bytes:
     """The plan file for `fn` as bytes (same format as `write_plan`), for consumers
     that upload plans without touching the filesystem (cusadi2.jax)."""
     buf = io.BytesIO()
     _write_plan_stream(buf, fn, n_stages, in_mode, in_offset, in_span, out_mode, block_size,
-                       max_live, plan, serial)
+                       max_live, plan, serial, composition)
     return buf.getvalue()
 
 
 def write_plan(fn: ca.Function, path: str, n_stages: int = 1, in_mode=None,
                in_offset=None, in_span=None, out_mode=None, block_size=None,
-               max_live=None, plan: LevelPlan = None, serial: SerialProgram = None) -> str:
+               max_live=None, plan: LevelPlan = None, serial: SerialProgram = None,
+               composition: Composition = None) -> str:
     """Extract `fn`'s level-parallel plan and serial program and write them, with
     the stage specs and horizon baked in, to `path`. `max_live` (slots; see
     `device_max_live`) makes the planner window the levels until the plan fits.
-    Pass `plan` / `serial` to reuse already extracted ones."""
+    Pass `plan` / `serial` to reuse already extracted ones. A `composition`
+    (`cusadi2.compose`) replaces the stage specs: `fn` runs per stage behind
+    the composition's declared arguments."""
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
     with open(path, "wb") as f:
         _write_plan_stream(f, fn, n_stages, in_mode, in_offset, in_span, out_mode, block_size,
-                           max_live, plan, serial)
+                           max_live, plan, serial, composition)
     return path
 
 
 def _write_plan_stream(f, fn, n_stages, in_mode, in_offset, in_span, out_mode, block_size,
-                       max_live, plan, serial):
-    in_mode, in_offset, in_span, out_mode = _specs(fn, n_stages, in_mode, in_offset,
-                                                   in_span, out_mode)
+                       max_live, plan, serial, composition=None):
+    comp = _composition(fn, n_stages, in_mode, in_offset, in_span, out_mode, composition)
     plan = plan or extract_level_plan(fn, max_live=max_live)
     serial = serial or extract_serial_program(fn)
     name = fn.name().encode()
@@ -152,17 +180,23 @@ def _write_plan_stream(f, fn, n_stages, in_mode, in_offset, in_span, out_mode, b
         f.write(PLAN_MAGIC)
         w.i(VERSION, len(name))
         f.write(name)
-        w.i(fn.n_in(), fn.n_out(), n_stages, block_size or 0, plan.peak_live_slots)
-        for a in range(fn.n_in()):
-            sp = fn.sparsity_in(a)
-            w.i(sp.size1(), sp.size2(), sp.nnz(), STAGE_MODES.index(in_mode[a]),
-                in_offset[a], in_span[a], stage_count(in_mode[a], in_span[a], n_stages))
-            w.ia(sp.colind()); w.ia(sp.row())
-        for a in range(fn.n_out()):
-            sp = fn.sparsity_out(a)
-            w.i(sp.size1(), sp.size2(), sp.nnz(), STAGE_MODES.index(out_mode[a]),
-                stage_count(out_mode[a], 0, n_stages))
-            w.ia(sp.colind()); w.ia(sp.row())
+        w.i(len(comp.inputs), len(comp.outputs), comp.n_stages, block_size or 0, plan.peak_live_slots)
+        for d in comp.inputs:
+            w.i(d.rows, d.cols, d.nnz, STAGE_MODES.index(d.mode), d.offset, d.span, d.count)
+            w.ia(d.colptr); w.ia(d.rowidx)
+        for d in comp.outputs:
+            w.i(d.rows, d.cols, d.nnz, STAGE_MODES.index(d.mode), d.count)
+            w.ia(d.colptr); w.ia(d.rowidx)
+        w.i(len(comp.stage_in))
+        for m in comp.stage_in:
+            w.i(m.arg, m.nnz); w.ia(m.table.reshape(-1))
+        w.i(len(comp.stage_out))
+        for m in comp.stage_out:
+            w.i(m.arg, m.nnz); w.ia(m.table.reshape(-1))
+        w.i(len(comp.reduces))
+        for r in comp.reduces:
+            w.i(r.dst, len(r.segptr) - 1); w.ia(r.segptr); w.i(len(r.segidx)); w.ia(r.segidx)
+        w.i(comp.scratch_per_instance)
         w.i(len(plan.const_slots)); w.ia(plan.const_slots); w.fa(plan.const_vals)
         w.i(plan.n_levels); w.ia(plan.level_offsets); w.ia(plan.level_widths)
         w.i(plan.n_nodes); w.ia(plan.node_ops); w.ia(plan.node_outs); w.ia(plan.node_in_a); w.ia(plan.node_in_b)
@@ -200,7 +234,7 @@ def read_plan(path: str) -> dict:
         raise ValueError(f"{path}: not a cusadi2 plan file")
     pos = 4
     version, name_len = i(), i()
-    if version != VERSION:
+    if version not in (3, VERSION):
         raise ValueError(f"{path}: plan version {version}, expected {VERSION}")
     name = buf[pos:pos + name_len].decode(); pos += name_len
     d = dict(name=name, version=version)
@@ -215,6 +249,27 @@ def read_plan(path: str) -> dict:
         rows, cols, nnz, mode, count = i(5)
         d["outputs"].append(dict(rows=rows, cols=cols, nnz=nnz, mode=STAGE_MODES[mode],
                                  count=count, colptr=ia(cols + 1), rowidx=ia(nnz)))
+    N = d["n_stages"]
+    if version >= 4:
+        d["stage_in"], d["stage_out"], d["reduces"] = [], [], []
+        for _ in range(i()):
+            src, nnz = i(2)
+            d["stage_in"].append(dict(arg=src, nnz=nnz, table=np.array(ia(N * nnz), np.int32).reshape(N, nnz)))
+        for _ in range(i()):
+            dst, nnz = i(2)
+            d["stage_out"].append(dict(arg=dst, nnz=nnz, table=np.array(ia(N * nnz), np.int32).reshape(N, nnz)))
+        for _ in range(i()):
+            dst, G = i(2)
+            segptr = ia(G + 1)
+            d["reduces"].append(dict(dst=dst, segptr=segptr, segidx=ia(i())))
+        d["scratch_per_instance"] = i()
+    else:   # the stage specs as tables (what the C++ loader synthesises too)
+        d["stage_in"] = [dict(arg=a, nnz=x["nnz"], table=(np.tile(np.arange(x["nnz"]), (N, 1)) if x["mode"] == "shared"
+                              else (np.arange(N)[:, None] + x["offset"]) * x["nnz"] + np.arange(x["nnz"])[None, :]).astype(np.int32))
+                         for a, x in enumerate(d["inputs"])]
+        d["stage_out"] = [dict(arg=k, nnz=x["nnz"], table=(np.arange(N)[:, None] * x["nnz"] + np.arange(x["nnz"])[None, :]).astype(np.int32))
+                          for k, x in enumerate(d["outputs"])]
+        d["reduces"], d["scratch_per_instance"] = [], 0
     n = i(); d["const_slots"] = ia(n); d["const_vals"] = fa(n)
     n = i(); d["level_offsets"] = ia(n); d["level_widths"] = ia(n)
     n = i(); d["node_ops"] = ia(n); d["node_outs"] = ia(n); d["node_in_a"] = ia(n); d["node_in_b"] = ia(n)
@@ -228,31 +283,21 @@ def read_plan(path: str) -> dict:
 
 def write_reference(fn: ca.Function, path: str, n_stages: int = 1, in_mode=None,
                     in_offset=None, in_span=None, seed: int = 0,
-                    lo: float = -1.0, up: float = 1.0) -> str:
-    """Write a self-check reference for `fn` under the same specs as its plan:
-    random inputs (uniform in [lo, up], laid out as the kernel indexes them for
-    a batch of one) and CasADi's outputs at every stage. Pick lo/up inside fn's
-    domain; the reference is meaningless where fn is undefined."""
-    in_mode, in_offset, in_span, _ = _specs(fn, n_stages, in_mode, in_offset, in_span, None)
+                    lo: float = -1.0, up: float = 1.0, composition: Composition = None) -> str:
+    """Write a self-check reference for `fn` under the same specs (or composition)
+    as its plan: random declared inputs (uniform in [lo, up], laid out as the
+    kernel indexes them for a batch of one) and the declared outputs evaluated
+    on the host (`compose.evaluate_composition`). Pick lo/up inside fn's domain;
+    the reference is meaningless where fn is undefined."""
+    comp = _composition(fn, n_stages, in_mode, in_offset, in_span, None, composition)
     rng = np.random.default_rng(seed)
-    nnz_in = [fn.nnz_in(a) for a in range(fn.n_in())]
-    ref_in = [rng.uniform(lo, up, stage_count(in_mode[a], in_span[a], n_stages) * nnz_in[a])
-              for a in range(fn.n_in())]
-    ref_out = [[] for _ in range(fn.n_out())]
-    for k in range(n_stages):
-        args = []
-        for a in range(fn.n_in()):
-            s = 0 if in_mode[a] == "shared" else k + in_offset[a]
-            args.append(ca.DM(ref_in[a][s * nnz_in[a]:(s + 1) * nnz_in[a]]))
-        res = fn(*args)
-        res = res if isinstance(res, (list, tuple)) else [res]
-        for o, r in zip(ref_out, res):
-            o.extend(np.array(ca.DM(r).nonzeros()).reshape(-1))
+    ref_in = [rng.uniform(lo, up, d.length) for d in comp.inputs]
+    ref_out = evaluate_composition(fn, comp, ref_in)
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
     with open(path, "wb") as f:
         w = _W(f)
         f.write(REF_MAGIC)
-        w.i(VERSION, fn.n_in(), fn.n_out(), n_stages)
+        w.i(VERSION, len(comp.inputs), len(comp.outputs), comp.n_stages)
         for buf in ref_in:
             w.i(len(buf)); w.fa(buf)
         for buf in ref_out:

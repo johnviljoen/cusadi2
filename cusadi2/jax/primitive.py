@@ -4,7 +4,9 @@ Inputs: one array of shape (batch, nnz_in[a]) per plan input, all of the plan's
 dtype (float64 or float32; each dtype is its own extension module, `_ffi_f64`
 / `_ffi_f32`, with its own plan registry). Outputs: one array of shape
 (batch, nnz_out[k]) per plan output in the same dtype. `plan_id`, `batch`,
-`dtype` and `nnz_out` are static.
+`dtype`, `nnz_out` and `scratch` are static; a plan with reduces (a composed
+plan, cusadi2.compose) needs `scratch` scalars of scratch stream per instance,
+which the call passes as one extra XLA-owned result buffer and drops.
 
 Transformations: jit lowers to the XLA custom call (the spineax pattern);
 vmap flattens the mapped axis into the plan's batch axis, broadcasting
@@ -60,22 +62,22 @@ eval_p = Primitive("cusadi2_eval")
 eval_p.multiple_results = True
 
 
-def cusadi2_eval(args, *, plan_id: int, batch: int, dtype, nnz_out: tuple) -> list:
+def cusadi2_eval(args, *, plan_id: int, batch: int, dtype, nnz_out: tuple, scratch: int = 0) -> list:
     return eval_p.bind(*args, plan_id=int(plan_id), batch=int(batch), dtype=np.dtype(dtype),
-                       nnz_out=tuple(int(n) for n in nnz_out))
+                       nnz_out=tuple(int(n) for n in nnz_out), scratch=int(scratch))
 
 
 @eval_p.def_impl
-def _impl(*args, plan_id, batch, dtype, nnz_out):
-    call = jax.ffi.ffi_call(
-        TARGET[dtype],
-        [jax.ShapeDtypeStruct((batch, n), dtype) for n in nnz_out],
-    )
-    return list(call(*args, plan_id=plan_id, batch=batch))
+def _impl(*args, plan_id, batch, dtype, nnz_out, scratch):
+    shapes = [jax.ShapeDtypeStruct((batch, n), dtype) for n in nnz_out]
+    if scratch:
+        shapes.append(jax.ShapeDtypeStruct((batch, scratch), dtype))
+    call = jax.ffi.ffi_call(TARGET[dtype], shapes)
+    return list(call(*args, plan_id=plan_id, batch=batch))[:len(nnz_out)]
 
 
 @eval_p.def_abstract_eval
-def _abstract(*args, plan_id, batch, dtype, nnz_out):
+def _abstract(*args, plan_id, batch, dtype, nnz_out, scratch):
     for a in args:
         if a.dtype != dtype:
             raise TypeError(f"cusadi2_eval: plan dtype is {dtype}, got an input of {a.dtype}")
@@ -87,7 +89,7 @@ def _abstract(*args, plan_id, batch, dtype, nnz_out):
 mlir.register_lowering(eval_p, mlir.lower_fun(_impl, multiple_results=True))
 
 
-def _batch(args, dims, *, plan_id, batch, dtype, nnz_out):
+def _batch(args, dims, *, plan_id, batch, dtype, nnz_out, scratch):
     """vmap: fold the mapped axis into the plan's batch axis."""
     size = next(a.shape[d] for a, d in zip(args, dims) if d is not None)
     flat = []
@@ -97,7 +99,7 @@ def _batch(args, dims, *, plan_id, batch, dtype, nnz_out):
         else:
             a = jnp.moveaxis(a, d, 0)
         flat.append(a.reshape(size * batch, a.shape[-1]))
-    outs = cusadi2_eval(flat, plan_id=plan_id, batch=size * batch, dtype=dtype, nnz_out=nnz_out)
+    outs = cusadi2_eval(flat, plan_id=plan_id, batch=size * batch, dtype=dtype, nnz_out=nnz_out, scratch=scratch)
     return [o.reshape(size, batch, o.shape[-1]) for o in outs], [0] * len(outs)
 
 

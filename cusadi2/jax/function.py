@@ -53,28 +53,35 @@ def _infer_dtype(leaves):
 class _Plan:
     """One CasADi Function uploaded as one cusadi2 plan, callable on flat leaves."""
 
-    def __init__(self, name: str, fun: ca.Function, out_shapes, coo, dtype, block_size, serial, max_live):
+    def __init__(self, name: str, fun: ca.Function, out_shapes, coo, dtype, block_size, serial, max_live,
+                 composition=None):
         self.plan_id = next(_plan_ids)
         self.fun = fun
         self.dtype = np.dtype(dtype)
         self.ext = ext_for(self.dtype)
         self.out_shapes = [tuple(s) for s in out_shapes]
         self.coo = coo                      # None (dense outputs) or list of int32 (nnz, k) arrays
-        self.nnz_in = [int(fun.nnz_in(i)) for i in range(fun.n_in())]
-        self.nnz_out = [int(fun.nnz_out(k)) for k in range(fun.n_out())]
-        if fun.n_in() > MAX_ARGS or fun.n_out() > MAX_ARGS:
+        if composition is None:             # the function's own arguments, batch only
+            self.nnz_in = [int(fun.nnz_in(i)) for i in range(fun.n_in())]
+            self.nnz_out = [int(fun.nnz_out(k)) for k in range(fun.n_out())]
+            self.scratch = 0
+        else:                               # fun per stage behind the composition's declared arguments
+            self.nnz_in, self.nnz_out = composition.in_lengths, composition.out_lengths
+            self.scratch = int(composition.scratch_per_instance)
+        if len(self.nnz_in) > MAX_ARGS or len(self.nnz_out) + (self.scratch > 0) > MAX_ARGS:
             raise ValueError(f"cusadi2.jax: at most {MAX_ARGS} inputs and outputs per function")
         if max_live is None:   # window the levels to the device's shared memory (plans of big Jacobians / Hessians)
             max_live = device_max_live("float" if self.dtype == np.float32 else "double")
         self.serial = bool(serial)
+        kw = dict(block_size=block_size, composition=composition)
         if serial:
-            data = plan_bytes(fun, block_size=block_size)
+            data = plan_bytes(fun, **kw)
         else:
             try:
-                data = plan_bytes(fun, block_size=block_size, max_live=max_live)
+                data = plan_bytes(fun, max_live=max_live, **kw)
             except ValueError as e:      # no window fits shared memory: run CasADi's instruction stream
                 warnings.warn(f"cusadi2.jax: {e}; using the serial (thread-per-instance) kernel for {name}")
-                data = plan_bytes(fun, block_size=block_size)
+                data = plan_bytes(fun, **kw)
                 self.serial = True
         self.ext.install_plan(self.plan_id, data, block_size or 0, self.serial)
 
@@ -83,7 +90,8 @@ class _Plan:
         for a, n in zip(leaves, self.nnz_in):
             a = jnp.asarray(a).astype(self.dtype).reshape(1, n)
             xs.append(a)
-        outs = cusadi2_eval(xs, plan_id=self.plan_id, batch=1, dtype=self.dtype, nnz_out=tuple(self.nnz_out))
+        outs = cusadi2_eval(xs, plan_id=self.plan_id, batch=1, dtype=self.dtype, nnz_out=tuple(self.nnz_out),
+                            scratch=self.scratch)
         if self.coo is None:
             return [o.reshape(s) for o, s in zip(outs, self.out_shapes)]
         return [o.reshape(n) for o, n in zip(outs, self.nnz_out)]

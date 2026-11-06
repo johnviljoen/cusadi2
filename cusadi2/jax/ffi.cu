@@ -89,10 +89,13 @@ ffi::Error Execute(cudaStream_t stream, PlanState* st, ffi::RemainingArgs args,
                    ffi::RemainingRets rets, int64_t plan_id, int64_t batch) {
     const Entry& e = *st->entry;
     const cusadi2::Plan& p = e.plan;
-    if ((int)args.size() != p.n_in() || (int)rets.size() != p.n_out())
+    // A plan with reduces takes its scratch stream as one extra result buffer (XLA
+    // owns it; nothing is allocated here), so the launch stays graph-capturable.
+    const int extra = p.scratch_per_instance > 0 ? 1 : 0;
+    if ((int)args.size() != p.n_in() || (int)rets.size() != p.n_out() + extra)
         return ffi::Error::InvalidArgument(
             "cusadi2: plan " + std::to_string(plan_id) + " expects " + std::to_string(p.n_in()) +
-            " inputs / " + std::to_string(p.n_out()) + " outputs, got " + std::to_string(args.size()) +
+            " inputs / " + std::to_string(p.n_out() + extra) + " outputs, got " + std::to_string(args.size()) +
             " / " + std::to_string(rets.size()));
     if (p.n_in() > CUSADI2_MAX_ARGS || p.n_out() > CUSADI2_MAX_ARGS)
         return ffi::Error::InvalidArgument("cusadi2: too many arguments for the by-value launch");
@@ -119,7 +122,15 @@ ffi::Error Execute(cudaStream_t stream, PlanState* st, ffi::RemainingArgs args,
                 " elements, plan wants " + std::to_string(want) + " for batch " + std::to_string(batch));
         out[k] = (*r.value()).typed_data();
     }
-    int err = e.prog.evaluate_ptrs(in, out, (int)batch, stream);
+    Scalar* scratch = nullptr;
+    if (extra) {
+        auto r = rets.get<ffi::Buffer<kDType>>(p.n_out());
+        if (!r.has_value()) return r.error();
+        if ((*r.value()).element_count() != e.prog.scratch_elements((int)batch))
+            return ffi::Error::InvalidArgument("cusadi2: scratch buffer has the wrong size");
+        scratch = (*r.value()).typed_data();
+    }
+    int err = e.prog.evaluate_ptrs(in, out, (int)batch, stream, scratch);
     if (err)
         return ffi::Error::Internal(std::string("cusadi2: launch failed: ") +
                                     cudaGetErrorString((cudaError_t)err));
@@ -178,6 +189,12 @@ NB_MODULE(CUSADI2_FFI_MODULE, m) {
         for (auto& a : e->plan.out) nnz_out.push_back(a.nnz());
         return std::make_pair(nnz_in, nnz_out);
     }, "plan_id"_a);
+
+    m.def("plan_scratch", [](int64_t plan_id) {
+        auto e = Registry::get(plan_id);
+        if (!e) throw std::runtime_error("cusadi2: plan not installed");
+        return e->plan.scratch_per_instance;
+    }, "plan_id"_a, "Scalars of scratch stream per instance the plan's launch needs (0: none).");
 
     m.def("type_id", []() { return nb::capsule(reinterpret_cast<void*>(&PlanState::id)); });
     m.def("type_info", []() { return nb::capsule(reinterpret_cast<void*>(&kPlanStateInfo)); });

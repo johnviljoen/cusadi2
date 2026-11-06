@@ -40,7 +40,9 @@ test = ["pytest"]
 examples = ["mujoco", "mujoco-mjx"]
 
 [dependency-groups]
-dev = ["pytest", "jax[cuda13]>=0.8"]
+# nvidia-cudss-cu13<1: cuipm (~/code/cuipm, the consumer of the exported plans) links cuDSS 0.x;
+# its tests run with LD_LIBRARY_PATH pointing at this venv's nvidia/cu13/lib
+dev = ["pytest", "jax[cuda13]>=0.8", "nvidia-cudss-cu13<1"]
 
 [tool.scikit-build]
 minimum-version = "build-system.requires"

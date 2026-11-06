@@ -27,19 +27,31 @@ f, c and d are JAX callables of (x, p) with x and p flat 1-D arrays; their
 jaxpr is interpreted into CasADi SX (`cusadi2.jax.interpret`) on shared
 symbols, the derivatives are formed symbolically and each of the nine
 functions is written as a level-parallel plan with `cusadi2.write_plan`.
+
+Stage-wise problems (`StagedNLP`, `export_cuipm_staged`): f, c and d given as
+per-stage JAX callables of the stage arguments (specs as in
+`cusadi2.jax.staged`) are traced once and composed (`cusadi2.compose`) into
+the same nine plans with the same whole-horizon signatures: the kernel runs
+the stage graph per (instance, stage), gathers x_k / x_{k+1} / u_k from the
+knot-major x and the parameters from p, scatters each stage's rows into the
+global pattern, and sums the Hessian blocks that meet on a knot. cuipm needs
+nothing but the plan files; the stage structure is inside them.
 """
 from __future__ import annotations
 
 import json
 import os
-from typing import Callable, Dict, Optional
+from typing import Callable, Dict, List, Optional
 
 import casadi as ca
 import jax
 import numpy as np
 
 from cusadi2 import extract_level_plan, write_plan
+from cusadi2.compose import Composition, DeclaredArg, compose, evaluate_composition
+from cusadi2.jax.function import _coo2
 from cusadi2.jax.interpret import eval_jaxpr, sx_inputs, to_sx_vector
+from cusadi2.jax.staged import StageLayout
 
 NAMES = ("f", "c", "d", "jac_f", "jac_c", "jac_d", "hess_f", "hess_c", "hess_d")
 
@@ -153,13 +165,18 @@ class GpuFunction:
     1-D arrays returns the structural nonzeros of the output (vmap / jit as usual);
     `coo` is the (nnz, 2) row/col pattern, `serial` whether the level kernel fit."""
 
-    def __init__(self, name: str, fn: ca.Function, dtype=np.float64, max_live: Optional[int] = None,
+    def __init__(self, name: str, fn, dtype=np.float64, max_live: Optional[int] = None,
                  block_size: Optional[int] = None, serial: bool = False):
         from cusadi2.jax.function import _Plan
-        rows, cols = fn.sparsity_out(0).get_triplet()
-        self.coo = np.stack([np.asarray(rows, np.int32), np.asarray(cols, np.int32)], axis=1).reshape(-1, 2)
-        self.name, self.nnz = name, int(fn.nnz_out(0))
-        self._plan = _Plan(name, fn, [(self.nnz,)], [self.coo], dtype, block_size, serial, max_live)
+        if isinstance(fn, ComposedFunction):
+            self.coo, self.nnz, composition, fn = fn.coo, fn.nnz_out, fn.composition, fn.fn
+        else:
+            rows, cols = fn.sparsity_out(0).get_triplet()
+            self.coo = np.stack([np.asarray(rows, np.int32), np.asarray(cols, np.int32)], axis=1).reshape(-1, 2)
+            self.nnz, composition = int(fn.nnz_out(0)), None
+        self.name = name
+        self._plan = _Plan(name, fn, [(self.nnz,)], [self.coo], dtype, block_size, serial, max_live,
+                           composition=composition)
         self.serial = self._plan.serial
 
     def __call__(self, *args):
@@ -169,10 +186,220 @@ class GpuFunction:
         self._plan.free()
 
 
-def gpu_functions(fns: Dict[str, ca.Function], dtype=np.float64, max_live: Optional[int] = None,
+def gpu_functions(fns: Dict[str, object], dtype=np.float64, max_live: Optional[int] = None,
                   block_size: Optional[int] = None, serial: bool = False) -> Dict[str, GpuFunction]:
-    """The Functions `export_cuipm` returned (`info["functions"]`) as cusadi2 plans on the GPU,
-    without tracing or differentiating again; same signatures as the plans (f / jac_f / hess_f
-    take the ignored `eps` as a third argument). Level plans are windowed to the device's
-    shared memory (`max_live=None`) and fall back to the serial kernel when no window fits."""
+    """The Functions `export_cuipm` / `export_cuipm_staged` returned (`info["functions"]`) as
+    cusadi2 plans on the GPU, without tracing or differentiating again; same signatures as the
+    plans (f / jac_f / hess_f take the ignored `eps` as a third argument). Level plans are
+    windowed to the device's shared memory (`max_live=None`) and fall back to the serial kernel
+    when no window fits."""
     return {name: GpuFunction(name, fn, dtype, max_live, block_size, serial) for name, fn in fns.items()}
+
+
+# ============================================================================ stage-wise problems
+def rows_active(n_stages: int, blocks) -> np.ndarray:
+    """(n_stages, total rows) bool: at which stages each row of a stage output exists.
+    `blocks` lists (size, when) in the output's row order, `when` one of "all",
+    "first", "last" or a bool sequence of n_stages. Rows inactive at a stage are
+    computed and discarded, so a constraint that holds only at one knot (the
+    initial state, a touchdown) is a block of the stage function and the global
+    pattern has exactly the rows that exist."""
+    cols = []
+    for size, when in blocks:
+        if isinstance(when, str):
+            if when == "all":
+                m = np.ones(n_stages, bool)
+            elif when == "first":
+                m = np.arange(n_stages) == 0
+            elif when == "last":
+                m = np.arange(n_stages) == n_stages - 1
+            else:
+                raise ValueError(f"rows_active: unknown block spec {when!r}")
+        else:
+            m = np.asarray(when, bool).reshape(-1)
+            if m.size != n_stages:
+                raise ValueError(f"rows_active: a bool block spec needs {n_stages} entries")
+        cols.append(np.repeat(m[:, None], size, axis=1))
+    return np.concatenate(cols, axis=1) if cols else np.zeros((n_stages, 0), bool)
+
+
+def _row_numbers(active: np.ndarray) -> np.ndarray:
+    """Global row of every active (stage, row), stage-major; -1 where inactive."""
+    rows = np.full(active.shape, -1, np.int64)
+    rows[active] = np.arange(int(active.sum()))
+    return rows
+
+
+class ComposedFunction:
+    """A per-stage CasADi Function behind a whole-horizon interface (`cusadi2.compose`):
+    callable on the host with the declared buffers (one instance) for the declared
+    output's structural nonzeros; `write` emits the plan file."""
+
+    def __init__(self, name: str, fn: ca.Function, composition: Composition):
+        self.name, self.fn, self.composition = name, fn, composition
+        out = composition.outputs[0]
+        rows, cols = out.coo()
+        self.coo = np.stack([rows, cols], axis=1).astype(np.int32).reshape(-1, 2)
+        self.nnz_out = out.nnz
+        self.shape = (out.rows, out.cols)
+
+    @property
+    def n_in(self) -> int:
+        return len(self.composition.inputs)
+
+    @property
+    def nnz_in(self) -> List[int]:
+        return self.composition.in_lengths
+
+    def __call__(self, *bufs) -> np.ndarray:
+        return evaluate_composition(self.fn, self.composition, bufs)[0]
+
+    def dense(self, *bufs) -> np.ndarray:
+        M = np.zeros(self.shape)
+        M[self.coo[:, 0], self.coo[:, 1]] = self(*bufs)
+        return M
+
+    def write(self, path: str, max_live: Optional[int] = None, block_size: Optional[int] = None):
+        plan = extract_level_plan(self.fn, max_live=max_live)
+        write_plan(self.fn, path, composition=self.composition, block_size=block_size, plan=plan)
+        return plan
+
+
+class StagedNLP:
+    """min sum_k f(args_k)  s.t.  c(args_k) = 0,  d(args_k) >= 0 over k = 0..n_stages-1,
+    where the stage arguments are described by `specs` as in `cusadi2.jax.staged`
+    (name, size, mode stage|coupled|shared, offset, span, param, alias): the
+    non-parameter arguments form the knot-major global x (`StageLayout`), the
+    parameters form p (shared first, then per-stage). `stage_f` returns a scalar
+    (stage-dependent cost terms take a per-stage parameter); `stage_c` / `stage_d`
+    return one vector per stage, of which `c_active` / `d_active` ((n_stages, ny)
+    bool, see `rows_active`; default all) say which rows exist at which stage.
+    `functions()` gives the nine cuipm functions as `ComposedFunction`s;
+    `whole_horizon()` the same NLP as whole-horizon SX for IPOPT and checks."""
+
+    def __init__(self, stage_f: Callable, stage_c: Optional[Callable], stage_d: Optional[Callable], n_stages: int,
+                 specs, *, c_active=None, d_active=None, dtype=np.float64):
+        self.layout = StageLayout(specs, n_stages)
+        self.n_stages = int(n_stages)
+        self.specs = self.layout.specs
+        self.syms, arrs = [], []
+        for sp in self.specs:
+            sym, arr = sx_inputs(sp["name"], (sp["size"],))
+            self.syms.append(sym)
+            arrs.append(arr)
+        avals = [jax.ShapeDtypeStruct((sp["size"],), dtype) for sp in self.specs]
+
+        def trace(fun):
+            if fun is None:
+                return ca.SX.zeros(0, 1)
+            outs = eval_jaxpr(jax.make_jaxpr(fun)(*avals), arrs)
+            if len(outs) != 1:
+                raise ValueError("StagedNLP: a stage function must return one array")
+            return to_sx_vector(outs[0])
+        self.f_sx, self.c_sx, self.d_sx = trace(stage_f), trace(stage_c), trace(stage_d)
+        if int(self.f_sx.numel()) != 1:
+            raise ValueError("StagedNLP: stage_f must return a scalar")
+        self.x_stage = ca.vertcat(*[self.syms[i] for i in self.layout.var_args])
+        self.c_active = self._active(c_active, int(self.c_sx.numel()), "c")
+        self.d_active = self._active(d_active, int(self.d_sx.numel()), "d")
+        self.c_rows, self.d_rows = _row_numbers(self.c_active), _row_numbers(self.d_active)
+        self.nyc, self.nyd = int(self.c_active.sum()), int(self.d_active.sum())
+        self.nx, self.np = self.layout.nx, self.layout.np
+        self._gx = self.layout.stage_x_cols()                                 # (n_stages, nx_stage)
+        self._base_gathers = [self.layout.gather(i) for i in range(len(self.specs))]
+
+    def _active(self, active, ny, what):
+        if active is None:
+            return np.ones((self.n_stages, ny), bool)
+        active = np.asarray(active, bool)
+        if active.shape != (self.n_stages, ny):
+            raise ValueError(f"StagedNLP: {what}_active must be ({self.n_stages}, {ny}), got {active.shape}")
+        return active
+
+    # ---- composition
+    def _rc(self, M: ca.SX, rows_of: np.ndarray, cols_of: np.ndarray) -> np.ndarray:
+        """Global (row, col) per (stage, nonzero of M), -1 where the row is inactive."""
+        coo = _coo2(M)
+        r = rows_of[:, coo[:, 0]]
+        c = cols_of[:, coo[:, 1]]
+        keep = r >= 0
+        return np.stack([np.where(keep, r, -1), np.where(keep, c, -1)], axis=-1)
+
+    def _make(self, name, out_sx, declared, extra_syms, extra_gathers, rows_of, cols_of, shape) -> ComposedFunction:
+        fn = ca.Function(name, list(self.syms) + extra_syms, [out_sx])
+        comp = compose(fn, self.n_stages, declared, self._base_gathers + extra_gathers, [(name, *shape)],
+                       [(0, self._rc(out_sx, rows_of, cols_of))])
+        return ComposedFunction(name, fn, comp)
+
+    def functions(self) -> Dict[str, ComposedFunction]:
+        """The nine cuipm functions, composed."""
+        N, nx, gx = self.n_stages, self.nx, self._gx
+        x_in, p_in, eps_in = DeclaredArg.dense("x", nx), DeclaredArg.dense("p", self.np), DeclaredArg.dense("eps", 1)
+        one = np.zeros((N, 1), np.int64)                       # the one row / column of a scalar or vector output
+        xs, f, c, d = self.x_stage, self.f_sx, self.c_sx, self.d_sx
+        lam_c, lam_d = ca.SX.sym("lam_c", int(c.numel())), ca.SX.sym("lam_d", int(d.numel()))
+        grad_f = ca.sparsify(ca.jacobian(f, xs).T)
+        fns = {
+            "f":      self._make("f", f, [x_in, p_in, eps_in], [], [], one, one, (1, 1)),
+            "jac_f":  self._make("jac_f", grad_f, [x_in, p_in, eps_in], [], [], gx, one, (nx, 1)),
+            "hess_f": self._make("hess_f", ca.sparsify(ca.hessian(f, xs)[0]), [x_in, p_in, eps_in], [], [], gx, gx, (nx, nx)),
+            "c":      self._make("c", ca.densify(c), [x_in, p_in], [], [], self.c_rows, one, (self.nyc, 1)),
+            "jac_c":  self._make("jac_c", ca.sparsify(ca.jacobian(c, xs)), [x_in, p_in], [], [], self.c_rows, gx, (self.nyc, nx)),
+            "hess_c": self._make("hess_c", ca.sparsify(ca.hessian(ca.dot(lam_c, c), xs)[0]),
+                                 [x_in, p_in, DeclaredArg.dense("lam_c", self.nyc)], [lam_c], [(2, self.c_rows)], gx, gx, (nx, nx)),
+            "d":      self._make("d", ca.densify(d), [x_in, p_in], [], [], self.d_rows, one, (self.nyd, 1)),
+            "jac_d":  self._make("jac_d", ca.sparsify(ca.jacobian(d, xs)), [x_in, p_in], [], [], self.d_rows, gx, (self.nyd, nx)),
+            "hess_d": self._make("hess_d", ca.sparsify(ca.hessian(ca.dot(lam_d, d), xs)[0]),
+                                 [x_in, p_in, DeclaredArg.dense("lam_d", self.nyd)], [lam_d], [(2, self.d_rows)], gx, gx, (nx, nx)),
+        }
+        return fns
+
+    # ---- the same NLP as whole-horizon SX (symbolic calls of the stage functions)
+    def whole_horizon(self):
+        """(x, p, f, c, d) SX on the global layout, usable as `nlp=` of `build_functions`
+        and `solve_ipopt`: the reference the composed plans are checked against."""
+        X, P = ca.SX.sym("x", self.nx), ca.SX.sym("p", self.np)
+        fns = [ca.Function(n, list(self.syms), [y]) for n, y in (("fs", self.f_sx), ("cs", self.c_sx), ("ds", self.d_sx))]
+
+        def pick(buf, t):
+            return ca.vertcat(*[buf[int(j)] if j >= 0 else ca.SX(0) for j in t]) if len(t) else ca.SX.zeros(0, 1)
+        F, C, D = ca.SX(0), [], []
+        for s in range(self.n_stages):
+            args = [pick(X if src == 0 else P, table[s]) for src, table in self._base_gathers]
+            F = F + fns[0](*args)
+            cs, ds = fns[1](*args), fns[2](*args)
+            C += [cs[r] for r in range(int(self.c_sx.numel())) if self.c_active[s, r]]
+            D += [ds[r] for r in range(int(self.d_sx.numel())) if self.d_active[s, r]]
+        return X, P, F, (ca.vertcat(*C) if C else ca.SX.zeros(0, 1)), (ca.vertcat(*D) if D else ca.SX.zeros(0, 1))
+
+
+def export_cuipm_staged(nlp: StagedNLP, x0, p0, out_dir: str, *, x_L=None, x_U=None, d_L=None, d_U=None,
+                        max_live: Optional[int] = None, block_size: Optional[int] = None) -> dict:
+    """`export_cuipm` for a `StagedNLP`: the nine composed plans to `out_dir` plus
+    problem.json (dims, nnz, x0, p0, bounds, and the x / p layouts: per argument
+    name, base, stage count, size)."""
+    x0, p0 = np.asarray(x0, dtype=np.float64).reshape(-1), np.asarray(p0, dtype=np.float64).reshape(-1)
+    if x0.size != nlp.nx or p0.size != nlp.np:
+        raise ValueError(f"export_cuipm_staged: x0 / p0 have {x0.size} / {p0.size} entries, the layout {nlp.nx} / {nlp.np}")
+    fns = nlp.functions()
+    os.makedirs(out_dir, exist_ok=True)
+    info = {"nx": nlp.nx, "np": nlp.np, "nyc": nlp.nyc, "nyd": nlp.nyd, "plans": {}, "x0": x0.tolist(), "p0": p0.tolist(),
+            "staged": {"n_stages": nlp.n_stages,
+                       "x_layout": [dict(name=n, base=b, count=c, size=z) for n, b, c, z in nlp.layout.blocks("x")],
+                       "p_layout": [dict(name=n, base=b, count=c, size=z) for n, b, c, z in nlp.layout.blocks("p")],
+                       "nyc_stage": int(nlp.c_sx.numel()), "nyd_stage": int(nlp.d_sx.numel())}}
+    for k, v in (("x_L", x_L), ("x_U", x_U), ("d_L", d_L), ("d_U", d_U)):
+        if v is not None:
+            info[k] = np.asarray(v, dtype=np.float64).reshape(-1).tolist()
+    for name in NAMES:
+        fn = fns[name]
+        path = os.path.join(out_dir, f"{name}.bin")
+        plan = fn.write(path, max_live=max_live, block_size=block_size)
+        info["plans"][name] = {"path": path, "rows": fn.shape[0], "cols": fn.shape[1], "nnz": fn.nnz_out,
+                               "n_in": fn.n_in, "nnz_in": list(fn.nnz_in),
+                               "peak_live_slots": plan.peak_live_slots, "n_levels": plan.n_levels, "n_nodes": plan.n_nodes,
+                               "scratch_per_instance": fn.composition.scratch_per_instance}
+    with open(os.path.join(out_dir, "problem.json"), "w") as fh:
+        json.dump(info, fh, indent=1)
+    info["functions"] = fns
+    return info

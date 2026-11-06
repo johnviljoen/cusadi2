@@ -5,6 +5,7 @@ import os
 import shutil
 import subprocess
 
+import numpy as np
 import pytest
 
 import cusadi2
@@ -24,6 +25,24 @@ CASES = [  # (function, plan kwargs)
 ]
 
 
+def composed_dyn():
+    """dyn(u, v) over 4 stages behind one whole-horizon interface: declared input x =
+    [u knots (5 x 3) knot-major, v (2)], u read at knot s + 2 (stage 3 falls off the end
+    and reads zeros), v shared; output 0 (3 per stage) stage-major except stage 2's second
+    entry, which is discarded; output 1 (the scalar sum1(u)) summed over the stages,
+    through the reduce."""
+    from cusadi2.compose import DeclaredArg, compose, gather_block, gather_shared
+    f = dyn_function()
+    N = 4
+    x = DeclaredArg.dense("x", 5 * 3 + 2)
+    gathers = [(0, gather_block(N, 3, 0, 3, offset=2, count=5)), (0, gather_shared(N, 2, 15))]
+    rc0 = np.stack([np.repeat(np.arange(N), 3) * 3 + np.tile(np.arange(3), N), np.zeros(N * 3, int)], axis=1).reshape(N, 3, 2)
+    rc0[2, 1] = -1
+    rc1 = np.zeros((N, 1, 2), int)
+    comp = compose(f, N, [x], gathers, [("y", N * 3, 1), ("total", 1, 1)], [(0, rc0), (1, rc1)])
+    return f, comp
+
+
 def _arch():
     cc = subprocess.check_output(["nvidia-smi", "--query-gpu=compute_cap", "--format=csv,noheader"])
     return "sm_" + cc.decode().split()[0].replace(".", "")
@@ -39,6 +58,9 @@ def test_kernel_matches_casadi(tmp_path, dtype):
         args += [write_plan(f, str(tmp_path / f"{f.name()}.plan"), **kw),
                  write_reference(f, str(tmp_path / f"{f.name()}.ref"),
                                  **{k: v for k, v in kw.items() if k != "out_mode"})]
+    f, comp = composed_dyn()
+    args += [write_plan(f, str(tmp_path / "composed.plan"), composition=comp),
+             write_reference(f, str(tmp_path / "composed.ref"), composition=comp)]
     exe = str(tmp_path / "selfcheck")
     subprocess.run([NVCC, "-std=c++17", f"-arch={_arch()}", f"-DCUSADI2_SCALAR={dtype}",
                     f"-I{cusadi2.INCLUDE_DIR}", os.path.join(HERE, "selfcheck.cu"),
