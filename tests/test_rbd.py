@@ -119,6 +119,23 @@ def test_kinematics_and_integration_match_mujoco(name, m):
         np.testing.assert_allclose(model.integrate_position(q, qd, 0.01), q1, atol=1e-12)
 
 
+def test_integrate_position_is_smooth_at_zero_velocity():
+    m = mujoco.MjModel.from_xml_string(MODEL)
+    model = rbd.RigidBodyModel.from_mujoco(m)
+    q = np.asarray(m.qpos0)
+    for qd in (np.zeros(m.nv), 1e-6 * np.ones(m.nv)):
+        J = np.asarray(jax.jacfwd(lambda v: model.integrate_position(q, v, 0.01))(jnp.asarray(qd)))
+        assert np.all(np.isfinite(J))
+        q1 = q.copy()
+        mujoco.mj_integratePos(m, q1, qd, 0.01)
+        np.testing.assert_allclose(model.integrate_position(q, qd, 0.01), q1, atol=1e-12)
+    # the series branch and the exact branch agree at the switch (th2 = 1e-8 -> |w| dt = 1e-4)
+    w = np.array([0.6, -0.8, 0.0]) * 1e-4 / 0.01
+    a = rbd.quat_integrate(jnp.array([1.0, 0, 0, 0]), jnp.asarray(w * 0.999), 0.01)
+    b = rbd.quat_integrate(jnp.array([1.0, 0, 0, 0]), jnp.asarray(w * 1.001), 0.01)
+    assert np.linalg.norm(np.asarray(a) - np.asarray(b)) < 1e-6
+
+
 def test_inverse_dynamics_to_sx_pattern():
     m = mujoco.MjModel.from_xml_string(MODEL)
     model = rbd.RigidBodyModel.from_mujoco(m)

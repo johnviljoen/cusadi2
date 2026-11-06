@@ -57,10 +57,16 @@ def quat_mul(a, b):
 
 
 def quat_integrate(q, w, dt):
-    """q * exp(w dt / 2): MuJoCo's mju_quatIntegrate (w in the local frame)."""
-    th = jnp.linalg.norm(w) * dt
-    axis = w / jnp.maximum(jnp.linalg.norm(w), 1e-300)
-    dq = jnp.concatenate([jnp.cos(th / 2)[None], jnp.sin(th / 2) * axis])
+    """q * exp(w dt / 2): MuJoCo's mju_quatIntegrate (w in the local frame). Written in
+    th^2 = dt^2 |w|^2 with a series branch near zero so that it and its derivatives are
+    finite at w = 0 (a norm has no derivative there; an NLP initial guess often has v = 0)."""
+    th2 = dt * dt * jnp.dot(w, w)
+    small = th2 < 1e-8
+    th2s = jnp.where(small, 1.0, th2)                       # keep the sqrt branch away from 0
+    th = jnp.sqrt(th2s)
+    cos_half = jnp.where(small, 1.0 - th2 / 8.0 + th2 * th2 / 384.0, jnp.cos(th / 2))
+    sinc_half = jnp.where(small, 0.5 - th2 / 48.0 + th2 * th2 / 3840.0, jnp.sin(th / 2) / th)   # sin(th/2) / th
+    dq = jnp.concatenate([cos_half[None], sinc_half * dt * w])
     return quat_mul(q, dq)
 
 

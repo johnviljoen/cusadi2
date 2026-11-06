@@ -163,6 +163,29 @@ Both examples set `XLA_PYTHON_CLIENT_PREALLOCATE=false` before importing JAX:
 cusadi2 plans are allocated outside XLA's pool, so the pool must not grow over
 the whole device.
 
+### Handing an NLP to cuipm (`cusadi2.jax.ipm`)
+
+```python
+from cusadi2.jax.ipm import export_cuipm, solve_ipopt
+info = export_cuipm(f, c, d, x0, p0, "plans/", x_L=x_L, x_U=x_U)   # f(x, p) scalar, c(x, p) = 0, d(x, p) >= 0
+ref  = solve_ipopt(f, c, d, x0, p0, x_L=x_L, x_U=x_U, options={"max_iter": 100})   # the same NLP in IPOPT
+```
+
+`export_cuipm` traces f, c and d into SX on shared symbols and writes the nine
+plans cuipm loads (`f c d jac_f jac_c jac_d hess_f hess_c hess_d`, the input
+signatures of `cuipm/codegen/generate.py`, `hess_c` / `hess_d` the Lagrangian
+Hessians with the multipliers as inputs) plus `problem.json` with the dims,
+nnz, bounds and the initial point. Patterns are exact: the `eps` input that
+the hand-written codegen used to inflate the cost pattern is accepted and
+ignored. On the quadcopter NMPC the exported plans reproduce cuipm's jaxipm
+gold trajectory bit for bit (`tests/test_cuipm_export.py` checks values and
+nnz against the hand-written CasADi NLP and against cuipm's own plans).
+`solve_ipopt` is the reference solve of the identical NLP through CasADi's
+`nlpsol`. `examples/jax/go2_jump_nlp.py` is a whole-body example: the Go2 jump
+in the lifted inverse-dynamics transcription on `rbd`, exported, solved with
+IPOPT and timed through `jax_function` on the GPU (JSON-configured, writes
+`runs/go2_jump_nlp/<name>/`).
+
 Plans whose level windows do not fit the device's shared memory fall back to
 the serial (thread-per-instance) kernel automatically, with a warning;
 `jax_function(..., serial=True)` forces it, `max_live=` sets the window budget.
@@ -182,6 +205,7 @@ NVCC=.venv/lib/python3.12/site-packages/nvidia/cu13/bin/nvcc uv run pytest tests
 - `cusadi2/kernel_template.py` — the kernel source
 - `cusadi2/plan.py` — plan / reference file writers (format documented there)
 - `cusadi2/jax/rbd.py` — rigid-body dynamics (RNEA, ABA, kinematics) in JAX from a MuJoCo-parsed MJCF / URDF
+- `cusadi2/jax/ipm.py` — export of a JAX NLP to cuipm's nine plans; IPOPT reference solve
 - `cusadi2/unrolled.py` — original-cusadi-style unrolled kernel emitter (baseline)
 - `cusadi2/cusadi2.h` — loader and `Program` runtime
 - `cusadi2/jax/` — JAX front end: `interpret.py` (jaxpr -> SX), `function.py` (`jax_function`, derivative plans), `primitive.py` (JAX primitive, vmap rule), `ffi.cu` (XLA FFI handler + plan registry)
