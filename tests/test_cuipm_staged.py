@@ -1,8 +1,10 @@
 """cusadi2.jax.ipm.StagedNLP / export_cuipm_staged: the quadcopter NMPC given stage-wise,
 composed into cuipm's nine whole-horizon plans. Checks: the composed functions (host) and
 the composed plans (GPU) against CasADi's own whole-horizon derivatives of the same NLP at
-random points; the plan files (version 4, merged global patterns, scratch for the reduced
-Hessians); and that IPOPT finds the same optimum as on the whole-horizon `quadcopter_nav`."""
+random points, and against the whole-horizon `export_cuipm` of `quadcopter_nav` (same x, p
+and row layout: the composed plans are drop-in); the plan files (version 4, merged global
+patterns, stage constants, scratch for the reduced outputs); and that IPOPT finds the same
+optimum as on the whole-horizon problem."""
 import os
 
 import numpy as np
@@ -13,7 +15,7 @@ import casadi as ca  # noqa: E402
 import jax.numpy as jnp  # noqa: E402
 
 from cusadi2 import read_plan  # noqa: E402
-from cusadi2.jax.ipm import NAMES, StagedNLP, build_functions, export_cuipm_staged, solve_ipopt  # noqa: E402
+from cusadi2.jax.ipm import NAMES, StagedNLP, build_functions, export_cuipm, export_cuipm_staged, solve_ipopt  # noqa: E402
 from tests.problems.quadcopter_nav import quadcopter_nav  # noqa: E402
 from tests.problems.quadcopter_nav_staged import quadcopter_nav_staged  # noqa: E402
 
@@ -24,10 +26,18 @@ GPU = any(d.platform == "gpu" for d in jax.devices()) and hasattr(__import__("cu
 
 @pytest.fixture(scope="module")
 def staged():
-    stage_f, stage_c, stage_d, n_stages, specs, c_active, d_active, x0, p_init, s = quadcopter_nav_staged(N=N)
-    nlp = StagedNLP(stage_f, stage_c, stage_d, n_stages, specs, c_active=c_active, d_active=d_active)
-    p0 = nlp.layout.pack("p", {"p": p_init, "s_k": s})
+    stage_f, stage_c, stage_d, n_stages, specs, c_active, d_active, x0, p0 = quadcopter_nav_staged(N=N)
+    nlp = StagedNLP(stage_f, stage_c, stage_d, n_stages, specs, c_active=c_active, d_active=d_active, c_order="block")
     return nlp, x0, p0
+
+
+@pytest.fixture(scope="module")
+def whole(tmp_path_factory):
+    """The whole-horizon export of `quadcopter_nav` (the problem cuipm's codegen plans hold)."""
+    f, c, d, z0, p0, dims = quadcopter_nav(N=N)
+    info = export_cuipm(lambda z, p: f(z), c, lambda z, p: d(z), z0, p0, str(tmp_path_factory.mktemp("whole")),
+                        d_L=np.zeros(dims["nyd"]), d_U=np.full(dims["nyd"], np.inf))
+    return info["functions"]
 
 
 @pytest.fixture(scope="module")
@@ -53,12 +63,14 @@ def _dense(fn, *args):
 
 def test_layout_and_dims(staged):
     nlp, x0, p0 = staged
-    assert (nlp.nx, nlp.np, nlp.nyc, nlp.nyd) == (N * 13 + (N - 1) * 4, 13 + 2 * (N - 1), N * 13, 4 * (N - 1))
-    assert [b[0] for b in nlp.layout.blocks("x")] == ["x_k", "u_k"] and [b[0] for b in nlp.layout.blocks("p")] == ["p", "s_k"]
-    assert nlp.c_rows[0, :13].tolist() == list(range(13)) and nlp.c_rows[1, 13:].max() == -1   # init rows at stage 0 only
+    assert (nlp.nx, nlp.np, nlp.nyc, nlp.nyd) == (N * 13 + (N - 1) * 4, 13, N * 13, 4 * (N - 1))
+    assert [b[0] for b in nlp.layout.blocks("x")] == ["x_k", "u_k"] and [b[0] for b in nlp.layout.blocks("p")] == ["p"]
+    assert nlp.layout.consts.size == 2 * (N - 1)
+    assert nlp.c_rows[0, :13].tolist() == list(range(13)) and nlp.c_rows[1, :13].max() == -1   # init rows at stage 0 only
+    assert nlp.c_rows[0, 13:].tolist() == list(range(13, 26)) and nlp.c_rows[1, 13:].tolist() == list(range(26, 39))
 
 
-def test_composed_functions_match_whole_horizon(staged, reference):
+def test_composed_functions_match_whole_horizon(staged, reference, whole):
     nlp, x0, p0 = staged
     fns = nlp.functions()
     rng = np.random.default_rng(0)
@@ -69,6 +81,10 @@ def test_composed_functions_match_whole_horizon(staged, reference):
             got = fns[name].dense(*_args(name, x, p, lc, ld))
             want = _dense(reference[name], *_args(name, x, p, lc, ld))
             np.testing.assert_allclose(got, want, rtol=1e-12, atol=1e-12, err_msg=name)
+            drop_in = _dense(whole[name], *_args(name, x, p, lc, ld))         # the hand-written whole-horizon NLP
+            np.testing.assert_allclose(got, drop_in, rtol=1e-10, atol=1e-10, err_msg=name)
+    for name in ("jac_c", "jac_d", "jac_f"):
+        assert fns[name].nnz_out == whole[name].nnz_out(0), name
     # the global patterns: Jacobians exact; Hessians contain CasADi's (union over the stages)
     for name in ("jac_c", "jac_d", "jac_f"):
         assert fns[name].nnz_out == reference[name].nnz_out(0), name
@@ -89,6 +105,7 @@ def test_plan_files(staged, tmp_path):
         assert pl["version"] == 4 and pl["n_stages"] == N - 1
         assert pl["n_in"] == info["plans"][name]["n_in"] and pl["outputs"][0]["nnz"] == info["plans"][name]["nnz"]
         assert pl["inputs"][0]["nnz"] == nlp.nx and pl["inputs"][1]["nnz"] == nlp.np
+        assert len(pl["stage_consts"]) == 2 * (N - 1) and pl["stage_in"][4]["arg"] == -1
     hf = read_plan(info["plans"]["hess_f"]["path"])
     assert hf["scratch_per_instance"] > 0 and len(hf["reduces"]) == 1 and hf["stage_out"][0]["arg"] == -1
     assert info["staged"]["x_layout"][1] == dict(name="u_k", base=N * 13, count=N - 1, size=4)

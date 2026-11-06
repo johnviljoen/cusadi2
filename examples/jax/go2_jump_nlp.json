@@ -1,9 +1,18 @@
 {
   "jump_fwd_0p2": {
-    "run": true,
+    "run": false,
     "xml": "examples/mujoco_menagerie/unitree_go2/go2.xml",
-    "feet": ["FL_calf", "FR_calf", "RL_calf", "RR_calf"],
-    "foot_offset": [-0.002, 0.0, -0.213],
+    "feet": [
+      "FL_calf",
+      "FR_calf",
+      "RL_calf",
+      "RR_calf"
+    ],
+    "foot_offset": [
+      -0.002,
+      0.0,
+      -0.213
+    ],
     "foot_radius": 0.022,
     "N": 28,
     "Ts": 0.025,
@@ -14,12 +23,96 @@
     "mu": 0.6,
     "f_max": 350.0,
     "clearance": 0.0,
-    "v_max": [30.1, 30.1, 15.7],
+    "v_max": [
+      30.1,
+      30.1,
+      15.7
+    ],
     "rest_from": 22,
-    "weights": {"tau": 1e-3, "lam": 1e-5, "vj": 1e-2, "qj_home": 1e-1, "quat": 2.0, "dtau": 1e-4,
-                "rest_vb": 10.0, "rest_vj": 1.0, "rest_quat": 20.0, "rest_qj": 1.0,
-                "terminal_quat": 10.0, "terminal_vb": 1.0},
-    "ipopt": {"max_iter": 100, "tol": 1e-4, "max_wall_time": 60.0, "linear_solver": "mumps", "print_level": 0},
-    "gpu_batches": [1, 64, 1024]
+    "weights": {
+      "tau": 0.001,
+      "lam": 1e-05,
+      "vj": 0.01,
+      "qj_home": 0.1,
+      "quat": 2.0,
+      "dtau": 0.0001,
+      "rest_vb": 10.0,
+      "rest_vj": 1.0,
+      "rest_quat": 20.0,
+      "rest_qj": 1.0,
+      "terminal_quat": 10.0,
+      "terminal_vb": 1.0
+    },
+    "ipopt": {
+      "max_iter": 100,
+      "tol": 0.0001,
+      "max_wall_time": 60.0,
+      "linear_solver": "mumps",
+      "print_level": 0
+    },
+    "gpu_batches": [
+      1,
+      64,
+      1024
+    ],
+    "staged": false
+  },
+  "jump_fwd_0p2_staged": {
+    "run": true,
+    "xml": "examples/mujoco_menagerie/unitree_go2/go2.xml",
+    "feet": [
+      "FL_calf",
+      "FR_calf",
+      "RL_calf",
+      "RR_calf"
+    ],
+    "foot_offset": [
+      -0.002,
+      0.0,
+      -0.213
+    ],
+    "foot_radius": 0.022,
+    "N": 28,
+    "Ts": 0.025,
+    "stance_until": 8,
+    "flight_until": 16,
+    "jump_dx": 0.2,
+    "jump_dy": 0.0,
+    "mu": 0.6,
+    "f_max": 350.0,
+    "clearance": 0.0,
+    "v_max": [
+      30.1,
+      30.1,
+      15.7
+    ],
+    "rest_from": 22,
+    "weights": {
+      "tau": 0.001,
+      "lam": 1e-05,
+      "vj": 0.01,
+      "qj_home": 0.1,
+      "quat": 2.0,
+      "dtau": 0.0001,
+      "rest_vb": 10.0,
+      "rest_vj": 1.0,
+      "rest_quat": 20.0,
+      "rest_qj": 1.0,
+      "terminal_quat": 10.0,
+      "terminal_vb": 1.0
+    },
+    "ipopt": {
+      "max_iter": 100,
+      "tol": 0.0001,
+      "max_wall_time": 60.0,
+      "linear_solver": "mumps",
+      "print_level": 0
+    },
+    "gpu_batches": [
+      1,
+      64,
+      1024
+    ],
+    "staged": true
   }
 }

@@ -58,12 +58,13 @@
 
 // --- kernel entry points (defined in the emitted kernel .cu) -----------------
 // IO routing arrays (per function input a / output k; see the kernel source):
-//   in_src, in_nnz, in_off, in_stride, in_table; out_dst, out_nnz, out_off, out_stride, out_table; scratch
+//   in_src, in_nnz, in_off, in_stride, in_table, in_consts; out_dst, out_nnz, out_off, out_stride, out_table; scratch
 int cusadi2_launch(
     const CUSADI2_SCALAR* const* inputs, CUSADI2_SCALAR* const* outputs,
     int total_instances, int n_stages, int block_size, int shared_bytes,
     int n_consts, const int* const_slots, const CUSADI2_SCALAR* const_vals,
     const int* in_src, const int* in_nnz, const int* in_off, const int* in_stride, const int* in_table,
+    const CUSADI2_SCALAR* in_consts,
     const int* out_dst, const int* out_nnz, const int* out_off, const int* out_stride, const int* out_table,
     CUSADI2_SCALAR* scratch,
     int n_levels, const int* level_offsets, const int* level_widths,
@@ -73,6 +74,7 @@ int cusadi2_launch_serial(
     const CUSADI2_SCALAR* const* inputs, CUSADI2_SCALAR* const* outputs,
     int total_instances, int n_stages, int block_size,
     const int* in_src, const int* in_nnz, const int* in_off, const int* in_stride, const int* in_table,
+    const CUSADI2_SCALAR* in_consts,
     const int* out_dst, const int* out_nnz, const int* out_off, const int* out_stride, const int* out_table,
     CUSADI2_SCALAR* scratch,
     int n_instr, const int* s_ops, const int* s_outs, const int* s_in_a, const int* s_in_b,
@@ -86,6 +88,7 @@ int cusadi2_launch_v(
     int total_instances, int n_stages, int block_size, int shared_bytes,
     int n_consts, const int* const_slots, const CUSADI2_SCALAR* const_vals,
     const int* in_src, const int* in_nnz, const int* in_off, const int* in_stride, const int* in_table,
+    const CUSADI2_SCALAR* in_consts,
     const int* out_dst, const int* out_nnz, const int* out_off, const int* out_stride, const int* out_table,
     CUSADI2_SCALAR* scratch,
     int n_levels, const int* level_offsets, const int* level_widths,
@@ -95,6 +98,7 @@ int cusadi2_launch_serial_v(
     const CUSADI2_SCALAR* const* h_inputs, CUSADI2_SCALAR* const* h_outputs, int n_in, int n_out,
     int total_instances, int n_stages, int block_size,
     const int* in_src, const int* in_nnz, const int* in_off, const int* in_stride, const int* in_table,
+    const CUSADI2_SCALAR* in_consts,
     const int* out_dst, const int* out_nnz, const int* out_off, const int* out_stride, const int* out_table,
     CUSADI2_SCALAR* scratch,
     int n_instr, const int* s_ops, const int* s_outs, const int* s_in_a, const int* s_in_b,
@@ -137,8 +141,9 @@ struct Arg {
 };
 
 // Where one function argument reads from / writes to: declared argument `arg`
-// (-1 on outputs: the scratch stream) and the (n_stages x nnz) table of
-// indices inside that argument's instance block (-1: zero / discard).
+// (-1: the plan's stage constants on inputs, the scratch stream on outputs) and
+// the (n_stages x nnz) table of indices inside that argument's instance block
+// (-1: zero / discard).
 struct StageMap {
     int arg = 0, nnz = 0;
     std::vector<int> table;
@@ -162,6 +167,7 @@ struct Plan {
     std::vector<StageMap> stage_in, stage_out;
     std::vector<Reduce> reduces;
     int scratch_per_instance = 0;
+    std::vector<double> stage_consts;      // per-stage constants the inputs with arg -1 read
     std::vector<int> const_slots; std::vector<double> const_vals;
     std::vector<int> level_offsets, level_widths;
     std::vector<int> node_ops, node_outs, node_in_a, node_in_b;
@@ -292,7 +298,7 @@ inline Plan load_plan_from_memory(const void* data, size_t size, const std::stri
         p.stage_in.resize(r.i());
         for (StageMap& m : p.stage_in) {
             m.arg = r.i(); m.nnz = r.i(); r.ia(m.table, (size_t)p.n_stages * m.nnz);
-            if (m.arg < 0 || m.arg >= n_in) throw std::runtime_error("cusadi2: bad input routing in " + what);
+            if (m.arg < -1 || m.arg >= n_in) throw std::runtime_error("cusadi2: bad input routing in " + what);
         }
         p.stage_out.resize(r.i());
         for (StageMap& m : p.stage_out) {
@@ -306,6 +312,7 @@ inline Plan load_plan_from_memory(const void* data, size_t size, const std::stri
                 throw std::runtime_error("cusadi2: bad reduce in " + what);
         }
         p.scratch_per_instance = r.i();
+        p.stage_consts = r.arr<double>(r.i());
     } else {
         detail::legacy_tables(p);
     }
@@ -355,7 +362,7 @@ public:
         std::vector<int> in_src, in_nnz, in_off, in_stride, in_table, out_dst, out_nnz, out_off, out_stride, out_table;
         for (const StageMap& m : p.stage_in) {
             in_src.push_back(m.arg); in_nnz.push_back(m.nnz); in_off.push_back((int)in_table.size());
-            in_stride.push_back((int)p.in[m.arg].len(1));
+            in_stride.push_back(m.arg < 0 ? 0 : (int)p.in[m.arg].len(1));
             in_table.insert(in_table.end(), m.table.begin(), m.table.end());
         }
         for (const StageMap& m : p.stage_out) {
@@ -365,6 +372,8 @@ public:
         }
         std::vector<Scalar> consts(p.const_vals.begin(), p.const_vals.end());
         std::vector<Scalar> s_consts(p.serial_const_vals.begin(), p.serial_const_vals.end());
+        std::vector<Scalar> in_consts(p.stage_consts.begin(), p.stage_consts.end());
+        d_.in_consts = dev(in_consts);
         d_.in_src = dev(in_src); d_.in_nnz = dev(in_nnz); d_.in_off = dev(in_off); d_.in_stride = dev(in_stride);
         d_.in_table = dev(in_table);
         d_.out_dst = dev(out_dst); d_.out_nnz = dev(out_nnz); d_.out_off = dev(out_off); d_.out_stride = dev(out_stride);
@@ -420,7 +429,7 @@ public:
     bool needs_scratch() const { return h_.scratch_per_instance > 0; }
     size_t scratch_elements(int batch) const { return (size_t)batch * h_.scratch_per_instance; }
 
-    // Launch on `stream`; returns cudaPeekAtLastError() (0 on success).
+    // Launch on `stream`; returns the launch's cudaGetLastError() (0 on success).
     int evaluate(const Scalar* const* d_in, Scalar* const* d_out, int batch,
                  cudaStream_t stream = 0) const {
         Scalar* scratch = nullptr;
@@ -430,14 +439,14 @@ public:
             long long items = (long long)batch * h_.n_stages;
             int threads = items < h_.serial_threads ? (int)items : h_.serial_threads;
             e = cusadi2_launch_serial(d_in, d_out, batch, h_.n_stages, h_.serial_block,
-                d_.in_src, d_.in_nnz, d_.in_off, d_.in_stride, d_.in_table,
+                d_.in_src, d_.in_nnz, d_.in_off, d_.in_stride, d_.in_table, d_.in_consts,
                 d_.out_dst, d_.out_nnz, d_.out_off, d_.out_stride, d_.out_table, scratch,
                 h_.n_instr, d_.s_ops, d_.s_outs, d_.s_in_a, d_.s_in_b, d_.s_const_vals,
                 d_.work, threads, h_.sz_w, h_.thread_major, stream);
         } else {
             e = cusadi2_launch(d_in, d_out, batch, h_.n_stages, h_.block_size, h_.shared_bytes,
                 h_.n_consts, d_.const_slots, d_.const_vals,
-                d_.in_src, d_.in_nnz, d_.in_off, d_.in_stride, d_.in_table,
+                d_.in_src, d_.in_nnz, d_.in_off, d_.in_stride, d_.in_table, d_.in_consts,
                 d_.out_dst, d_.out_nnz, d_.out_off, d_.out_stride, d_.out_table, scratch,
                 h_.n_levels, d_.level_offsets, d_.level_widths,
                 d_.node_ops, d_.node_outs, d_.node_in_a, d_.node_in_b, stream);
@@ -464,14 +473,14 @@ public:
             long long items = (long long)batch * h_.n_stages;
             int threads = items < h_.serial_threads ? (int)items : h_.serial_threads;
             e = cusadi2_launch_serial_v(h_in, h_out, h_.n_in, h_.n_out, batch, h_.n_stages,
-                h_.serial_block, d_.in_src, d_.in_nnz, d_.in_off, d_.in_stride, d_.in_table,
+                h_.serial_block, d_.in_src, d_.in_nnz, d_.in_off, d_.in_stride, d_.in_table, d_.in_consts,
                 d_.out_dst, d_.out_nnz, d_.out_off, d_.out_stride, d_.out_table, scratch,
                 h_.n_instr, d_.s_ops, d_.s_outs, d_.s_in_a, d_.s_in_b, d_.s_const_vals,
                 d_.work, threads, h_.sz_w, h_.thread_major, stream);
         } else {
             e = cusadi2_launch_v(h_in, h_out, h_.n_in, h_.n_out, batch, h_.n_stages, h_.block_size,
                 h_.shared_bytes, h_.n_consts, d_.const_slots, d_.const_vals,
-                d_.in_src, d_.in_nnz, d_.in_off, d_.in_stride, d_.in_table,
+                d_.in_src, d_.in_nnz, d_.in_off, d_.in_stride, d_.in_table, d_.in_consts,
                 d_.out_dst, d_.out_nnz, d_.out_off, d_.out_stride, d_.out_table, scratch,
                 h_.n_levels, d_.level_offsets, d_.level_widths,
                 d_.node_ops, d_.node_outs, d_.node_in_a, d_.node_in_b, stream);
@@ -489,7 +498,7 @@ public:
     int n_out() const { return h_.n_out; }
 
     void release() {
-        const void* ptrs[] = {d_.in_src, d_.in_nnz, d_.in_off, d_.in_stride, d_.in_table,
+        const void* ptrs[] = {d_.in_src, d_.in_nnz, d_.in_off, d_.in_stride, d_.in_table, d_.in_consts,
             d_.out_dst, d_.out_nnz, d_.out_off, d_.out_stride, d_.out_table,
             d_.const_slots, d_.const_vals, d_.level_offsets,
             d_.level_widths, d_.node_ops, d_.node_outs, d_.node_in_a, d_.node_in_b,
@@ -514,7 +523,7 @@ private:
             *const_slots = nullptr, *level_offsets = nullptr, *level_widths = nullptr,
             *node_ops = nullptr, *node_outs = nullptr, *node_in_a = nullptr, *node_in_b = nullptr,
             *s_ops = nullptr, *s_outs = nullptr, *s_in_a = nullptr, *s_in_b = nullptr;
-        const Scalar *const_vals = nullptr, *s_const_vals = nullptr;
+        const Scalar *const_vals = nullptr, *s_const_vals = nullptr, *in_consts = nullptr;
         Scalar* work = nullptr;
     } d_;
     struct Red { int dst = 0, G = 0, out_stride = 0; const int *segptr = nullptr, *segidx = nullptr; };

@@ -18,6 +18,13 @@ inverse-dynamics transcription (vault: Inverse_Dynamics_Transcription_For_Sparse
     bounds      joint limits, torque limits, lam_z in [0, f_max] in contact, lam = 0 in swing
     cost        the formulation's regularisers (effort, posture, level base, rest at the end)
 
+Two routes to the nine cuipm plans, chosen per experiment by `"staged"`: false traces
+the whole horizon (`Go2Jump`, `export_cuipm`); true traces one stage (`Go2JumpStaged`,
+the same problem as per-stage functions of q_k, v_k, q_{k+1}, v_{k+1}, a_k, tau_k,
+tau_{k+1}, lam_k with the schedule as stage constants) and composes it
+(`export_cuipm_staged`): the plans then run the stage graph per (instance, stage)
+behind the same whole-horizon signatures, on the same x and p.
+
 No command-line arguments: `go2_jump_nlp.json` next to this file lists the experiments;
 every setting is explicit. Each experiment writes `runs/go2_jump_nlp/<name>/` with
 config.json (settings, commit, dirty flag, versions), the cuipm plans + problem.json,
@@ -50,7 +57,7 @@ REQUIRED = {
     "xml": str, "feet": list, "foot_offset": list, "foot_radius": float, "N": int, "Ts": float,
     "stance_until": int, "flight_until": int, "jump_dx": float, "jump_dy": float, "mu": float, "f_max": float,
     "clearance": float, "v_max": list, "rest_from": int, "weights": dict, "ipopt": dict, "gpu_batches": list,
-    "run": bool,
+    "run": bool, "staged": bool,
 }
 WEIGHTS = ("tau", "lam", "vj", "qj_home", "quat", "dtau", "rest_vb", "rest_vj", "rest_quat", "rest_qj",
            "terminal_quat", "terminal_vb")
@@ -241,6 +248,83 @@ class Go2Jump:
         return self.pack(q, v, a, tau, lam)
 
 
+class Go2JumpStaged(Go2Jump):
+    """The same NLP as per-stage functions (`cusadi2.jax.ipm.StagedNLP`). Stage k holds the
+    interval k: knots k (q_k, v_k) and k + 1 (q_k1, v_k1, read from the same knot buffers),
+    a_k, tau_k, tau_{k+1} (for the torque-rate term; zero and gated off at the last stage),
+    lam_k, the parameters p and the per-stage constants w_k = [torque-rate weight, rest flag,
+    terminal flag]. Rows that exist only at some stages (initial state, no-slip and
+    friction on stance intervals, touchdown, clearance on swing) are blocks with an activity
+    mask; the global x and p are those of `Go2Jump`."""
+
+    def __init__(self, exp):
+        super().__init__(exp)
+        N, w = self.N, exp["weights"]
+        self.w_k = np.stack([np.where(np.arange(N) + 1 < N, w["dtau"], 0.0),
+                             (np.arange(N) >= exp["rest_from"]).astype(float),
+                             (np.arange(N) == N - 1).astype(float)], axis=1)
+        self.specs = [dict(name="q_k", size=self.nq, mode="coupled", offset=0, span=1),
+                      dict(name="v_k", size=self.nv, mode="coupled", offset=0, span=1),
+                      dict(name="q_k1", size=self.nq, mode="coupled", offset=1, span=1, alias="q_k"),
+                      dict(name="v_k1", size=self.nv, mode="coupled", offset=1, span=1, alias="v_k"),
+                      dict(name="a_k", size=self.nv, mode="coupled", offset=0, span=0),
+                      dict(name="tau_k", size=self.nj, mode="coupled", offset=0, span=0),
+                      dict(name="tau_k1", size=self.nj, mode="coupled", offset=1, span=0, alias="tau_k"),
+                      dict(name="lam_k", size=12, mode="coupled", offset=0, span=0),
+                      dict(name="p", size=self.np, mode="shared", param=True),
+                      dict(name="w_k", size=3, mode="stage", const=self.w_k)]
+        from cusadi2.jax.ipm import rows_active
+        stance = [self.contact[:, i] for i in range(4)]
+        swing = [~self.contact[:, i] for i in range(4)]
+        touchdown = np.array([k + 1 in self.touchdown for k in range(N)])
+        self.c_active = rows_active(N, [(self.nq + self.nv, "first"), (self.nv + self.nq + self.nv, "all")]
+                                    + [(3, stance[i]) for i in range(4)] + [(3, touchdown) for _ in range(4)])
+        self.d_active = rows_active(N, [(1, swing[i]) for i in range(4)] + [(4, stance[i]) for i in range(4)])
+
+    def stage_f(self, q_k, v_k, q_k1, v_k1, a_k, tau_k, tau_k1, lam_k, p, w_k):
+        w = self.exp["weights"]
+        quat_xyz, vj, qj = q_k1[4:7], v_k1[6:], q_k1[7:]
+        J = w["tau"] * jnp.sum(tau_k ** 2) + w["lam"] * jnp.sum(lam_k ** 2) + w["vj"] * jnp.sum(vj ** 2) \
+            + w["qj_home"] * jnp.sum((qj - self.qj_home) ** 2) + w["quat"] * jnp.sum(quat_xyz ** 2)
+        J = J + w_k[1] * (w["rest_vb"] * jnp.sum(v_k1[:6] ** 2) + w["rest_vj"] * jnp.sum(vj ** 2)
+                          + w["rest_quat"] * jnp.sum(quat_xyz ** 2) + w["rest_qj"] * jnp.sum((qj - self.qj_home) ** 2))
+        J = J + w_k[0] * jnp.sum((tau_k1 - tau_k) ** 2)
+        J = J + w_k[2] * (w["terminal_quat"] * jnp.sum(quat_xyz ** 2) + w["terminal_vb"] * jnp.sum(v_k1[:6] ** 2))
+        return J
+
+    def stage_c(self, q_k, v_k, q_k1, v_k1, a_k, tau_k, tau_k1, lam_k, p, w_k):
+        q_hat, v_hat = p[:self.nq], p[self.nq:self.nq + self.nv]
+        footholds = p[self.nq + self.nv:].reshape(4, 3)
+        lam = lam_k.reshape(4, 3)
+        Jk = self.foot_jacobians(q_k)
+        gen_contact = sum((Jk[i].T @ lam[i] for i in range(4)), jnp.zeros(self.nv))
+        Jn = self.foot_jacobians(q_k1)
+        b = self.foot_bottoms(q_k1)
+        return jnp.concatenate(
+            [q_k - q_hat, v_k - v_hat,
+             v_k1 - v_k - self.Ts * a_k,
+             q_k1 - self.model.integrate_position(q_k, v_k1, self.Ts),
+             self.model.inverse_dynamics(q_k, v_k, a_k) - jnp.concatenate([jnp.zeros(6), tau_k]) - gen_contact]
+            + [Jn[i] @ v_k1 for i in range(4)]
+            + [b[i] - footholds[i] for i in range(4)])
+
+    def stage_d(self, q_k, v_k, q_k1, v_k1, a_k, tau_k, tau_k1, lam_k, p, w_k):
+        mu = self.exp["mu"]
+        lam = lam_k.reshape(4, 3)
+        b = self.foot_bottoms(q_k1)
+        return jnp.concatenate(
+            [b[i, 2:3] - self.exp["clearance"] for i in range(4)]
+            + [jnp.stack([mu * lam[i, 2] - lam[i, 0], mu * lam[i, 2] + lam[i, 0], mu * lam[i, 2] - lam[i, 1], mu * lam[i, 2] + lam[i, 1]])
+               for i in range(4)])
+
+    def staged_nlp(self):
+        from cusadi2.jax.ipm import StagedNLP
+        nlp = StagedNLP(self.stage_f, self.stage_c, self.stage_d, self.N, self.specs,
+                        c_active=self.c_active, d_active=self.d_active)
+        assert (nlp.nx, nlp.np) == (self.nx, self.np), "the staged layout must be Go2Jump's z and p"
+        return nlp
+
+
 # ----------------------------------------------------------------------------- experiment
 def git_info():
     def run(*args):
@@ -251,31 +335,41 @@ def git_info():
 def run_experiment(name, exp):
     import casadi
     import mujoco
-    from cusadi2.jax.ipm import export_cuipm, gpu_functions, solve_ipopt, trace_nlp
+    from cusadi2.jax.ipm import export_cuipm, export_cuipm_staged, gpu_functions, solve_ipopt, trace_nlp
     out = os.path.join(RUNS, name)
     os.makedirs(out, exist_ok=True)
     start = datetime.now().isoformat(timespec="seconds")
-    prob = Go2Jump(exp)
+    prob = Go2JumpStaged(exp) if exp["staged"] else Go2Jump(exp)
     z0, p0 = prob.initial_guess(), prob.params()
     x_L, x_U = prob.bounds()
     print(f"[{name}] nx={prob.nx} np={prob.np} N={prob.N} contact intervals={int(prob.contact.all(1).sum())} "
-          f"flight={int((~prob.contact.any(1)).sum())}", flush=True)
+          f"flight={int((~prob.contact.any(1)).sum())} staged={exp['staged']}", flush=True)
 
     t = time.perf_counter()
-    nlp = trace_nlp(prob.f, prob.c, prob.d, prob.nx, prob.np)
+    if exp["staged"]:
+        staged = prob.staged_nlp()                      # one stage traced; the whole horizon by symbolic stage calls
+        nlp = staged.whole_horizon()
+        nyc, nyd = staged.nyc, staged.nyd
+    else:
+        nlp = trace_nlp(prob.f, prob.c, prob.d, prob.nx, prob.np)
+        nyc, nyd = int(nlp[3].numel()), int(nlp[4].numel())
     t_trace = time.perf_counter() - t
-    nyc, nyd = int(nlp[3].numel()), int(nlp[4].numel())
     print(f"[{name}] traced to SX in {t_trace:.1f}s: nyc={nyc} nyd={nyd}", flush=True)
 
     t = time.perf_counter()
-    info = export_cuipm(prob.f, prob.c, prob.d, z0, p0, os.path.join(out, "plans"), x_L=x_L, x_U=x_U,
-                        d_L=np.zeros(nyd), d_U=np.full(nyd, np.inf), nlp=nlp)
+    if exp["staged"]:
+        info = export_cuipm_staged(staged, z0, p0, os.path.join(out, "plans"), x_L=x_L, x_U=x_U,
+                                   d_L=np.zeros(nyd), d_U=np.full(nyd, np.inf))
+    else:
+        info = export_cuipm(prob.f, prob.c, prob.d, z0, p0, os.path.join(out, "plans"), x_L=x_L, x_U=x_U,
+                            d_L=np.zeros(nyd), d_U=np.full(nyd, np.inf), nlp=nlp)
     t_export = time.perf_counter() - t
     plans = {k: {kk: vv for kk, vv in v.items() if kk != "path"} for k, v in info["plans"].items()}
     print(f"[{name}] cuipm plans written in {t_export:.1f}s: " +
           ", ".join(f"{k} nnz={v['nnz']} live={v['peak_live_slots']} lvl={v['n_levels']}" for k, v in plans.items()), flush=True)
 
-    res = solve_ipopt(prob.f, prob.c, prob.d, z0, p0, x_L=x_L, x_U=x_U, options=exp["ipopt"], nlp=nlp)
+    res = solve_ipopt(None, None, None, z0, p0, x_L=x_L, x_U=x_U, d_L=np.zeros(nyd), d_U=np.full(nyd, np.inf),
+                      options=exp["ipopt"], nlp=nlp)
     q, v, a, tau, lam = prob.unpack(res["x"])
     c_max = float(np.max(np.abs(res["g"][:nyc]))) if nyc else 0.0
     d_min = float(np.min(res["g"][nyc:])) if nyd else 0.0

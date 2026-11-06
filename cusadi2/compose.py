@@ -8,8 +8,10 @@ per element, with tables:
   * declared arguments: the buffers the caller passes (`inputs`) and receives
     (`outputs`), each with its own sparsity and per-instance length;
   * `stage_in[a]` for the function's input `a`: which declared input it reads
-    (`arg`) and, per (stage, element), the index inside that buffer's instance
-    block, or -1 to read a zero;
+    (`arg`; -1 for the plan's own `stage_consts`, per-stage constants such as a
+    contact schedule or stage weights, baked in like the whole-horizon case
+    bakes them) and, per (stage, element), the index inside that buffer's
+    instance block (or into `stage_consts`), or -1 to read a zero;
   * `stage_out[k]` for the function's output `k`: which declared output it
     writes (`arg`, or -1 for the plan's scratch stream) and, per (stage,
     element), the index inside the destination's instance block, or -1 to
@@ -99,8 +101,9 @@ class DeclaredArg:
 @dataclasses.dataclass
 class StageMap:
     """Where function argument reads from / writes to: the declared argument `arg`
-    (-1 on outputs: the scratch stream) and the (n_stages, nnz) table of indices
-    inside that argument's instance block (-1: zero on inputs, discard on outputs)."""
+    (-1: the plan's stage constants on inputs, the scratch stream on outputs) and
+    the (n_stages, nnz) table of indices inside that argument's instance block
+    (-1: zero on inputs, discard on outputs)."""
     arg: int
     table: np.ndarray
 
@@ -136,6 +139,10 @@ class Composition:
     stage_out: List[StageMap]
     reduces: List[Reduce] = dataclasses.field(default_factory=list)
     scratch_per_instance: int = 0
+    stage_consts: np.ndarray = dataclasses.field(default_factory=lambda: np.zeros(0))
+
+    def __post_init__(self):
+        self.stage_consts = np.ascontiguousarray(self.stage_consts, dtype=np.float64).reshape(-1)
 
     def validate(self, fn=None) -> None:
         """Raise if the tables do not fit the declared arguments (and `fn` if given)."""
@@ -151,10 +158,11 @@ class Composition:
         for a, m in enumerate(self.stage_in):
             if m.table.shape[0] != self.n_stages:
                 raise ValueError(f"composition: input {a} table has {m.table.shape[0]} stages, plan has {self.n_stages}")
-            if not 0 <= m.arg < len(self.inputs):
+            if not -1 <= m.arg < len(self.inputs):
                 raise ValueError(f"composition: input {a} reads declared input {m.arg}, which does not exist")
-            if m.table.max(initial=-1) >= self.inputs[m.arg].length or m.table.min(initial=0) < -1:
-                raise ValueError(f"composition: input {a} table indexes outside declared input {m.arg}")
+            limit = self.stage_consts.size if m.arg < 0 else self.inputs[m.arg].length
+            if m.table.max(initial=-1) >= limit or m.table.min(initial=0) < -1:
+                raise ValueError(f"composition: input {a} table indexes outside its source")
         for k, m in enumerate(self.stage_out):
             if m.table.shape[0] != self.n_stages:
                 raise ValueError(f"composition: output {k} table has {m.table.shape[0]} stages, plan has {self.n_stages}")
@@ -231,11 +239,13 @@ def gather_zero(n_stages: int, nnz: int) -> np.ndarray:
 
 
 def compose(fn, n_stages: int, inputs: Sequence[DeclaredArg], gathers: Sequence[Tuple[int, np.ndarray]],
-            outputs: Sequence[Tuple[str, int, int]], scatters: Sequence[Tuple[int, np.ndarray]]) -> Composition:
+            outputs: Sequence[Tuple[str, int, int]], scatters: Sequence[Tuple[int, np.ndarray]],
+            consts=None) -> Composition:
     """Build a composition of `fn` over `n_stages`.
 
     inputs:   the declared inputs, in call order.
-    gathers:  per function input a: (declared input index, table (n_stages, nnz_in[a])).
+    gathers:  per function input a: (declared input index, table (n_stages, nnz_in[a]));
+              index -1 reads the plan's stage constants `consts` (a flat float array).
     outputs:  the declared outputs as (name, rows, cols); their sparsity is the merged
               set of global (row, col) pairs the scatters send to them, column-major.
     scatters: per function output k: (declared output index, rc (n_stages, nnz_out[k], 2)
@@ -297,7 +307,8 @@ def compose(fn, n_stages: int, inputs: Sequence[DeclaredArg], gathers: Sequence[
     for k, m in enumerate(stage_out):
         if m is None:
             raise ValueError(f"compose: function output {k} is not sent to any declared output")
-    comp = Composition(n_stages, inputs, decl_out, stage_in, list(stage_out), reduces, scratch)
+    comp = Composition(n_stages, inputs, decl_out, stage_in, list(stage_out), reduces, scratch,
+                       np.zeros(0) if consts is None else np.asarray(consts, np.float64).reshape(-1))
     comp.validate(fn)
     return comp
 
@@ -317,7 +328,8 @@ def evaluate_composition(fn, comp: Composition, inputs: Sequence[np.ndarray]) ->
         args = []
         for m in comp.stage_in:
             t = m.table[s]
-            v = np.where(t >= 0, inputs[m.arg][np.maximum(t, 0)], 0.0)
+            src = comp.stage_consts if m.arg < 0 else inputs[m.arg]
+            v = np.where(t >= 0, src[np.maximum(t, 0)], 0.0)
             args.append(v)
         res = fn(*args)
         res = res if isinstance(res, (list, tuple)) else [res]

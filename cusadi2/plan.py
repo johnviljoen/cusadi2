@@ -23,10 +23,11 @@ Layout (little-endian; i32 = int32, f64 = float64; arrays are contiguous):
                            i32 colptr[cols+1], i32 rowidx[nnz]
     per declared output a: i32 rows, cols, nnz, mode, count
                            i32 colptr[cols+1], i32 rowidx[nnz]
-    i32 n_stage_in;    per function input  a: i32 src, nnz;  i32 table[n_stages * nnz]
+    i32 n_stage_in;    per function input  a: i32 src (-1: stage_consts), nnz;  i32 table[n_stages * nnz]
     i32 n_stage_out;   per function output k: i32 dst, nnz;  i32 table[n_stages * nnz]
     i32 n_reduce;      per reduce: i32 dst, G; i32 segptr[G+1]; i32 n_seg; i32 segidx[n_seg]
     i32 scratch_per_instance
+    i32 n_stage_consts; f64 stage_consts[]
     i32 n_consts;      i32 const_slots[], f64 const_vals[]
     i32 n_levels;      i32 level_offsets[], level_widths[]
     i32 n_nodes;       i32 node_ops[], node_outs[], node_in_a[], node_in_b[]
@@ -197,6 +198,7 @@ def _write_plan_stream(f, fn, n_stages, in_mode, in_offset, in_span, out_mode, b
         for r in comp.reduces:
             w.i(r.dst, len(r.segptr) - 1); w.ia(r.segptr); w.i(len(r.segidx)); w.ia(r.segidx)
         w.i(comp.scratch_per_instance)
+        w.i(len(comp.stage_consts)); w.fa(comp.stage_consts)
         w.i(len(plan.const_slots)); w.ia(plan.const_slots); w.fa(plan.const_vals)
         w.i(plan.n_levels); w.ia(plan.level_offsets); w.ia(plan.level_widths)
         w.i(plan.n_nodes); w.ia(plan.node_ops); w.ia(plan.node_outs); w.ia(plan.node_in_a); w.ia(plan.node_in_b)
@@ -263,13 +265,14 @@ def read_plan(path: str) -> dict:
             segptr = ia(G + 1)
             d["reduces"].append(dict(dst=dst, segptr=segptr, segidx=ia(i())))
         d["scratch_per_instance"] = i()
+        d["stage_consts"] = fa(i())
     else:   # the stage specs as tables (what the C++ loader synthesises too)
         d["stage_in"] = [dict(arg=a, nnz=x["nnz"], table=(np.tile(np.arange(x["nnz"]), (N, 1)) if x["mode"] == "shared"
                               else (np.arange(N)[:, None] + x["offset"]) * x["nnz"] + np.arange(x["nnz"])[None, :]).astype(np.int32))
                          for a, x in enumerate(d["inputs"])]
         d["stage_out"] = [dict(arg=k, nnz=x["nnz"], table=(np.arange(N)[:, None] * x["nnz"] + np.arange(x["nnz"])[None, :]).astype(np.int32))
                           for k, x in enumerate(d["outputs"])]
-        d["reduces"], d["scratch_per_instance"] = [], 0
+        d["reduces"], d["scratch_per_instance"], d["stage_consts"] = [], 0, []
     n = i(); d["const_slots"] = ia(n); d["const_vals"] = fa(n)
     n = i(); d["level_offsets"] = ia(n); d["level_widths"] = ia(n)
     n = i(); d["node_ops"] = ia(n); d["node_outs"] = ia(n); d["node_in_a"] = ia(n); d["node_in_b"] = ia(n)

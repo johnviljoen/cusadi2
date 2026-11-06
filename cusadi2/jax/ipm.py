@@ -47,7 +47,7 @@ import casadi as ca
 import jax
 import numpy as np
 
-from cusadi2 import extract_level_plan, write_plan
+from cusadi2 import device_max_live, extract_level_plan, write_plan
 from cusadi2.compose import Composition, DeclaredArg, compose, evaluate_composition
 from cusadi2.jax.function import _coo2
 from cusadi2.jax.interpret import eval_jaxpr, sx_inputs, to_sx_vector
@@ -223,11 +223,36 @@ def rows_active(n_stages: int, blocks) -> np.ndarray:
     return np.concatenate(cols, axis=1) if cols else np.zeros((n_stages, 0), bool)
 
 
-def _row_numbers(active: np.ndarray) -> np.ndarray:
-    """Global row of every active (stage, row), stage-major; -1 where inactive."""
+def _row_numbers(active: np.ndarray, order: str = "stage") -> np.ndarray:
+    """Global row of every active (stage, row): "stage" order numbers stage by stage
+    (all of stage 0's active rows, then stage 1's, ...); "block" order takes the
+    blocks of the stage output (runs of rows with the same activity over the
+    stages) one after the other, each stage by stage, as a hand-written
+    whole-horizon function listing its initial-state rows before the dynamics
+    defects does; -1 where inactive."""
+    n_stages, ny = active.shape
     rows = np.full(active.shape, -1, np.int64)
-    rows[active] = np.arange(int(active.sum()))
+    if order == "stage":
+        rows[active] = np.arange(int(active.sum()))
+    elif order == "block":
+        change = np.ones(ny, bool)
+        change[1:] = np.any(active[:, 1:] != active[:, :-1], axis=0)
+        block = np.cumsum(change) - 1                                   # block id per row
+        s, r = np.nonzero(active)
+        order_ = np.lexsort((r, s, block[r]))                           # by block, then stage, then row
+        rows[s[order_], r[order_]] = np.arange(len(s))
+    else:
+        raise ValueError(f"row order must be 'stage' or 'block', got {order!r}")
     return rows
+
+
+def _resolve_max_live(max_live):
+    if max_live != "device":
+        return max_live
+    try:
+        return device_max_live("double")
+    except RuntimeError:
+        return None
 
 
 class ComposedFunction:
@@ -259,8 +284,9 @@ class ComposedFunction:
         M[self.coo[:, 0], self.coo[:, 1]] = self(*bufs)
         return M
 
-    def write(self, path: str, max_live: Optional[int] = None, block_size: Optional[int] = None):
-        plan = extract_level_plan(self.fn, max_live=max_live)
+    def write(self, path: str, max_live="device", block_size: Optional[int] = None):
+        """The plan file; `max_live` as in `export_cuipm_staged` ("device" by default)."""
+        plan = extract_level_plan(self.fn, max_live=_resolve_max_live(max_live))
         write_plan(self.fn, path, composition=self.composition, block_size=block_size, plan=plan)
         return plan
 
@@ -268,17 +294,20 @@ class ComposedFunction:
 class StagedNLP:
     """min sum_k f(args_k)  s.t.  c(args_k) = 0,  d(args_k) >= 0 over k = 0..n_stages-1,
     where the stage arguments are described by `specs` as in `cusadi2.jax.staged`
-    (name, size, mode stage|coupled|shared, offset, span, param, alias): the
+    (name, size, mode stage|coupled|shared, offset, span, param, alias, const): the
     non-parameter arguments form the knot-major global x (`StageLayout`), the
-    parameters form p (shared first, then per-stage). `stage_f` returns a scalar
-    (stage-dependent cost terms take a per-stage parameter); `stage_c` / `stage_d`
-    return one vector per stage, of which `c_active` / `d_active` ((n_stages, ny)
-    bool, see `rows_active`; default all) say which rows exist at which stage.
+    parameters form p (shared first, then per-stage), `const` arguments (a contact
+    schedule, per-stage weights) are baked into the plans. `stage_f` returns a
+    scalar; `stage_c` / `stage_d` return one vector per stage, of which `c_active` /
+    `d_active` ((n_stages, ny) bool, see `rows_active`; default all) say which rows
+    exist at which stage, numbered in `c_order` / `d_order` ("stage": stage by
+    stage; "block": row of the stage output by row, as a hand-written
+    whole-horizon function that lists the initial-state rows first would).
     `functions()` gives the nine cuipm functions as `ComposedFunction`s;
     `whole_horizon()` the same NLP as whole-horizon SX for IPOPT and checks."""
 
     def __init__(self, stage_f: Callable, stage_c: Optional[Callable], stage_d: Optional[Callable], n_stages: int,
-                 specs, *, c_active=None, d_active=None, dtype=np.float64):
+                 specs, *, c_active=None, d_active=None, c_order="stage", d_order="stage", dtype=np.float64):
         self.layout = StageLayout(specs, n_stages)
         self.n_stages = int(n_stages)
         self.specs = self.layout.specs
@@ -302,7 +331,7 @@ class StagedNLP:
         self.x_stage = ca.vertcat(*[self.syms[i] for i in self.layout.var_args])
         self.c_active = self._active(c_active, int(self.c_sx.numel()), "c")
         self.d_active = self._active(d_active, int(self.d_sx.numel()), "d")
-        self.c_rows, self.d_rows = _row_numbers(self.c_active), _row_numbers(self.d_active)
+        self.c_rows, self.d_rows = _row_numbers(self.c_active, c_order), _row_numbers(self.d_active, d_order)
         self.nyc, self.nyd = int(self.c_active.sum()), int(self.d_active.sum())
         self.nx, self.np = self.layout.nx, self.layout.np
         self._gx = self.layout.stage_x_cols()                                 # (n_stages, nx_stage)
@@ -318,17 +347,18 @@ class StagedNLP:
 
     # ---- composition
     def _rc(self, M: ca.SX, rows_of: np.ndarray, cols_of: np.ndarray) -> np.ndarray:
-        """Global (row, col) per (stage, nonzero of M), -1 where the row is inactive."""
+        """Global (row, col) per (stage, nonzero of M), -1 where the row is inactive or the
+        column belongs to a knot outside its buffer (see `StageLayout.global_cols`)."""
         coo = _coo2(M)
         r = rows_of[:, coo[:, 0]]
         c = cols_of[:, coo[:, 1]]
-        keep = r >= 0
+        keep = (r >= 0) & (c >= 0)
         return np.stack([np.where(keep, r, -1), np.where(keep, c, -1)], axis=-1)
 
     def _make(self, name, out_sx, declared, extra_syms, extra_gathers, rows_of, cols_of, shape) -> ComposedFunction:
         fn = ca.Function(name, list(self.syms) + extra_syms, [out_sx])
         comp = compose(fn, self.n_stages, declared, self._base_gathers + extra_gathers, [(name, *shape)],
-                       [(0, self._rc(out_sx, rows_of, cols_of))])
+                       [(0, self._rc(out_sx, rows_of, cols_of))], consts=self.layout.consts)
         return ComposedFunction(name, fn, comp)
 
     def functions(self) -> Dict[str, ComposedFunction]:
@@ -361,32 +391,44 @@ class StagedNLP:
         X, P = ca.SX.sym("x", self.nx), ca.SX.sym("p", self.np)
         fns = [ca.Function(n, list(self.syms), [y]) for n, y in (("fs", self.f_sx), ("cs", self.c_sx), ("ds", self.d_sx))]
 
+        K = ca.DM(self.layout.consts) if self.layout.consts.size else ca.DM.zeros(0, 1)
+
         def pick(buf, t):
             return ca.vertcat(*[buf[int(j)] if j >= 0 else ca.SX(0) for j in t]) if len(t) else ca.SX.zeros(0, 1)
-        F, C, D = ca.SX(0), [], []
+        F = ca.SX(0)
+        C, D = [None] * self.nyc, [None] * self.nyd
         for s in range(self.n_stages):
-            args = [pick(X if src == 0 else P, table[s]) for src, table in self._base_gathers]
+            args = [pick(X if src == 0 else P if src == 1 else K, table[s]) for src, table in self._base_gathers]
             F = F + fns[0](*args)
             cs, ds = fns[1](*args), fns[2](*args)
-            C += [cs[r] for r in range(int(self.c_sx.numel())) if self.c_active[s, r]]
-            D += [ds[r] for r in range(int(self.d_sx.numel())) if self.d_active[s, r]]
+            for r in range(int(self.c_sx.numel())):
+                if self.c_active[s, r]:
+                    C[self.c_rows[s, r]] = cs[r]
+            for r in range(int(self.d_sx.numel())):
+                if self.d_active[s, r]:
+                    D[self.d_rows[s, r]] = ds[r]
         return X, P, F, (ca.vertcat(*C) if C else ca.SX.zeros(0, 1)), (ca.vertcat(*D) if D else ca.SX.zeros(0, 1))
 
 
 def export_cuipm_staged(nlp: StagedNLP, x0, p0, out_dir: str, *, x_L=None, x_U=None, d_L=None, d_U=None,
-                        max_live: Optional[int] = None, block_size: Optional[int] = None) -> dict:
+                        max_live="device", block_size: Optional[int] = None) -> dict:
     """`export_cuipm` for a `StagedNLP`: the nine composed plans to `out_dir` plus
     problem.json (dims, nnz, x0, p0, bounds, and the x / p layouts: per argument
-    name, base, stage count, size)."""
+    name, base, stage count, size). The stage graphs are windowed to `max_live`
+    slots: "device" (default) queries this machine's per-block shared memory
+    (`cusadi2.device_max_live`, falling back to no windowing without a CUDA
+    runtime), an int sets the budget, None disables windowing."""
+    max_live = _resolve_max_live(max_live)
     x0, p0 = np.asarray(x0, dtype=np.float64).reshape(-1), np.asarray(p0, dtype=np.float64).reshape(-1)
     if x0.size != nlp.nx or p0.size != nlp.np:
         raise ValueError(f"export_cuipm_staged: x0 / p0 have {x0.size} / {p0.size} entries, the layout {nlp.nx} / {nlp.np}")
     fns = nlp.functions()
     os.makedirs(out_dir, exist_ok=True)
     info = {"nx": nlp.nx, "np": nlp.np, "nyc": nlp.nyc, "nyd": nlp.nyd, "plans": {}, "x0": x0.tolist(), "p0": p0.tolist(),
-            "staged": {"n_stages": nlp.n_stages,
+            "staged": {"n_stages": nlp.n_stages, "max_live": max_live,
                        "x_layout": [dict(name=n, base=b, count=c, size=z) for n, b, c, z in nlp.layout.blocks("x")],
                        "p_layout": [dict(name=n, base=b, count=c, size=z) for n, b, c, z in nlp.layout.blocks("p")],
+                       "const_args": [nlp.specs[i]["name"] for i in nlp.layout.const_args],
                        "nyc_stage": int(nlp.c_sx.numel()), "nyd_stage": int(nlp.d_sx.numel())}}
     for k, v in (("x_L", x_L), ("x_U", x_U), ("d_L", d_L), ("d_U", d_U)):
         if v is not None:

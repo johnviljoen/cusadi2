@@ -41,6 +41,18 @@ Stage modes per input: `"stage"` (one value per stage), `"shared"` (broadcast),
 `"coupled"` (stage k reads element k+offset of a buffer of length n_stages+span).
 Outputs are always `"stage"`. The horizon is baked into the plan file.
 
+A *composition* (`cusadi2.compose`) generalises the stage specs: the plan
+declares whatever buffers the caller has (one knot-major x, one p, ...) and
+carries, per element of every function argument, where each stage reads it
+(table, -1: zero, or the plan's own per-stage constants) and where each stage
+output lands in the declared output's merged global pattern (-1: discard).
+Outputs that several stages write (a Lagrangian Hessian whose x_{k+1} and
+x_k blocks meet on a knot, a cost summed over stages) go through a scratch
+stream and a second, deterministic segmented-sum launch. A per-stage function
+thus runs behind a whole-horizon interface, and a consumer that reads the
+plan's declared sparsity (cuipm) sees the whole-horizon problem. Plan files are
+version 4; version 3 files (before compositions) still load.
+
 ## Run time (C++/CUDA)
 
 Compile `kernel.cu` into your program with `cusadi2.h` on the include path
@@ -50,8 +62,9 @@ Compile `kernel.cu` into your program with `cusadi2.h` on the include path
 #include "cusadi2.h"
 cusadi2::Plan plan = cusadi2::load_plan("fn.plan");
 cusadi2::Program prog(plan);
-prog.evaluate(d_in, d_out, batch, stream);     // one launch, graph-capturable
-prog.use_serial(scratch_bytes);                // optional: one thread per (instance, stage)
+prog.reserve(batch);                           // composed plans with reduces: scratch for the batch
+prog.evaluate(d_in, d_out, batch, stream);     // one launch (+ one reduce launch per summed output), graph-capturable
+prog.use_serial(work_bytes);                   // optional: one thread per (instance, stage)
 ```
 
 `d_in` / `d_out` are device-resident arrays of device buffer pointers, one per
@@ -185,8 +198,37 @@ plans for evaluation under `jit` / `vmap`, without tracing again.
 `solve_ipopt` is the reference solve of the identical NLP through CasADi's
 `nlpsol`. `examples/jax/go2_jump_nlp.py` is a whole-body example: the Go2 jump
 in the lifted inverse-dynamics transcription on `rbd`, exported, solved with
-IPOPT and timed through `jax_function` on the GPU (JSON-configured, writes
-`runs/go2_jump_nlp/<name>/`).
+IPOPT and timed on the GPU (JSON-configured, writes `runs/go2_jump_nlp/<name>/`).
+
+**Stage-wise NLPs** (`StagedNLP`, `export_cuipm_staged`): the same nine plans
+from per-stage functions of the stage arguments, composed (see Build time):
+
+```python
+from cusadi2.jax.ipm import StagedNLP, export_cuipm_staged, rows_active
+nlp = StagedNLP(stage_f, stage_c, stage_d, n_stages=N, specs=[
+          dict(name="x_k",  size=13, mode="coupled", offset=0, span=1),
+          dict(name="x_k1", size=13, mode="coupled", offset=1, span=1, alias="x_k"),
+          dict(name="u_k",  size=4,  mode="stage"),
+          dict(name="p",    size=13, mode="shared", param=True),            # -> the plans' p
+          dict(name="s_k",  size=2,  mode="stage",  const=S)],              # baked into the plans
+      c_active=rows_active(N, [(13, "first"), (13, "all")]), c_order="block")
+info = export_cuipm_staged(nlp, x0, p0, "plans/", x_L=x_L, x_U=x_U)
+ref  = solve_ipopt(None, None, None, x0, p0, x_L=x_L, x_U=x_U, nlp=nlp.whole_horizon())
+```
+
+The variables form the knot-major x, the parameters p, constants (schedules,
+stage weights) live in the plans; `c_active` / `d_active` say which rows of a
+stage output exist at which stage (initial state, touchdown, no-slip on stance
+intervals: computed and discarded elsewhere, so the global pattern has exactly
+the rows that exist). The stage graphs are traced once, so the whole trace is
+seconds, the derivative plans are small enough for the level-parallel kernel,
+and cuipm needs nothing but the files. Stage-wise quadcopter: the composed plans
+reproduce cuipm's S7n gold trajectory digit for digit and match the
+hand-written whole-horizon NLP's nine functions to 1e-10
+(`tests/test_cuipm_staged.py`). Go2 jump, N = 28 (`jump_fwd_0p2_staged`):
+trace 1.6 s and plans 1.1 s instead of 31 s and 34 s; all nine plans per
+iteration 1.3 ms at batch 1 and 77 ms at batch 1024 instead of 395 ms and
+1103 ms (whole-horizon, serial fallback), same IPOPT optimum.
 
 ### Stage-parallel plans for horizon problems (`cusadi2.jax.staged`)
 
@@ -234,8 +276,9 @@ NVCC=.venv/lib/python3.12/site-packages/nvidia/cu13/bin/nvcc uv run pytest tests
 - `cusadi2/ops.py` — the op table (CUDA double/float forms, Python form)
 - `cusadi2/kernel_template.py` — the kernel source
 - `cusadi2/plan.py` — plan / reference file writers (format documented there)
+- `cusadi2/compose.py` — compositions: declared buffers, per-element gather / scatter tables, reduces; host evaluator
 - `cusadi2/jax/rbd.py` — rigid-body dynamics (RNEA, ABA, kinematics) in JAX from a MuJoCo-parsed MJCF / URDF
-- `cusadi2/jax/ipm.py` — export of a JAX NLP to cuipm's nine plans; IPOPT reference solve
+- `cusadi2/jax/ipm.py` — export of a JAX NLP (whole-horizon or stage-wise, composed) to cuipm's nine plans; IPOPT reference solve
 - `cusadi2/jax/staged.py` — stage-parallel plans from a per-stage JAX function (cusadi2 n_stages mode)
 - `cusadi2/unrolled.py` — original-cusadi-style unrolled kernel emitter (baseline)
 - `cusadi2/cusadi2.h` — loader and `Program` runtime
