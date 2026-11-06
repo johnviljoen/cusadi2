@@ -1,7 +1,8 @@
 """cusadi2.jax.ipm.export_cuipm: the quadcopter NMPC defined in JAX exported to cuipm's nine
 plans. Checks against the hand-written CasADi NLP (values of all nine functions at random
 points, exact structural nnz), the plan files' own host verifier, and, when cuipm's codegen
-plans exist on this machine, the patterns of its c / d plans. CPU only."""
+plans exist on this machine, the patterns of its c / d plans. CPU, plus one GPU test of the
+same Functions uploaded as plans (`gpu_functions`)."""
 import os
 
 import numpy as np
@@ -97,3 +98,27 @@ def test_patterns_match_cuipm_codegen_plans(exported):
 
 def _nnz_out(pl):
     return int(pl["outputs"][0]["nnz"])
+
+
+@pytest.mark.skipif(not any(d.platform == "gpu" for d in jax.devices()) or not hasattr(__import__("cusadi2.jax").jax, "jax_function"),
+                    reason="no CUDA device or FFI extension")
+def test_gpu_functions_match_exported(exported):
+    """The exported Functions as GPU plans (no re-tracing): values of all nine under vmap."""
+    from cusadi2.jax.ipm import gpu_functions
+    info, dims = exported
+    fns = info["functions"]
+    calls = gpu_functions(fns)
+    rng = np.random.default_rng(2)
+    B = 4
+    X, P = rng.standard_normal((B, dims["nx"])), rng.standard_normal((B, dims["np"]))
+    Lc, Ld = rng.standard_normal((B, dims["nyc"])), rng.standard_normal((B, dims["nyd"]))
+    E = np.zeros((B, 1))
+    for name in NAMES:
+        args = {"hess_c": (X, P, Lc), "hess_d": (X, P, Ld)}.get(name, (X, P, E) if name.endswith("f") else (X, P))
+        got = np.asarray(jax.jit(jax.vmap(calls[name]))(*[jnp.asarray(a) for a in args]))
+        assert got.shape == (B, calls[name].nnz)
+        for b in range(B):
+            want = np.asarray(fns[name](*[a[b] for a in args]).nonzeros()).reshape(-1)
+            np.testing.assert_allclose(got[b], want, rtol=1e-12, atol=1e-12, err_msg=name)
+    for g in calls.values():
+        g.free()

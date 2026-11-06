@@ -180,6 +180,8 @@ the hand-written codegen used to inflate the cost pattern is accepted and
 ignored. On the quadcopter NMPC the exported plans reproduce cuipm's jaxipm
 gold trajectory bit for bit (`tests/test_cuipm_export.py` checks values and
 nnz against the hand-written CasADi NLP and against cuipm's own plans).
+`gpu_functions(info["functions"])` uploads the same nine Functions as cusadi2
+plans for evaluation under `jit` / `vmap`, without tracing again.
 `solve_ipopt` is the reference solve of the identical NLP through CasADi's
 `nlpsol`. `examples/jax/go2_jump_nlp.py` is a whole-body example: the Go2 jump
 in the lifted inverse-dynamics transcription on `rbd`, exported, solved with

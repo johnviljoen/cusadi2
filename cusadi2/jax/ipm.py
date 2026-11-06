@@ -146,3 +146,33 @@ def export_cuipm(f: Callable, c: Callable, d: Optional[Callable], x0, p0, out_di
         json.dump(info, fh, indent=1)
     info["functions"] = fns
     return info
+
+
+class GpuFunction:
+    """One of the nine exported Functions uploaded as a cusadi2 plan: `g(x, p, ...)` on flat
+    1-D arrays returns the structural nonzeros of the output (vmap / jit as usual);
+    `coo` is the (nnz, 2) row/col pattern, `serial` whether the level kernel fit."""
+
+    def __init__(self, name: str, fn: ca.Function, dtype=np.float64, max_live: Optional[int] = None,
+                 block_size: Optional[int] = None, serial: bool = False):
+        from cusadi2.jax.function import _Plan
+        rows, cols = fn.sparsity_out(0).get_triplet()
+        self.coo = np.stack([np.asarray(rows, np.int32), np.asarray(cols, np.int32)], axis=1).reshape(-1, 2)
+        self.name, self.nnz = name, int(fn.nnz_out(0))
+        self._plan = _Plan(name, fn, [(self.nnz,)], [self.coo], dtype, block_size, serial, max_live)
+        self.serial = self._plan.serial
+
+    def __call__(self, *args):
+        return self._plan(list(args))[0]
+
+    def free(self):
+        self._plan.free()
+
+
+def gpu_functions(fns: Dict[str, ca.Function], dtype=np.float64, max_live: Optional[int] = None,
+                  block_size: Optional[int] = None, serial: bool = False) -> Dict[str, GpuFunction]:
+    """The Functions `export_cuipm` returned (`info["functions"]`) as cusadi2 plans on the GPU,
+    without tracing or differentiating again; same signatures as the plans (f / jac_f / hess_f
+    take the ignored `eps` as a third argument). Level plans are windowed to the device's
+    shared memory (`max_live=None`) and fall back to the serial kernel when no window fits."""
+    return {name: GpuFunction(name, fn, dtype, max_live, block_size, serial) for name, fn in fns.items()}

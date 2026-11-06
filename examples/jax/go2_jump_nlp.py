@@ -22,7 +22,7 @@ No command-line arguments: `go2_jump_nlp.json` next to this file lists the exper
 every setting is explicit. Each experiment writes `runs/go2_jump_nlp/<name>/` with
 config.json (settings, commit, dirty flag, versions), the cuipm plans + problem.json,
 ipopt.json (reference solve), solution.npz and gpu_timing.json (the nine cusadi2 plans
-of the same NLP evaluated through jax_function on the GPU).
+of the same NLP, the exported Functions uploaded as plans, evaluated on the GPU).
 
     uv run --extra examples examples/jax/go2_jump_nlp.py
 """
@@ -251,8 +251,7 @@ def git_info():
 def run_experiment(name, exp):
     import casadi
     import mujoco
-    from cusadi2.jax import jax_function
-    from cusadi2.jax.ipm import export_cuipm, solve_ipopt, trace_nlp
+    from cusadi2.jax.ipm import export_cuipm, gpu_functions, solve_ipopt, trace_nlp
     out = os.path.join(RUNS, name)
     os.makedirs(out, exist_ok=True)
     start = datetime.now().isoformat(timespec="seconds")
@@ -293,33 +292,20 @@ def run_experiment(name, exp):
     with open(os.path.join(out, "ipopt.json"), "w") as fh:
         json.dump(ipopt, fh, indent=1)
 
-    # the same nine functions as cusadi2 plans on the GPU, through jax_function
+    # the same nine functions as cusadi2 plans on the GPU (the exported Functions, uploaded as plans)
     gpu = {}
     if exp["gpu_batches"] and any(d.platform == "gpu" for d in jax.devices()):
-        fns = {"f": jax_function(prob.f, param_argnums=(1,), name="go2_f"),
-               "c": jax_function(prob.c, param_argnums=(1,), name="go2_c"),
-               "d": jax_function(prob.d, param_argnums=(1,), name="go2_d")}
-        zj, pj = jnp.asarray(res["x"]), jnp.asarray(p0)
-        lam_c, lam_d = jnp.asarray(res["lam_c"]), jnp.asarray(res["lam_d"])
         t = time.perf_counter()
-        calls = {}
-        for k, fn in fns.items():
-            calls[k] = fn
-            calls[f"jac_{k}"] = fn.jacobian()
-            calls[f"hess_{k}"] = fn.hessian(weighted=True)
+        calls = gpu_functions(info["functions"])
+        zj, pj, eps = jnp.asarray(res["x"]), jnp.asarray(p0), jnp.zeros(1)
+        lam_c, lam_d = jnp.asarray(res["lam_c"]), jnp.asarray(res["lam_d"])
         for B in exp["gpu_batches"]:
-            Z = jnp.tile(zj[None], (B, 1)); P = jnp.tile(pj[None], (B, 1))
+            Z = jnp.tile(zj[None], (B, 1)); P = jnp.tile(pj[None], (B, 1)); E = jnp.tile(eps[None], (B, 1))
             Lc, Ld = jnp.tile(lam_c[None], (B, 1)), jnp.tile(lam_d[None], (B, 1))
             timings = {}
             for k, call in calls.items():
-                if k == "hess_c":
-                    g = jax.jit(jax.vmap(lambda z, p, l: call(z, p, lam=l))); args = (Z, P, Lc)
-                elif k == "hess_d":
-                    g = jax.jit(jax.vmap(lambda z, p, l: call(z, p, lam=l))); args = (Z, P, Ld)
-                elif k == "hess_f":
-                    g = jax.jit(jax.vmap(lambda z, p: call(z, p, lam=jnp.ones(1)))); args = (Z, P)
-                else:
-                    g = jax.jit(jax.vmap(call)); args = (Z, P)
+                g = jax.jit(jax.vmap(call))
+                args = {"hess_c": (Z, P, Lc), "hess_d": (Z, P, Ld)}.get(k, (Z, P, E) if k.endswith("f") else (Z, P))
                 jax.block_until_ready(g(*args))
                 ts = []
                 for _ in range(10):
@@ -329,7 +315,7 @@ def run_experiment(name, exp):
             gpu[str(B)] = timings
             print(f"[{name}] GPU batch {B}: " + ", ".join(f"{k} {v:.0f} us" for k, v in timings.items()), flush=True)
         gpu["plan_build_s"] = time.perf_counter() - t
-        gpu["serial_fallback"] = sorted(f"{k}:{kind}" for k, fn in fns.items() for (kind, _), pl in fn._plans.items() if pl.serial)
+        gpu["serial_fallback"] = sorted(k for k, g in calls.items() if g.serial)
         with open(os.path.join(out, "gpu_timing.json"), "w") as fh:
             json.dump(gpu, fh, indent=1)
 
