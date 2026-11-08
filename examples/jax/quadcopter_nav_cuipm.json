@@ -44,10 +44,9 @@
     },
     "mode": "stream",
     "repeats": 6,
-    "batch": 8,
-    "mixed_ls_init": false
+    "batch": 8
   },
-  "stream48_B8_mixed": {
+  "stream48_B8_separate": {
     "run": true,
     "N": 30,
     "Ts": 0.1,
@@ -71,6 +70,6 @@
     "mode": "stream",
     "repeats": 6,
     "batch": 8,
-    "mixed_ls_init": true
+    "mixed_ls_init": false
   }
 }

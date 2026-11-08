@@ -16,8 +16,8 @@ commit, dirty flag, versions), the plans + problem.json, and results.json (per p
 cuipm status, iterations, objective, feasibility; IPOPT objective and iterations; wall
 times). The batch varies the start position: p[b, 0] = start_x[b]. Experiments with
 "mode": "stream" solve the starts repeated `repeats` times as a queue through
-`solve_stream` with `batch` hot-restarting slots ("mixed_ls_init": the restart's multiplier
-solve rides in the next KKT factorisation).
+`solve_stream` with `batch` hot-restarting slots ("mixed_ls_init", default true: the restart's
+multiplier solve rides in the next KKT factorisation; false: a separate solve).
 
     .venv/bin/python examples/jax/quadcopter_nav_cuipm.py
 (not `uv run`: uv sync would drop the editable cuipm_jax install from the venv)
@@ -42,7 +42,8 @@ sys.path.insert(0, ROOT)                                           # tests.probl
 REQUIRED = {"N": int, "Ts": float, "start_x": list, "ir_nsteps": int, "max_iter": int, "ipopt": dict, "run": bool}
 # mode "batch" (default): one solve() of len(start_x) problems. mode "stream": the starts repeated
 # `repeats` times form a queue solved by `batch` hot-restarting slots (solve_stream);
-# mixed_ls_init folds each restart's multiplier solve into the next KKT factorisation.
+# mixed_ls_init (default true) folds each restart's multiplier solve into the next KKT
+# factorisation; false = a separate batched solve at restart time.
 OPTIONAL = {"mode": str, "repeats": int, "batch": int, "mixed_ls_init": bool}
 
 
@@ -110,7 +111,7 @@ def run_experiment(name, exp):
     solver = cuipm_jax.Solver(plans_dir, max_iter=exp["max_iter"], ir_nsteps=exp["ir_nsteps"])
     if mode == "stream":
         slots = exp.get("batch", len(exp["start_x"]))
-        solve = jax.jit(lambda a, b: solver.solve_stream(a, b, batch=slots, mixed_ls_init=exp.get("mixed_ls_init", False)))
+        solve = jax.jit(lambda a, b: solver.solve_stream(a, b, batch=slots, mixed_ls_init=exp.get("mixed_ls_init", True)))
     else:
         solve = jax.jit(solver.solve)
     t = time.perf_counter(); sol = solve(X0, P); jax.block_until_ready(sol.x); t_first = time.perf_counter() - t
