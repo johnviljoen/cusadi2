@@ -3,9 +3,74 @@
     "run": true,
     "N": 30,
     "Ts": 0.1,
-    "start_x": [4.0, 3.9, 3.8, 3.7, 3.6, 3.5, 3.4, 3.3],
+    "start_x": [
+      4.0,
+      3.9,
+      3.8,
+      3.7,
+      3.6,
+      3.5,
+      3.4,
+      3.3
+    ],
     "ir_nsteps": 0,
     "max_iter": 500,
-    "ipopt": {"max_iter": 1000, "tol": 1e-8, "print_level": 0}
+    "ipopt": {
+      "max_iter": 1000,
+      "tol": 1e-08,
+      "print_level": 0
+    }
+  },
+  "stream48_B8": {
+    "run": true,
+    "N": 30,
+    "Ts": 0.1,
+    "start_x": [
+      4.0,
+      3.9,
+      3.8,
+      3.7,
+      3.6,
+      3.5,
+      3.4,
+      3.3
+    ],
+    "ir_nsteps": 0,
+    "max_iter": 500,
+    "ipopt": {
+      "max_iter": 1000,
+      "tol": 1e-08,
+      "print_level": 0
+    },
+    "mode": "stream",
+    "repeats": 6,
+    "batch": 8,
+    "mixed_ls_init": false
+  },
+  "stream48_B8_mixed": {
+    "run": true,
+    "N": 30,
+    "Ts": 0.1,
+    "start_x": [
+      4.0,
+      3.9,
+      3.8,
+      3.7,
+      3.6,
+      3.5,
+      3.4,
+      3.3
+    ],
+    "ir_nsteps": 0,
+    "max_iter": 500,
+    "ipopt": {
+      "max_iter": 1000,
+      "tol": 1e-08,
+      "print_level": 0
+    },
+    "mode": "stream",
+    "repeats": 6,
+    "batch": 8,
+    "mixed_ls_init": true
   }
 }

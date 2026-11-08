@@ -14,7 +14,10 @@ No command-line arguments: `quadcopter_nav_cuipm.json` next to this file lists t
 experiments. Each writes `runs/quadcopter_nav_cuipm/<name>/` with config.json (settings,
 commit, dirty flag, versions), the plans + problem.json, and results.json (per problem:
 cuipm status, iterations, objective, feasibility; IPOPT objective and iterations; wall
-times). The batch varies the start position: p[b, 0] = start_x[b].
+times). The batch varies the start position: p[b, 0] = start_x[b]. Experiments with
+"mode": "stream" solve the starts repeated `repeats` times as a queue through
+`solve_stream` with `batch` hot-restarting slots ("mixed_ls_init": the restart's multiplier
+solve rides in the next KKT factorisation).
 
     .venv/bin/python examples/jax/quadcopter_nav_cuipm.py
 (not `uv run`: uv sync would drop the editable cuipm_jax install from the venv)
@@ -37,6 +40,10 @@ RUNS = os.path.join(ROOT, "runs", "quadcopter_nav_cuipm")
 sys.path.insert(0, ROOT)                                           # tests.problems (the fixture NLP)
 
 REQUIRED = {"N": int, "Ts": float, "start_x": list, "ir_nsteps": int, "max_iter": int, "ipopt": dict, "run": bool}
+# mode "batch" (default): one solve() of len(start_x) problems. mode "stream": the starts repeated
+# `repeats` times form a queue solved by `batch` hot-restarting slots (solve_stream);
+# mixed_ls_init folds each restart's multiplier solve into the next KKT factorisation.
+OPTIONAL = {"mode": str, "repeats": int, "batch": int, "mixed_ls_init": bool}
 
 
 def load_config(path):
@@ -50,7 +57,12 @@ def load_config(path):
                 exp[k] = float(exp[k])
             if not isinstance(exp[k], t):
                 raise TypeError(f"{name}: key {k!r} must be {t.__name__}")
-        unknown = set(exp) - set(REQUIRED)
+        for k, t in OPTIONAL.items():
+            if k in exp and not isinstance(exp[k], t):
+                raise TypeError(f"{name}: key {k!r} must be {t.__name__}")
+        if exp.get("mode", "batch") not in ("batch", "stream"):
+            raise ValueError(f"{name}: mode must be 'batch' or 'stream'")
+        unknown = set(exp) - set(REQUIRED) - set(OPTIONAL)
         if unknown:
             raise KeyError(f"{name}: unknown keys {sorted(unknown)}")
     return cfg
@@ -86,26 +98,34 @@ def run_experiment(name, exp):
     print(f"[{name}] nx={nlp.nx} np={nlp.np} nyc={nlp.nyc} nyd={nlp.nyd}; trace + export {t_export:.1f} s", flush=True)
     fns = build_functions(None, None, None, nlp.nx, nlp.np, nlp=nlp.whole_horizon())   # CasADi reference of f, c, d
 
-    # 2. the batch: one problem per start position, each with its own x0 and p
-    starts = [float(s) for s in exp["start_x"]]
+    # 2. the problems: one per start position, each with its own x0 and p. In stream mode the
+    #    starts are repeated `repeats` times and form the queue.
+    mode = exp.get("mode", "batch")
+    starts = [float(s) for s in exp["start_x"]] * (exp.get("repeats", 1) if mode == "stream" else 1)
     B = len(starts)
     P = np.tile(p0, (B, 1)); P[:, 0] = starts
     X0 = np.tile(x0, (B, 1)); X0[:, 0] = starts
 
     # 3. cuipm from JAX: first call compiles, second measures
     solver = cuipm_jax.Solver(plans_dir, max_iter=exp["max_iter"], ir_nsteps=exp["ir_nsteps"])
-    solve = jax.jit(solver.solve)
+    if mode == "stream":
+        slots = exp.get("batch", len(exp["start_x"]))
+        solve = jax.jit(lambda a, b: solver.solve_stream(a, b, batch=slots, mixed_ls_init=exp.get("mixed_ls_init", False)))
+    else:
+        solve = jax.jit(solver.solve)
     t = time.perf_counter(); sol = solve(X0, P); jax.block_until_ready(sol.x); t_first = time.perf_counter() - t
     t = time.perf_counter(); sol = solve(X0, P); jax.block_until_ready(sol.x); t_solve = time.perf_counter() - t
     X, status, iters = np.asarray(sol.x), np.asarray(sol.status), np.asarray(sol.iterations)
 
-    # 4. IPOPT on each problem from the same start, and the quality of every cuipm iterate
+    # 4. IPOPT on each distinct start (same x0), and the quality of every cuipm iterate
     f, c, d, z0, _, dims = quadcopter_nav(N=N, Ts=Ts)
-    results = []
+    results, refs = [], {}
     for b in range(B):
         t = time.perf_counter()
-        ref = solve_ipopt(lambda z, p: f(z), c, lambda z, p: d(z), X0[b], P[b], d_L=np.zeros(dims["nyd"]),
-                          d_U=np.full(dims["nyd"], np.inf), options=exp["ipopt"])
+        if starts[b] not in refs:
+            refs[starts[b]] = solve_ipopt(lambda z, p: f(z), c, lambda z, p: d(z), X0[b], P[b], d_L=np.zeros(dims["nyd"]),
+                                          d_U=np.full(dims["nyd"], np.inf), options=exp["ipopt"])
+        ref = refs[starts[b]]
         t_ipopt = time.perf_counter() - t
         r = {"start_x": starts[b], "cuipm": {"status": cuipm_jax.STATUS[int(status[b])], "iterations": int(iters[b]),
                                              "f": float(fns["f"](X[b], P[b], np.zeros(1))),
@@ -117,11 +137,13 @@ def run_experiment(name, exp):
         print(f"[{name}] start {starts[b]:.2f}: cuipm {r['cuipm']['status']} in {r['cuipm']['iterations']} it, "
               f"f {r['cuipm']['f']:.7f}, |c| {r['cuipm']['c_inf']:.1e}, min d {r['cuipm']['d_min']:.1e} | "
               f"IPOPT f {r['ipopt']['f']:.7f} in {r['ipopt']['iterations']} it ({t_ipopt:.2f} s)", flush=True)
-    print(f"[{name}] cuipm batch {B}: {t_solve * 1e3:.0f} ms per call ({t_first:.1f} s with compilation), "
-          f"{t_solve * 1e3 / B:.0f} ms per problem", flush=True)
+    n_ok = sum(r["cuipm"]["status"] == "converged" and r["cuipm"]["f"] <= r["ipopt"]["f"] * (1 + 1e-4) for r in results)
+    print(f"[{name}] cuipm {mode} of {B} problems: {t_solve * 1e3:.0f} ms per call ({t_first:.1f} s with compilation), "
+          f"{t_solve * 1e3 / B:.0f} ms per problem; {n_ok}/{B} reach IPOPT's objective", flush=True)
 
     with open(os.path.join(out, "results.json"), "w") as fh:
-        json.dump({"batch": B, "cuipm_batch_s": t_solve, "cuipm_first_call_s": t_first, "problems": results}, fh, indent=1)
+        json.dump({"mode": mode, "problems_per_call": B, "cuipm_call_s": t_solve, "cuipm_first_call_s": t_first,
+                   "reach_ipopt_objective": n_ok, "problems": results}, fh, indent=1)
     config = {"experiment": name, "settings": exp, "start": start, "git": git_info(),
               "versions": {"jax": jax.__version__, "casadi": casadi.__version__, "python": sys.version.split()[0]},
               "host": os.uname().nodename, "dims": {k: info[k] for k in ("nx", "np", "nyc", "nyd")},
