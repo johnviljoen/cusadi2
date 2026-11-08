@@ -16,7 +16,8 @@ commit, dirty flag, versions), the plans + problem.json, and results.json (per p
 cuipm status, iterations, objective, feasibility; IPOPT objective and iterations; wall
 times). The batch varies the start position: p[b, 0] = start_x[b].
 
-    uv run examples/jax/quadcopter_nav_cuipm.py          (needs cuipm_jax installed in the venv)
+    .venv/bin/python examples/jax/quadcopter_nav_cuipm.py
+(not `uv run`: uv sync would drop the editable cuipm_jax install from the venv)
 """
 import json
 import os
