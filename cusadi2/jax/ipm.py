@@ -307,7 +307,13 @@ class StagedNLP:
     `whole_horizon()` the same NLP as whole-horizon SX for IPOPT and checks."""
 
     def __init__(self, stage_f: Callable, stage_c: Optional[Callable], stage_d: Optional[Callable], n_stages: int,
-                 specs, *, c_active=None, d_active=None, c_order="stage", d_order="stage", dtype=np.float64):
+                 specs, *, c_active=None, d_active=None, c_order="stage", d_order="stage", dtype=np.float64,
+                 relax_equality: bool = False):
+        # relax_equality (MadNLP's RelaxEquality): the equality rows become inequality
+        # rows with d_L = d_U = 0 (the caller passes those bounds; cuipm_jax's bounds_scale
+        # then relaxes them to +-1e-8), so nyc == 0 and the condensed KKT system applies.
+        # Per stage the relaxed rows come first; `relaxed` (nyd,) marks them in the global
+        # d numbering.
         self.layout = StageLayout(specs, n_stages)
         self.n_stages = int(n_stages)
         self.specs = self.layout.specs
@@ -329,10 +335,23 @@ class StagedNLP:
         if int(self.f_sx.numel()) != 1:
             raise ValueError("StagedNLP: stage_f must return a scalar")
         self.x_stage = ca.vertcat(*[self.syms[i] for i in self.layout.var_args])
+        self.relax_equality = bool(relax_equality)
+        n_relaxed_stage = 0
+        if relax_equality:
+            c_act = self._active(c_active, int(self.c_sx.numel()), "c")
+            d_act = self._active(d_active, int(self.d_sx.numel()), "d")
+            n_relaxed_stage = int(self.c_sx.numel())
+            self.d_sx = ca.vertcat(self.c_sx, self.d_sx)
+            self.c_sx = ca.SX.zeros(0, 1)
+            d_active, c_active = np.concatenate([c_act, d_act], axis=1), None
         self.c_active = self._active(c_active, int(self.c_sx.numel()), "c")
         self.d_active = self._active(d_active, int(self.d_sx.numel()), "d")
         self.c_rows, self.d_rows = _row_numbers(self.c_active, c_order), _row_numbers(self.d_active, d_order)
         self.nyc, self.nyd = int(self.c_active.sum()), int(self.d_active.sum())
+        self.relaxed = np.zeros(self.nyd, bool)
+        if n_relaxed_stage:
+            rows = self.d_rows[:, :n_relaxed_stage]
+            self.relaxed[rows[rows >= 0]] = True
         self.nx, self.np = self.layout.nx, self.layout.np
         self._gx = self.layout.stage_x_cols()                                 # (n_stages, nx_stage)
         self._base_gathers = [self.layout.gather(i) for i in range(len(self.specs))]
