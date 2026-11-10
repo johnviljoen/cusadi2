@@ -214,7 +214,9 @@ class Go2Jump:
 
     # ---- bounds and initial guess
     def bounds(self):
-        big = 1e20
+        # no bound = inf (a finite +-1e20 was a real bound to cuipm and MadNLP: slacks of ~1e20 whose
+        # multipliers swamped the complementarity; IPOPT alone dropped |b| >= 1e19)
+        big = np.inf
         N, nq, nv, nj = self.N, self.nq, self.nv, self.nj
         q_L, q_U = np.full(nq, -big), np.full(nq, big)
         q_L[3:7], q_U[3:7] = -1.0, 1.0
