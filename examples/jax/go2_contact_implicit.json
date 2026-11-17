@@ -1,0 +1,154 @@
+{
+  "lean_k0p1": {
+    "run": false,
+    "model": {
+      "xml": "examples/mujoco_menagerie/unitree_go2/go2.xml",
+      "feet": [
+        "FL_calf",
+        "FR_calf",
+        "RL_calf",
+        "RR_calf"
+      ],
+      "foot_offset": [
+        -0.002,
+        0.0,
+        -0.213
+      ],
+      "foot_radius": 0.022,
+      "N": 40,
+      "Ts": 0.025,
+      "mu": 0.6,
+      "f_max": 350.0,
+      "v_max": [
+        30.1,
+        30.1,
+        15.7
+      ],
+      "rest_from": 32,
+      "base_z_min": 0.12,
+      "knee_min": 0.05,
+      "pit_edge": 0.02,
+      "l_ref": 0.05,
+      "v_ref": 0.5,
+      "weights": {
+        "tau": 0.001,
+        "lam": 1e-05,
+        "vj": 0.01,
+        "qj_home": 0.1,
+        "quat": 2.0,
+        "dtau": 0.0001,
+        "rest_vb": 10.0,
+        "rest_vj": 1.0,
+        "rest_quat": 20.0,
+        "rest_qj": 1.0,
+        "terminal_quat": 10.0,
+        "terminal_vb": 1.0,
+        "goal_pos": 100000.0,
+        "diss": 4.5,
+        "slip": 1000.0,
+        "dlam": 0.0
+      },
+      "slip_gap": 0.01,
+      "slip_form": "kinematic",
+      "cone_margin": 0.6,
+      "cost_form": "fixed_end",
+      "v_cmd": 0.0,
+      "scale_force_rows": false
+    },
+    "goal": [
+      0.15,
+      0.0
+    ],
+    "pit": [
+      0.4,
+      0.6,
+      0.0
+    ],
+    "kappa_hat": 0.1,
+    "bounds": "central",
+    "ipopt": {
+      "max_iter": 500,
+      "tol": 0.0001,
+      "max_wall_time": 600.0,
+      "linear_solver": "mumps",
+      "print_level": 0
+    },
+    "check_seed": 0
+  },
+  "lean_k0p01": {
+    "run": false,
+    "model": {
+      "xml": "examples/mujoco_menagerie/unitree_go2/go2.xml",
+      "feet": [
+        "FL_calf",
+        "FR_calf",
+        "RL_calf",
+        "RR_calf"
+      ],
+      "foot_offset": [
+        -0.002,
+        0.0,
+        -0.213
+      ],
+      "foot_radius": 0.022,
+      "N": 40,
+      "Ts": 0.025,
+      "mu": 0.6,
+      "f_max": 350.0,
+      "v_max": [
+        30.1,
+        30.1,
+        15.7
+      ],
+      "rest_from": 32,
+      "base_z_min": 0.12,
+      "knee_min": 0.05,
+      "pit_edge": 0.02,
+      "l_ref": 0.05,
+      "v_ref": 0.5,
+      "weights": {
+        "tau": 0.001,
+        "lam": 1e-05,
+        "vj": 0.01,
+        "qj_home": 0.1,
+        "quat": 2.0,
+        "dtau": 0.0001,
+        "rest_vb": 10.0,
+        "rest_vj": 1.0,
+        "rest_quat": 20.0,
+        "rest_qj": 1.0,
+        "terminal_quat": 10.0,
+        "terminal_vb": 1.0,
+        "goal_pos": 100000.0,
+        "diss": 4.5,
+        "slip": 1000.0,
+        "dlam": 0.0
+      },
+      "slip_gap": 0.01,
+      "slip_form": "kinematic",
+      "cone_margin": 0.6,
+      "cost_form": "fixed_end",
+      "v_cmd": 0.0,
+      "scale_force_rows": false
+    },
+    "goal": [
+      0.15,
+      0.0
+    ],
+    "pit": [
+      0.4,
+      0.6,
+      0.0
+    ],
+    "kappa_hat": 0.01,
+    "bounds": "central",
+    "ipopt": {
+      "max_iter": 500,
+      "tol": 0.0001,
+      "max_wall_time": 600.0,
+      "linear_solver": "mumps",
+      "print_level": 0
+    },
+    "check_seed": 0
+  }
+}

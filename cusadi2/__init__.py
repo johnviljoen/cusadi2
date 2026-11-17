@@ -16,7 +16,7 @@ import os
 from cusadi2.dag import (LevelPlan, SerialProgram, extract_level_plan, extract_serial_program,
                          verify_plan, verify_serial_program)
 from cusadi2.kernel_template import write_kernel_source
-from cusadi2.plan import device_max_live, read_plan, write_plan, write_reference
+from cusadi2.plan import device_max_live, plan_bytes, read_plan, write_plan, write_reference
 from cusadi2.unrolled import write_unrolled_source
 
 INCLUDE_DIR = os.path.dirname(os.path.realpath(__file__))   # holds cusadi2.h
@@ -24,5 +24,5 @@ HEADER = os.path.join(INCLUDE_DIR, "cusadi2.h")
 
 __all__ = ["LevelPlan", "SerialProgram", "extract_level_plan", "extract_serial_program",
            "verify_plan", "verify_serial_program", "write_kernel_source",
-           "device_max_live", "read_plan", "write_plan", "write_reference", "write_unrolled_source",
+           "device_max_live", "plan_bytes", "read_plan", "write_plan", "write_reference", "write_unrolled_source",
            "INCLUDE_DIR", "HEADER"]
