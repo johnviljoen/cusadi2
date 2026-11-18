@@ -31,6 +31,7 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 
+from cusadi2.compose import sparsity_coo
 from cusadi2.jax.interpret import eval_jaxpr, sx_inputs, to_sx_vector
 from cusadi2.jax.primitive import MAX_ARGS, cusadi2_eval, ext_for
 from cusadi2.plan import device_max_live, plan_bytes
@@ -170,7 +171,7 @@ class JaxFunction:
             outs = [ca.densify(y) for y in ys]
         elif kind == "jac":
             outs = [ca.sparsify(ca.jacobian(y, x)) for y in ys]
-            coo = [_coo2(J) for J in outs]
+            coo = [sparsity_coo(J) for J in outs]
         elif kind == "hess":
             outs, coo = [], []
             for y in ys:
@@ -181,7 +182,7 @@ class JaxFunction:
             lams = [ca.SX.sym(f"lam{k}", int(y.numel())) for k, y in enumerate(ys)]
             L = sum((ca.dot(l, y) for l, y in zip(lams, ys)), ca.SX(0))
             H = ca.sparsify(ca.hessian(L, x)[0])
-            outs, coo, extra = [H], [_coo2(H)], lams
+            outs, coo, extra = [H], [sparsity_coo(H)], lams
         else:
             raise ValueError(kind)
         fun = ca.Function(name, list(syms) + extra, outs)
@@ -275,11 +276,6 @@ def _casadi_name(name: str) -> str:
     if not n or not n[0].isalpha() or n in ("null", "jac", "hess"):
         n = "f_" + n if n else "f"
     return n
-
-
-def _coo2(M: ca.SX) -> np.ndarray:
-    rows, cols = M.sparsity().get_triplet()
-    return np.stack([np.asarray(rows, np.int32), np.asarray(cols, np.int32)], axis=1).reshape(-1, 2)
 
 
 def _coo3(H: ca.SX, n_y: int) -> np.ndarray:

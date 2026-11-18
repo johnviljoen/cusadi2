@@ -30,7 +30,8 @@ license = "MIT"
 authors = [
     { name = "John Viljoen", email = "john_viljoen@berkeley.edu" },
 ]
-dependencies = ["casadi", "numpy"]
+# libcusadi2 loads the CUDA runtime of the nvidia-cuda-runtime wheel (next to this package)
+dependencies = ["casadi", "numpy", "nvidia-cuda-runtime>=13,<14"]
 
 [project.optional-dependencies]
 # cusadi2.jax.jax_function: JAX with the CUDA 13 plugin (runtime side of the extension)

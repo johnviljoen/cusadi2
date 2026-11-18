@@ -21,8 +21,8 @@ uv sync --extra jax --extra test   # + jax[cuda13] runtime, pytest
 
 Two parts are compiled at install time: the JAX FFI extension
 (`cusadi2/jax/_ffi_f64`, `_ffi_f32`) and the kernel as a plain shared library,
-`libcusadi2_f64.so` / `libcusadi2_f32.so` (sm_80, 90, 100, 120 plus compute_120
-PTX; the CUDA runtime linked statically, so it needs only the driver). The
+`libcusadi2_f64.so` / `libcusadi2_f32.so` (sm_80, 89, 90, 100, 120 plus compute_120
+PTX; on the shared CUDA runtime of the `nvidia-cuda-runtime` wheel, a dependency). The
 toolchain (nvcc, cudart, XLA headers) comes entirely from pip wheels listed in
 `build-system.requires`, so no system CUDA is needed. The build backend is
 scikit-build-core (uv's own backend cannot compile extensions); the kernel

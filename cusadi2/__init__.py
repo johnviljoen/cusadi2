@@ -18,7 +18,7 @@ per-model contact kernel the user compiles).
 import os
 
 from cusadi2.cache import CompiledPlan, compile, resolve_max_live
-from cusadi2.compose import ComposedFunction, row_numbers, rows_active
+from cusadi2.compose import ComposedFunction, StageLayout, row_numbers, rows_active, sparsity_coo
 from cusadi2.dag import (LevelPlan, SerialProgram, extract_level_plan, extract_serial_program,
                          verify_plan, verify_serial_program)
 from cusadi2.kernel_template import write_kernel_source
@@ -56,7 +56,7 @@ def cmake_dir() -> str:
     return _native_paths().CMAKE_DIR
 
 
-__all__ = ["CompiledPlan", "compile", "resolve_max_live", "ComposedFunction", "rows_active", "row_numbers",
+__all__ = ["CompiledPlan", "compile", "resolve_max_live", "ComposedFunction", "StageLayout", "rows_active", "row_numbers", "sparsity_coo",
            "LevelPlan", "SerialProgram", "extract_level_plan", "extract_serial_program",
            "verify_plan", "verify_serial_program", "write_kernel_source",
            "device_max_live", "plan_bytes", "read_plan", "write_plan", "write_reference", "write_unrolled_source",

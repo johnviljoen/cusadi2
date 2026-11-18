@@ -238,6 +238,127 @@ def gather_zero(n_stages: int, nnz: int) -> np.ndarray:
     return np.full((n_stages, nnz), -1, np.int32)
 
 
+def sparsity_coo(M) -> np.ndarray:
+    """(nnz, 2) int32 (row, col) of a CasADi matrix's structural nonzeros, in its nonzero order."""
+    rows, cols = M.sparsity().get_triplet()
+    return np.stack([np.asarray(rows, np.int32), np.asarray(cols, np.int32)], axis=1).reshape(-1, 2)
+
+
+class StageLayout:
+    """The global layouts a list of stage specs implies, and the gather table of
+    every argument. Variables (specs without `param`) form the knot-major global
+    x: all knots of the first variable argument, then all of the second, ...;
+    an argument with `alias=<name>` reads the block of the argument it aliases
+    (x_k and x_{k+1} are one knot buffer read twice). Parameters form p the same
+    way, shared ones first, then the per-stage ones, each argument's stages
+    contiguous. An argument with `const=<array (n_stages, size), or (size,) if
+    shared>` is neither: its values are baked into the plan (stage constants: a
+    contact schedule, per-stage weights). `gather(i)` is (0, table) for a
+    variable (read from x), (1, table) for a parameter (read from p) or
+    (-1, table) for a constant (read from `consts`), table (n_stages, size) per
+    `cusadi2.compose`."""
+
+    def __init__(self, specs: Sequence[dict], n_stages: int):
+        self.specs = [dict(s) for s in specs]
+        self.n_stages = int(n_stages)
+        names = [s["name"] for s in self.specs]
+        for s in self.specs:
+            s.setdefault("mode", "stage"); s.setdefault("offset", 0); s.setdefault("span", 0)
+            s.setdefault("param", False); s.setdefault("alias", None); s.setdefault("const", None)
+            if s["const"] is not None:
+                if s["param"] or s["alias"]:
+                    raise ValueError(f"{s['name']}: a constant argument is neither a parameter nor an alias")
+                s["const"] = np.asarray(s["const"], np.float64).reshape(-1, s["size"])
+            if s["mode"] not in STAGE_MODES:
+                raise ValueError(f"{s['name']}: unknown mode {s['mode']!r}")
+            if s["mode"] != "coupled" and (s["offset"] or s["span"]):
+                raise ValueError(f"{s['name']}: offset / span are only valid for coupled mode")
+        self.var_args = [i for i, s in enumerate(self.specs) if not s["param"] and s["const"] is None]
+        self.param_args = [i for i, s in enumerate(self.specs) if s["param"]]
+        self.const_args = [i for i, s in enumerate(self.specs) if s["const"] is not None]
+        self.count = [stage_count(s["mode"], s["span"], self.n_stages) for s in self.specs]
+        for i in self.const_args:
+            s = self.specs[i]
+            if s["const"].shape != (self.count[i], s["size"]):
+                raise ValueError(f"{s['name']}: const needs shape ({self.count[i]}, {s['size']}), got {s['const'].shape}")
+
+        def layout(order):
+            base, at = {}, 0
+            for i in order:
+                if self.specs[i]["alias"]:
+                    continue
+                base[i] = at
+                at += self.count[i] * self.specs[i]["size"]
+            for i in order:
+                s = self.specs[i]
+                if s["alias"]:
+                    j = names.index(s["alias"])
+                    if j not in base or self.specs[j]["size"] != s["size"] or self.count[j] != self.count[i]:
+                        raise ValueError(f"{s['name']}: alias must name a non-alias argument of the same kind, size and stage count")
+                    base[i] = base[j]
+            return base, at
+        self.x_base, self.nx = layout(self.var_args)
+        shared_first = ([i for i in self.param_args if self.specs[i]["mode"] == "shared"]
+                        + [i for i in self.param_args if self.specs[i]["mode"] != "shared"])
+        self.p_base, self.np = layout(shared_first)
+        self.c_base, self.nconst = layout(self.const_args)
+        self.consts = (np.concatenate([self.specs[i]["const"].reshape(-1) for i in self.const_args])
+                       if self.const_args else np.zeros(0))
+        self.stage_start = {}
+        at = 0
+        for i in self.var_args:
+            self.stage_start[i] = at
+            at += self.specs[i]["size"]
+        self.nx_stage = at
+
+    def gather(self, i: int):
+        s = self.specs[i]
+        src, base = ((-1, self.c_base[i]) if s["const"] is not None else (1, self.p_base[i]) if s["param"]
+                     else (0, self.x_base[i]))
+        if s["mode"] == "shared":
+            return src, gather_shared(self.n_stages, s["size"], base)
+        return src, gather_block(self.n_stages, s["size"], base, s["size"], s["offset"], self.count[i])
+
+    def global_cols(self, local_cols, s: int) -> np.ndarray:
+        """Global x columns of entries of the stage-s variable vector (the variable
+        arguments concatenated in spec order); -1 where the argument's knot
+        s + offset lies outside its buffer (such an argument reads zero there and
+        its derivative columns are dropped, so the stage function must not depend
+        on it at that stage: gate the term with a zero stage constant)."""
+        local_cols = np.asarray(local_cols, np.int64)
+        out = np.empty(len(local_cols), np.int64)
+        for i in self.var_args:
+            sp = self.specs[i]
+            start, size = self.stage_start[i], sp["size"]
+            sel = (local_cols >= start) & (local_cols < start + size)
+            knot = 0 if sp["mode"] == "shared" else s + sp["offset"]
+            out[sel] = (self.x_base[i] + knot * size + (local_cols[sel] - start)) if 0 <= knot < self.count[i] else -1
+        return out
+
+    def stage_x_cols(self) -> np.ndarray:
+        """(n_stages, nx_stage) global column of every stage variable."""
+        return np.stack([self.global_cols(np.arange(self.nx_stage), s) for s in range(self.n_stages)])
+
+    def blocks(self, kind: str):
+        """[(name, base, count, size)] of the non-alias arguments making up x ("x") or p ("p")."""
+        args, base = (self.var_args, self.x_base) if kind == "x" else (self.param_args, self.p_base)
+        out = [(self.specs[i]["name"], int(base[i]), self.count[i], self.specs[i]["size"])
+               for i in args if not self.specs[i]["alias"]]
+        return sorted(out, key=lambda t: t[1])
+
+    def pack(self, kind: str, values: dict) -> np.ndarray:
+        """Assemble x or p from per-argument arrays (count, size) (or (size,) for shared)."""
+        n = self.nx if kind == "x" else self.np
+        out = np.zeros(n)
+        for name, base, count, size in self.blocks(kind):
+            v = np.asarray(values[name], np.float64).reshape(-1)
+            if v.size != count * size:
+                raise ValueError(f"{name}: expected {count} x {size} values, got {v.size}")
+            out[base:base + v.size] = v
+        return out
+
+
+
 def compose(fn, n_stages: int, inputs: Sequence[DeclaredArg], gathers: Sequence[Tuple[int, np.ndarray]],
             outputs: Sequence[Tuple[str, int, int]], scatters: Sequence[Tuple[int, np.ndarray]],
             consts=None) -> Composition:
@@ -430,5 +551,4 @@ class ComposedFunction:
 
     def compile(self, *, cache_dir: str, max_live, block_size):
         from cusadi2.cache import compile as compile_
-        return compile_(self.fn, cache_dir=cache_dir, composition=self.composition, max_live=max_live,
-                        block_size=block_size)
+        return compile_(self, cache_dir=cache_dir, max_live=max_live, block_size=block_size)

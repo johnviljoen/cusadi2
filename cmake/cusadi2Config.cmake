@@ -1,7 +1,7 @@
 # find_package(cusadi2 CONFIG HINTS <python -c "import cusadi2; print(cusadi2.cmake_dir())">)
 #
-# cusadi2::cusadi2_f64 / cusadi2::cusadi2_f32: the generic level-parallel kernel (libcusadi2_*.so,
-# CUDA runtime linked statically) with cusadi2.h on the include path and CUSADI2_SCALAR set.
+# cusadi2::cusadi2_f64 / cusadi2::cusadi2_f32: the generic level-parallel kernel (libcusadi2_*.so, on
+# the nvidia-cuda-runtime wheel's libcudart) with cusadi2.h on the include path and CUSADI2_SCALAR set.
 get_filename_component(_cusadi2_root "${CMAKE_CURRENT_LIST_DIR}/.." ABSOLUTE)
 foreach(_pair "f64;double" "f32;float")
     list(GET _pair 0 _sfx)

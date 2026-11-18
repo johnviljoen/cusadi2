@@ -110,12 +110,17 @@ def plan_key(fn: ca.Function, composition: Optional[Composition], max_live: Opti
     return h.hexdigest()
 
 
-def compile(fn: ca.Function, *, cache_dir: str, composition: Optional[Composition] = None,
+def compile(fn, *, cache_dir: str, composition: Optional[Composition] = None,
             max_live: Union[int, str, None], block_size: Optional[int]) -> CompiledPlan:
-    """The plan of `fn` (behind `composition` if given) from `<cache_dir>/plans/`, built there
-    first if missing. `max_live`: slot budget the level plan is windowed to (int), "device" for
-    this GPU's, None for no windowing. `block_size`: threads per block recorded in the plan
-    (None: the runtime's choice)."""
+    """The plan of `fn` (a casadi.Function, behind `composition` if given, or a ComposedFunction)
+    from `<cache_dir>/plans/`, built there first if missing. `max_live`: slot budget the level
+    plan is windowed to (int), "device" for this GPU's, None for no windowing. `block_size`:
+    threads per block recorded in the plan (None: the runtime's choice)."""
+    from cusadi2.compose import ComposedFunction
+    if isinstance(fn, ComposedFunction):
+        if composition is not None:
+            raise ValueError("cusadi2: a ComposedFunction carries its own composition")
+        fn, composition = fn.fn, fn.composition
     max_live = resolve_max_live(max_live)
     key = plan_key(fn, composition, max_live, block_size)
     plans = os.path.join(cache_dir, "plans")
