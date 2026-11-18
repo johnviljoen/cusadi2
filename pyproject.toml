@@ -62,4 +62,5 @@ cache-keys = [
     { file = "cusadi2/**/*.py" },
     { file = "cusadi2/**/*.cu" },
     { file = "cusadi2/**/*.h" },
+    { file = "cmake/*" },
 ]

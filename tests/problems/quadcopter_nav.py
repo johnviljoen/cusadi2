@@ -2,7 +2,7 @@
 (src/problems/mpc.py::quadcopter_nav, src/problems/quadcopter/dynamics.py::f_jnp)
 so the cusadi2 tests are self-contained. One change: the initial state is the
 parameter `p` of c(z, p) instead of a closed-over constant, matching cuipm's
-partition (codegen/generate.py): c = all equalities, d = one-sided inequalities
+partition (cuipm_jax.nlp): c = all equalities, d = one-sided inequalities
 d(z, p) >= 0; variable bounds live outside the symbolic NLP.
 
 Decision vector z = [X (N x 13) row-major, U ((N-1) x 4) row-major].

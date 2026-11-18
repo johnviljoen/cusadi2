@@ -1,0 +1,7 @@
+"""Where the build installed libcusadi2, its header and its CMake config (written by the build)."""
+import os
+
+ROOT = os.path.dirname(os.path.abspath(__file__))
+INCLUDE_DIR = os.path.join(ROOT, "include")
+LIB_DIR = os.path.join(ROOT, "lib")
+CMAKE_DIR = os.path.join(ROOT, "cmake")

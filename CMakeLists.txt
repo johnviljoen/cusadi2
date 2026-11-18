@@ -71,3 +71,29 @@ foreach(_pair "double;_ffi_f64" "float;_ffi_f32")
         INSTALL_RPATH_USE_LINK_PATH FALSE)
     install(TARGETS ${_mod} LIBRARY DESTINATION cusadi2/jax)
 endforeach()
+
+# libcusadi2_f64.so / libcusadi2_f32.so: the same kernel as a plain shared library for C++ / CUDA
+# consumers (cuipm), so that they include cusadi2.h and link it instead of compiling the kernel.
+# Fixed architectures (not `native`): sm_80 / 90 / 100 / 120 machine code plus compute_120 PTX for
+# newer GPUs. The CUDA runtime is linked statically: the library needs only the driver. Installed
+# with the header and a CMake package config under the installed package (cusadi2.get_include(),
+# get_library(), cmake_dir(); find_package(cusadi2) gives cusadi2::cusadi2_f64 / _f32).
+set(CUSADI2_LIB_ARCHITECTURES "80-real;90-real;100-real;120" CACHE STRING "Architectures of libcusadi2")
+foreach(_pair "double;f64" "float;f32")
+    list(GET _pair 0 _dtype)
+    list(GET _pair 1 _sfx)
+    set(_lib cusadi2_${_sfx})
+    add_library(${_lib} SHARED ${CMAKE_CURRENT_BINARY_DIR}/cusadi2_kernel_${_dtype}.cu)
+    target_include_directories(${_lib} PRIVATE ${CUDA_INCLUDE})
+    target_link_libraries(${_lib} PRIVATE ${_cudart_dir}/libcudart_static.a rt dl pthread)
+    set_target_properties(${_lib} PROPERTIES
+        CUDA_ARCHITECTURES "${CUSADI2_LIB_ARCHITECTURES}"
+        CUDA_RUNTIME_LIBRARY None
+        POSITION_INDEPENDENT_CODE ON)
+    install(TARGETS ${_lib} LIBRARY DESTINATION cusadi2/lib)
+endforeach()
+install(FILES cusadi2/cusadi2.h DESTINATION cusadi2/include)
+install(FILES cmake/cusadi2Config.cmake DESTINATION cusadi2/cmake)
+# Located through the installed package (an editable install keeps the Python sources in the
+# checkout and the built files in site-packages; this module is among the latter).
+install(FILES cmake/_native.py.in DESTINATION cusadi2 RENAME _native.py)

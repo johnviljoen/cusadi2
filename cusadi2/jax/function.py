@@ -295,3 +295,36 @@ def jax_function(fun: Callable = None, *, param_argnums: Sequence[int] = (), **k
     if fun is None:
         return lambda f: JaxFunction(f, param_argnums=param_argnums, **kw)
     return JaxFunction(fun, param_argnums=param_argnums, **kw)
+
+
+class GpuFunction:
+    """A CasADi Function, or a `cusadi2.ComposedFunction`, uploaded as a cusadi2 plan:
+    `g(*args)` on flat 1-D arrays returns the structural nonzeros of the first output
+    (vmap / jit as usual); `coo` is the (nnz, 2) row/col pattern, `serial` whether the
+    level kernel did not fit and the serial one runs instead."""
+
+    def __init__(self, name: str, fn, dtype=np.float64, max_live=None, block_size=None, serial: bool = False):
+        from cusadi2.compose import ComposedFunction
+        if isinstance(fn, ComposedFunction):
+            self.coo, self.nnz, composition, fn = fn.coo, fn.nnz_out, fn.composition, fn.fn
+        else:
+            rows, cols = fn.sparsity_out(0).get_triplet()
+            self.coo = np.stack([np.asarray(rows, np.int32), np.asarray(cols, np.int32)], axis=1).reshape(-1, 2)
+            self.nnz, composition = int(fn.nnz_out(0)), None
+        self.name = name
+        self._plan = _Plan(name, fn, [(self.nnz,)], [self.coo], dtype, block_size, serial, max_live,
+                           composition=composition)
+        self.serial = self._plan.serial
+
+    def __call__(self, *args):
+        return self._plan(list(args))[0]
+
+    def free(self):
+        self._plan.free()
+
+
+def gpu_functions(fns, dtype=np.float64, max_live=None, block_size=None, serial: bool = False):
+    """{name: GpuFunction} for a dict of CasADi Functions / ComposedFunctions. Level plans are
+    windowed to the device's shared memory (`max_live=None`) and fall back to the serial kernel
+    when no window fits."""
+    return {name: GpuFunction(name, fn, dtype, max_live, block_size, serial) for name, fn in fns.items()}

@@ -7,7 +7,8 @@ parallel within a block) and **stage-parallel** (a per-stage function evaluated
 over a horizon, one block per (instance, stage)). See `ALGORITHM.md`.
 
 Python is used only at build time. Deployment is C++/CUDA: a header-only
-runtime plus a binary plan file per function.
+runtime, the prebuilt kernel library, and a binary plan file per function. A
+consumer never compiles CUDA for cusadi2.
 
 ## Install
 
@@ -18,7 +19,10 @@ uv sync                      # cusadi2 (casadi, numpy) + the JAX extension if th
 uv sync --extra jax --extra test   # + jax[cuda13] runtime, pytest
 ```
 
-The only compiled part is the JAX FFI extension (`cusadi2/jax/_ffi`); its
+Two parts are compiled at install time: the JAX FFI extension
+(`cusadi2/jax/_ffi_f64`, `_ffi_f32`) and the kernel as a plain shared library,
+`libcusadi2_f64.so` / `libcusadi2_f32.so` (sm_80, 90, 100, 120 plus compute_120
+PTX; the CUDA runtime linked statically, so it needs only the driver). The
 toolchain (nvcc, cudart, XLA headers) comes entirely from pip wheels listed in
 `build-system.requires`, so no system CUDA is needed. The build backend is
 scikit-build-core (uv's own backend cannot compile extensions); the kernel
@@ -28,14 +32,22 @@ source is generated from the op tables at build time.
 
 ```python
 import casadi as ca
-from cusadi2 import write_kernel_source, write_plan
+from cusadi2 import compile, write_plan
 
-write_kernel_source("kernel.cu")                 # once per project; dtype="float" for f32
-write_plan(fn, "fn.plan")                        # batch-only (n_stages == 1)
+plan = compile(fn, cache_dir=".cusadi2", max_live="device", block_size=None)   # cached: plan.path
+write_plan(fn, "fn.plan")                        # uncached, batch-only (n_stages == 1)
 write_plan(fn_stage, "fn_stage.plan", n_stages=30,
            in_mode=["coupled", "shared"], in_offset=[0, 0], in_span=[1, 0])
 write_unrolled_source(fn, "fn_unrolled.cu")     # optional: original-cusadi-style per-function kernel
 ```
+
+`compile` keeps plans in `<cache_dir>/plans/<hash>.bin` and builds one only
+when it is missing. The hash covers the Function (`fn.serialize()`), a
+composition's tables, the resolved `max_live` and `block_size`, the plan format
+version and the source of the cusadi2 package, so an edited checkout does not
+reuse old plans; `max_live="device"` is resolved to this GPU's slot budget
+first. Builds are written to a temporary file and renamed into place. The cache
+is safe to delete.
 
 Stage modes per input: `"stage"` (one value per stage), `"shared"` (broadcast),
 `"coupled"` (stage k reads element k+offset of a buffer of length n_stages+span).
@@ -55,8 +67,15 @@ version 4; version 3 files (before compositions) still load.
 
 ## Run time (C++/CUDA)
 
-Compile `kernel.cu` into your program with `cusadi2.h` on the include path
-(`python -c "import cusadi2; print(cusadi2.INCLUDE_DIR)"`).
+Link the kernel library and include `cusadi2.h`; both are installed with the
+package: `cusadi2.get_library("double")`, `cusadi2.get_include()`, or from CMake
+
+```cmake
+execute_process(COMMAND python -c "import cusadi2; print(cusadi2.cmake_dir())" OUTPUT_VARIABLE dir
+                OUTPUT_STRIP_TRAILING_WHITESPACE)
+find_package(cusadi2 CONFIG REQUIRED HINTS ${dir})
+target_link_libraries(app PRIVATE cusadi2::cusadi2_f64)   # include path and CUSADI2_SCALAR=double come with it
+```
 
 ```cpp
 #include "cusadi2.h"
@@ -71,7 +90,9 @@ prog.use_serial(work_bytes);                   // optional: one thread per (inst
 argument; buffer `a` holds `plan.in[a].len(batch)` elements laid out
 (instance, stage_count, nnz). `plan.in[a].sp` / `plan.out[a].sp` carry the CasADi
 CCS sparsity (`coo_row()` / `coo_col()` for COO). Build with
-`-DCUSADI2_SCALAR=float` to match a float kernel. `use_serial` swaps the
+`-DCUSADI2_SCALAR=float` to match the float kernel (`cusadi2::cusadi2_f32`).
+`write_kernel_source("kernel.cu")` still writes the kernel source for consumers
+that compile it themselves. `use_serial` swaps the
 level-parallel kernel for a thread-per-instance one that walks CasADi's own
 instruction stream (also in the plan; work vector of `sz_w` slots in a global
 scratch buffer sized by the budget; threads loop when the batch is larger),
@@ -176,59 +197,15 @@ Both examples set `XLA_PYTHON_CLIENT_PREALLOCATE=false` before importing JAX:
 cusadi2 plans are allocated outside XLA's pool, so the pool must not grow over
 the whole device.
 
-### Handing an NLP to cuipm (`cusadi2.jax.ipm`)
+### NLPs for an interior-point solver
 
-```python
-from cusadi2.jax.ipm import export_cuipm, solve_ipopt
-info = export_cuipm(f, c, d, x0, p0, "plans/", x_L=x_L, x_U=x_U)   # f(x, p) scalar, c(x, p) = 0, d(x, p) >= 0
-ref  = solve_ipopt(f, c, d, x0, p0, x_L=x_L, x_U=x_U, options={"max_iter": 100})   # the same NLP in IPOPT
-```
-
-`export_cuipm` traces f, c and d into SX on shared symbols and writes the nine
-plans cuipm loads (`f c d jac_f jac_c jac_d hess_f hess_c hess_d`, the input
-signatures of `cuipm/codegen/generate.py`, `hess_c` / `hess_d` the Lagrangian
-Hessians with the multipliers as inputs) plus `problem.json` with the dims,
-nnz, bounds and the initial point. Patterns are exact: the `eps` input that
-the hand-written codegen used to inflate the cost pattern is accepted and
-ignored. On the quadcopter NMPC the exported plans reproduce cuipm's jaxipm
-gold trajectory bit for bit (`tests/test_cuipm_export.py` checks values and
-nnz against the hand-written CasADi NLP and against cuipm's own plans).
-`gpu_functions(info["functions"])` uploads the same nine Functions as cusadi2
-plans for evaluation under `jit` / `vmap`, without tracing again.
-`solve_ipopt` is the reference solve of the identical NLP through CasADi's
-`nlpsol`. `examples/jax/go2_jump_nlp.py` is a whole-body example: the Go2 jump
-in the lifted inverse-dynamics transcription on `rbd`, exported, solved with
-IPOPT and timed on the GPU (JSON-configured, writes `runs/go2_jump_nlp/<name>/`).
-
-**Stage-wise NLPs** (`StagedNLP`, `export_cuipm_staged`): the same nine plans
-from per-stage functions of the stage arguments, composed (see Build time):
-
-```python
-from cusadi2.jax.ipm import StagedNLP, export_cuipm_staged, rows_active
-nlp = StagedNLP(stage_f, stage_c, stage_d, n_stages=N, specs=[
-          dict(name="x_k",  size=13, mode="coupled", offset=0, span=1),
-          dict(name="x_k1", size=13, mode="coupled", offset=1, span=1, alias="x_k"),
-          dict(name="u_k",  size=4,  mode="stage"),
-          dict(name="p",    size=13, mode="shared", param=True),            # -> the plans' p
-          dict(name="s_k",  size=2,  mode="stage",  const=S)],              # baked into the plans
-      c_active=rows_active(N, [(13, "first"), (13, "all")]), c_order="block")
-info = export_cuipm_staged(nlp, x0, p0, "plans/", x_L=x_L, x_U=x_U)
-ref  = solve_ipopt(None, None, None, x0, p0, x_L=x_L, x_U=x_U, nlp=nlp.whole_horizon())
-```
-
-The variables form the knot-major x, the parameters p, constants (schedules,
-stage weights) live in the plans; `c_active` / `d_active` say which rows of a
-stage output exist at which stage (initial state, touchdown, no-slip on stance
-intervals: computed and discarded elsewhere, so the global pattern has exactly
-the rows that exist). The stage graphs are traced once, so the whole trace is
-seconds, the derivative plans are small enough for the level-parallel kernel,
-and cuipm needs nothing but the files. Stage-wise quadcopter: the composed plans
-reproduce cuipm's S7n gold trajectory digit for digit and match the
-hand-written whole-horizon NLP's nine functions to 1e-10
-(`tests/test_cuipm_staged.py`). Go2 jump, N = 28 (`jump_fwd_0p2_staged`):
-trace 1.6 s and plans 1.1 s instead of 31 s and 34 s; all nine plans per
-iteration 1.3 ms at batch 1 and 77 ms at batch 1024 instead of 395 ms and
-1103 ms (whole-horizon, serial fallback), same IPOPT optimum.
+cusadi2 holds no NLP layer. cuipm's `cuipm_jax` builds the nine functions an
+interior-point method evaluates (f, c, d, their Jacobians and Lagrangian
+Hessians) from f, c and d given in JAX or CasADi, whole-horizon or per stage
+(composed into whole-horizon plans with `cusadi2.compose`), and compiles them
+with `cusadi2.compile`. `cusadi2.ComposedFunction` and `cusadi2.rows_active` /
+`row_numbers` are the generic pieces it uses; `cusadi2.jax.gpu_functions`
+uploads CasADi Functions or ComposedFunctions as plans for `jit` / `vmap`.
 
 ### Stage-parallel plans for horizon problems (`cusadi2.jax.staged`)
 
@@ -276,12 +253,14 @@ NVCC=.venv/lib/python3.12/site-packages/nvidia/cu13/bin/nvcc uv run pytest tests
 - `cusadi2/ops.py` — the op table (CUDA double/float forms, Python form)
 - `cusadi2/kernel_template.py` — the kernel source
 - `cusadi2/plan.py` — plan / reference file writers (format documented there)
-- `cusadi2/compose.py` — compositions: declared buffers, per-element gather / scatter tables, reduces; host evaluator
+- `cusadi2/compose.py` — compositions: declared buffers, per-element gather / scatter tables, reduces; host evaluator; `ComposedFunction`, stage row activity
+- `cusadi2/cache.py` — `compile`: plan files cached by content hash
 - `cusadi2/jax/rbd.py` — rigid-body dynamics (RNEA, ABA, kinematics) in JAX from a MuJoCo-parsed MJCF / URDF
-- `cusadi2/jax/ipm.py` — export of a JAX NLP (whole-horizon or stage-wise, composed) to cuipm's nine plans; IPOPT reference solve
 - `cusadi2/jax/staged.py` — stage-parallel plans from a per-stage JAX function (cusadi2 n_stages mode)
 - `cusadi2/unrolled.py` — original-cusadi-style unrolled kernel emitter (baseline)
 - `cusadi2/cusadi2.h` — loader and `Program` runtime
+- `cmake/` — the installed package's CMake config (`cusadi2Config.cmake`) and library locator (`_native.py`)
+- `cusadi2/contact.py`, `cusadi2/cusadi2_contact.h` — a MuJoCo step with a per-model contact kernel the user compiles (not part of the stable interface)
 - `cusadi2/jax/` — JAX front end: `interpret.py` (jaxpr -> SX), `function.py` (`jax_function`, derivative plans), `primitive.py` (JAX primitive, vmap rule), `ffi.cu` (XLA FFI handler + plan registry)
 - `examples/paper_results/` — A1/H1 kinematics, Jacobian and Hessian latency benchmark (`bench.py`, `latency.cu`; results committed), and the CusADi paper's KKT solves (`bench_orig.py`)
 - `examples/menagerie_bench/` — the same benchmark once per MuJoCo Menagerie robot (`run.py`; needs the Menagerie checkout at `examples/mujoco_menagerie/`)

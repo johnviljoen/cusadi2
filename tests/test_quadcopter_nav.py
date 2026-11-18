@@ -6,7 +6,7 @@ f(z), c(z, p), d(z) with p the initial state as a parameter:
   1. f, c, d values under jit and vmap match the JAX functions to f64 round-off
   2. jac / weighted hess values match jax.jacfwd / jax.hessian at random points
   3. nnz of jac_f, jac_c, jac_d, hess_f, hess_c, hess_d match the hand-written SX
-     (cuipm/codegen/generate.py without the eps hack)
+     (tests/problems/quadcopter_nav_casadi.py)
 """
 import numpy as np
 import pytest

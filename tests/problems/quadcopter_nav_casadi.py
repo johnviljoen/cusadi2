@@ -1,6 +1,6 @@
-"""The same quadcopter NMPC written by hand in CasADi SX, copied from cuipm's
-codegen/generate.py (build_quadcopter_nav_sx / build_nlp_functions_from_sx)
-WITHOUT the `eps` pattern-preservation input: with the JAX side now also going
+"""The same quadcopter NMPC written by hand in CasADi SX, as in cuipm's C++ test
+fixture (cuipm/tests/quadcopter_fixture.py) WITHOUT its `eps` pattern-preservation
+term: with the JAX side now also going
 through CasADi SX, both sides fold constant zeros the same way and the hack is
 unnecessary. This is the sparsity reference for tests/test_quadcopter_nav.py.
 """
@@ -64,7 +64,7 @@ def build_quadcopter_nav_sx(N=30, Ts=0.1):
 
 
 def reference_nnz(N=30, Ts=0.1):
-    """nnz of the nine quantities cuipm's codegen emits, from the hand-written SX."""
+    """nnz of the nine functions an IPM evaluates, from the hand-written SX."""
     x, p, f_sx, c_sx, d_sx = build_quadcopter_nav_sx(N, Ts)
     lam_c = ca.SX.sym("lam_c", c_sx.numel())
     lam_d = ca.SX.sym("lam_d", d_sx.numel())

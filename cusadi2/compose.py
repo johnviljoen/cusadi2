@@ -347,3 +347,88 @@ def evaluate_composition(fn, comp: Composition, inputs: Sequence[np.ndarray]) ->
                 acc += scratch[r.segidx[j]]
             out[g] = acc
     return outs
+
+
+# ---------------------------------------------------------------------------- stage rows
+def rows_active(n_stages: int, blocks) -> np.ndarray:
+    """(n_stages, total rows) bool: at which stages each row of a stage output exists.
+    `blocks` lists (size, when) in the output's row order, `when` one of "all",
+    "first", "last" or a bool sequence of n_stages. Rows inactive at a stage are
+    computed and discarded, so a constraint that holds only at one knot (the
+    initial state, a touchdown) is a block of the stage function and the global
+    pattern has exactly the rows that exist."""
+    cols = []
+    for size, when in blocks:
+        if isinstance(when, str):
+            if when == "all":
+                m = np.ones(n_stages, bool)
+            elif when == "first":
+                m = np.arange(n_stages) == 0
+            elif when == "last":
+                m = np.arange(n_stages) == n_stages - 1
+            else:
+                raise ValueError(f"rows_active: unknown block spec {when!r}")
+        else:
+            m = np.asarray(when, bool).reshape(-1)
+            if m.size != n_stages:
+                raise ValueError(f"rows_active: a bool block spec needs {n_stages} entries")
+        cols.append(np.repeat(m[:, None], size, axis=1))
+    return np.concatenate(cols, axis=1) if cols else np.zeros((n_stages, 0), bool)
+
+
+def row_numbers(active: np.ndarray, order: str = "stage") -> np.ndarray:
+    """Global row of every active (stage, row): "stage" order numbers stage by stage
+    (all of stage 0's active rows, then stage 1's, ...); "block" order takes the
+    blocks of the stage output (runs of rows with the same activity over the
+    stages) one after the other, each stage by stage, as a hand-written
+    whole-horizon function listing its initial-state rows before the dynamics
+    defects does; -1 where inactive."""
+    n_stages, ny = active.shape
+    rows = np.full(active.shape, -1, np.int64)
+    if order == "stage":
+        rows[active] = np.arange(int(active.sum()))
+    elif order == "block":
+        change = np.ones(ny, bool)
+        change[1:] = np.any(active[:, 1:] != active[:, :-1], axis=0)
+        block = np.cumsum(change) - 1                                   # block id per row
+        s, r = np.nonzero(active)
+        order_ = np.lexsort((r, s, block[r]))                           # by block, then stage, then row
+        rows[s[order_], r[order_]] = np.arange(len(s))
+    else:
+        raise ValueError(f"row order must be 'stage' or 'block', got {order!r}")
+    return rows
+
+
+class ComposedFunction:
+    """A per-stage CasADi Function behind a whole-horizon interface (`compose`): callable on
+    the host with the declared buffers (one instance) for the declared output's structural
+    nonzeros; `compile` gives its plan file (`cusadi2.compile`)."""
+
+    def __init__(self, name: str, fn, composition: Composition):
+        self.name, self.fn, self.composition = name, fn, composition
+        out = composition.outputs[0]
+        rows, cols = out.coo()
+        self.coo = np.stack([rows, cols], axis=1).astype(np.int32).reshape(-1, 2)
+        self.nnz_out = out.nnz
+        self.shape = (out.rows, out.cols)
+
+    @property
+    def n_in(self) -> int:
+        return len(self.composition.inputs)
+
+    @property
+    def nnz_in(self) -> List[int]:
+        return self.composition.in_lengths
+
+    def __call__(self, *bufs) -> np.ndarray:
+        return evaluate_composition(self.fn, self.composition, bufs)[0]
+
+    def dense(self, *bufs) -> np.ndarray:
+        M = np.zeros(self.shape)
+        M[self.coo[:, 0], self.coo[:, 1]] = self(*bufs)
+        return M
+
+    def compile(self, *, cache_dir: str, max_live, block_size):
+        from cusadi2.cache import compile as compile_
+        return compile_(self.fn, cache_dir=cache_dir, composition=self.composition, max_live=max_live,
+                        block_size=block_size)

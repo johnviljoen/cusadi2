@@ -13,7 +13,7 @@ from cusadi2.jax.interpret import Unsupported, eval_jaxpr, trace_to_sx
 __all__ = ["Unsupported", "eval_jaxpr", "trace_to_sx", "rbd"]
 
 try:  # the FFI extension is optional (``pip install cusadi2[jax]``)
-    from cusadi2.jax.function import jax_function  # noqa: F401
-    __all__.append("jax_function")
+    from cusadi2.jax.function import GpuFunction, gpu_functions, jax_function  # noqa: F401
+    __all__ += ["GpuFunction", "gpu_functions", "jax_function"]
 except ImportError:  # pragma: no cover
     pass
