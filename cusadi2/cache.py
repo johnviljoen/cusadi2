@@ -28,7 +28,7 @@ import numpy as np
 
 from cusadi2.compose import Composition
 from cusadi2.dag import extract_level_plan
-from cusadi2.plan import VERSION, device_max_live, write_plan
+from cusadi2.plan import VERSION, cse_function, device_max_live, write_plan
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _code_hash = None
@@ -100,29 +100,31 @@ class CompiledPlan:
 
 
 def plan_key(fn: ca.Function, composition: Optional[Composition], max_live: Optional[int],
-             block_size: Optional[int]) -> str:
+             block_size: Optional[int], cse: bool = True) -> str:
     h = hashlib.sha256()
     h.update(b"cusadi2-plan\0%d\0" % VERSION)
     h.update(code_fingerprint())
     h.update(fn.serialize().encode())
     _feed(h, composition)
-    _feed(h, (max_live, block_size))
+    _feed(h, (max_live, block_size, bool(cse)))
     return h.hexdigest()
 
 
 def compile(fn, *, cache_dir: str, composition: Optional[Composition] = None,
-            max_live: Union[int, str, None], block_size: Optional[int]) -> CompiledPlan:
+            max_live: Union[int, str, None], block_size: Optional[int], cse: bool = True) -> CompiledPlan:
     """The plan of `fn` (a casadi.Function, behind `composition` if given, or a ComposedFunction)
     from `<cache_dir>/plans/`, built there first if missing. `max_live`: slot budget the level
     plan is windowed to (int), "device" for this GPU's, None for no windowing. `block_size`:
-    threads per block recorded in the plan (None: the runtime's choice)."""
+    threads per block recorded in the plan (None: the runtime's choice). `cse` (default): the plan
+    is built from `cse_function(fn)` (common subexpressions computed once); False plans `fn` as
+    traced. The flag is part of the key; on a cache hit no CSE runs."""
     from cusadi2.compose import ComposedFunction
     if isinstance(fn, ComposedFunction):
         if composition is not None:
             raise ValueError("cusadi2: a ComposedFunction carries its own composition")
         fn, composition = fn.fn, fn.composition
     max_live = resolve_max_live(max_live)
-    key = plan_key(fn, composition, max_live, block_size)
+    key = plan_key(fn, composition, max_live, block_size, cse)
     plans = os.path.join(cache_dir, "plans")
     path, meta_path = os.path.join(plans, key + ".bin"), os.path.join(plans, key + ".json")
     if os.path.exists(path) and os.path.exists(meta_path):
@@ -130,11 +132,13 @@ def compile(fn, *, cache_dir: str, composition: Optional[Composition] = None,
             meta = json.load(fh)
         return CompiledPlan(path=path, key=key, built=False, **meta)
     os.makedirs(plans, exist_ok=True)
+    if cse:
+        fn = cse_function(fn)
     plan = extract_level_plan(fn, max_live=max_live)
     meta = {"name": fn.name(), "peak_live_slots": plan.peak_live_slots, "n_levels": plan.n_levels,
             "n_nodes": plan.n_nodes}
     tmp = f"{path}.tmp.{os.getpid()}"
-    write_plan(fn, tmp, block_size=block_size, plan=plan, composition=composition)
+    write_plan(fn, tmp, block_size=block_size, plan=plan, composition=composition, cse=False)
     with open(f"{meta_path}.tmp.{os.getpid()}", "w") as fh:
         json.dump(meta, fh)
     os.replace(f"{meta_path}.tmp.{os.getpid()}", meta_path)

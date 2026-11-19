@@ -41,6 +41,7 @@ import numpy as np
 
 from cusadi2.compose import StageLayout, sparsity_coo
 from cusadi2.dag import stage_count
+from cusadi2.derivatives import jacobian, weighted_hessian
 from cusadi2.jax.function import _casadi_name
 from cusadi2.jax.interpret import eval_jaxpr, sx_inputs, to_sx_vector
 from cusadi2.jax.primitive import MAX_ARGS, cusadi2_eval, ext_for
@@ -50,7 +51,7 @@ _plan_ids = itertools.count(10_000_000)
 
 
 class _StagedPlan:
-    def __init__(self, name, fun, n_stages, specs, dtype, nnz_out, max_live, serial):
+    def __init__(self, name, fun, n_stages, specs, dtype, nnz_out, max_live, serial, cse=True):
         self.plan_id = next(_plan_ids)
         self.fun, self.n_stages, self.specs = fun, n_stages, specs
         self.dtype = np.dtype(dtype)
@@ -63,14 +64,14 @@ class _StagedPlan:
         if max_live is None:
             max_live = device_max_live("float" if self.dtype == np.float32 else "double")
         self.serial = bool(serial)
+        kw = dict(n_stages=n_stages, in_mode=in_mode, in_offset=in_offset, in_span=in_span, cse=cse)
         if serial:
-            data = plan_bytes(fun, n_stages=n_stages, in_mode=in_mode, in_offset=in_offset, in_span=in_span)
+            data = plan_bytes(fun, **kw)
         else:
             try:
-                data = plan_bytes(fun, n_stages=n_stages, in_mode=in_mode, in_offset=in_offset, in_span=in_span,
-                                  max_live=max_live)
+                data = plan_bytes(fun, max_live=max_live, **kw)
             except ValueError:
-                data = plan_bytes(fun, n_stages=n_stages, in_mode=in_mode, in_offset=in_offset, in_span=in_span)
+                data = plan_bytes(fun, **kw)
                 self.serial = True
         self.ext.install_plan(self.plan_id, data, 0, self.serial)
 
@@ -92,12 +93,12 @@ class StagedFunction:
     per argument with name, size, mode, offset, span, param."""
 
     def __init__(self, stage_fun, n_stages: int, specs: Sequence[dict], name: Optional[str] = None,
-                 dtype=np.float64, max_live: Optional[int] = None, serial: bool = False):
+                 dtype=np.float64, max_live: Optional[int] = None, serial: bool = False, cse: bool = True):
         if len(specs) > MAX_ARGS - 1:
             raise ValueError(f"at most {MAX_ARGS - 1} stage arguments")
         self.fun, self.n_stages, self.specs = stage_fun, int(n_stages), [dict(s) for s in specs]
         self.name = _casadi_name(name or getattr(stage_fun, "__name__", "staged"))
-        self.dtype, self.max_live, self.serial = np.dtype(dtype), max_live, serial
+        self.dtype, self.max_live, self.serial, self.cse = np.dtype(dtype), max_live, serial, bool(cse)
         self._plans: Dict[str, _StagedPlan] = {}
         self._trace()
 
@@ -128,11 +129,11 @@ class StagedFunction:
         if kind == "value":
             out, coo = ca.densify(self.y), None
         elif kind == "jac":
-            out = ca.sparsify(ca.jacobian(self.y, self.x))
+            out = jacobian(self.y, self.x, cse=self.cse)
             coo = sparsity_coo(out)
         elif kind == "whess":
             lam = ca.SX.sym("lam", self.ny)
-            out = ca.sparsify(ca.hessian(ca.dot(lam, self.y), self.x)[0])
+            out = weighted_hessian(self.y, self.x, lam, cse=self.cse)
             coo = sparsity_coo(out)
             extra = [lam]
             specs = specs + [dict(name="lam", size=self.ny, mode="stage", param=True)]
@@ -140,7 +141,7 @@ class StagedFunction:
             raise ValueError(kind)
         fun = ca.Function(f"{self.name}_{kind}", list(self.syms) + extra, [out])
         plan = _StagedPlan(f"{self.name}_{kind}", fun, self.n_stages, specs, self.dtype, [fun.nnz_out(0)],
-                           self.max_live, self.serial)
+                           self.max_live, self.serial, self.cse)
         plan.coo = coo
         self._plans[kind] = plan
         return plan

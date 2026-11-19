@@ -32,6 +32,7 @@ import jax.numpy as jnp
 import numpy as np
 
 from cusadi2.compose import sparsity_coo
+from cusadi2.derivatives import jacobian, vector_hessian, weighted_hessian
 from cusadi2.jax.interpret import eval_jaxpr, sx_inputs, to_sx_vector
 from cusadi2.jax.primitive import MAX_ARGS, cusadi2_eval, ext_for
 from cusadi2.plan import device_max_live, plan_bytes
@@ -55,7 +56,7 @@ class _Plan:
     """One CasADi Function uploaded as one cusadi2 plan, callable on flat leaves."""
 
     def __init__(self, name: str, fun: ca.Function, out_shapes, coo, dtype, block_size, serial, max_live,
-                 composition=None):
+                 composition=None, cse: bool = True):
         self.plan_id = next(_plan_ids)
         self.fun = fun
         self.dtype = np.dtype(dtype)
@@ -74,7 +75,7 @@ class _Plan:
         if max_live is None:   # window the levels to the device's shared memory (plans of big Jacobians / Hessians)
             max_live = device_max_live("float" if self.dtype == np.float32 else "double")
         self.serial = bool(serial)
-        kw = dict(block_size=block_size, composition=composition)
+        kw = dict(block_size=block_size, composition=composition, cse=cse)
         if serial:
             data = plan_bytes(fun, **kw)
         else:
@@ -106,8 +107,9 @@ class JaxFunction:
 
     def __init__(self, fun: Callable, param_argnums: Sequence[int] = (), name: str | None = None,
                  dtype=None, block_size: int | None = None, serial: bool = False,
-                 max_live: int | None = None):
+                 max_live: int | None = None, cse: bool = True):
         self.fun = fun
+        self.cse = bool(cse)
         self.dtype = None if dtype is None else np.dtype(jax.dtypes.canonicalize_dtype(dtype))
         self.param_argnums = tuple(sorted(int(i) for i in param_argnums))
         self.name = _casadi_name(name or getattr(fun, "__name__", "f"))
@@ -170,23 +172,23 @@ class JaxFunction:
         if kind == "value":
             outs = [ca.densify(y) for y in ys]
         elif kind == "jac":
-            outs = [ca.sparsify(ca.jacobian(y, x)) for y in ys]
+            outs = [jacobian(y, x, cse=self.cse) for y in ys]
             coo = [sparsity_coo(J) for J in outs]
         elif kind == "hess":
             outs, coo = [], []
             for y in ys:
-                H = ca.sparsify(ca.jacobian(ca.jacobian(y, x), x))     # (n_y*n_x) x n_x, rows column-major
+                H = vector_hessian(y, x, cse=self.cse)                  # (n_y*n_x) x n_x, rows column-major
                 outs.append(H)
                 coo.append(_coo3(H, int(y.numel())))
         elif kind == "whess":
             lams = [ca.SX.sym(f"lam{k}", int(y.numel())) for k, y in enumerate(ys)]
-            L = sum((ca.dot(l, y) for l, y in zip(lams, ys)), ca.SX(0))
-            H = ca.sparsify(ca.hessian(L, x)[0])
+            H = weighted_hessian(ca.vertcat(*ys), x, ca.vertcat(*lams), cse=self.cse)
             outs, coo, extra = [H], [sparsity_coo(H)], lams
         else:
             raise ValueError(kind)
         fun = ca.Function(name, list(syms) + extra, outs)
-        plan = _Plan(name, fun, tr["out_shapes"], coo, tr["dtype"], self.block_size, self.serial, self.max_live)
+        plan = _Plan(name, fun, tr["out_shapes"], coo, tr["dtype"], self.block_size, self.serial, self.max_live,
+                     cse=self.cse)
         self._plans[key] = plan
         return plan
 
@@ -287,7 +289,9 @@ def _coo3(H: ca.SX, n_y: int) -> np.ndarray:
 
 def jax_function(fun: Callable = None, *, param_argnums: Sequence[int] = (), **kw) -> JaxFunction:
     """Wrap `fun` (plain JAX code) for cusadi2 evaluation; usable as a decorator.
-    Keyword options: dtype (default: from the arguments), block_size, serial, max_live."""
+    Keyword options: dtype (default: from the arguments), block_size, serial, max_live, cse
+    (default True: common subexpression elimination before differentiating and on every plan;
+    see cusadi2.derivatives)."""
     if fun is None:
         return lambda f: JaxFunction(f, param_argnums=param_argnums, **kw)
     return JaxFunction(fun, param_argnums=param_argnums, **kw)
@@ -299,7 +303,8 @@ class GpuFunction:
     (vmap / jit as usual); `coo` is the (nnz, 2) row/col pattern, `serial` whether the
     level kernel did not fit and the serial one runs instead."""
 
-    def __init__(self, name: str, fn, dtype=np.float64, max_live=None, block_size=None, serial: bool = False):
+    def __init__(self, name: str, fn, dtype=np.float64, max_live=None, block_size=None, serial: bool = False,
+                 cse: bool = True):
         from cusadi2.compose import ComposedFunction
         if isinstance(fn, ComposedFunction):
             self.coo, self.nnz, composition, fn = fn.coo, fn.nnz_out, fn.composition, fn.fn
@@ -309,7 +314,7 @@ class GpuFunction:
             self.nnz, composition = int(fn.nnz_out(0)), None
         self.name = name
         self._plan = _Plan(name, fn, [(self.nnz,)], [self.coo], dtype, block_size, serial, max_live,
-                           composition=composition)
+                           composition=composition, cse=cse)
         self.serial = self._plan.serial
 
     def __call__(self, *args):
@@ -319,8 +324,8 @@ class GpuFunction:
         self._plan.free()
 
 
-def gpu_functions(fns, dtype=np.float64, max_live=None, block_size=None, serial: bool = False):
+def gpu_functions(fns, dtype=np.float64, max_live=None, block_size=None, serial: bool = False, cse: bool = True):
     """{name: GpuFunction} for a dict of CasADi Functions / ComposedFunctions. Level plans are
     windowed to the device's shared memory (`max_live=None`) and fall back to the serial kernel
     when no window fits."""
-    return {name: GpuFunction(name, fn, dtype, max_live, block_size, serial) for name, fn in fns.items()}
+    return {name: GpuFunction(name, fn, dtype, max_live, block_size, serial, cse) for name, fn in fns.items()}

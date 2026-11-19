@@ -19,10 +19,12 @@ import os
 
 from cusadi2.cache import CompiledPlan, compile, resolve_max_live
 from cusadi2.compose import ComposedFunction, StageLayout, row_numbers, rows_active, sparsity_coo
+from cusadi2 import staging  # noqa: F401
+from cusadi2.derivatives import gradient, hessian, jacobian, vector_hessian, weighted_hessian
 from cusadi2.dag import (LevelPlan, SerialProgram, extract_level_plan, extract_serial_program,
                          verify_plan, verify_serial_program)
 from cusadi2.kernel_template import write_kernel_source
-from cusadi2.plan import device_max_live, plan_bytes, read_plan, write_plan, write_reference
+from cusadi2.plan import cse_function, device_max_live, plan_bytes, read_plan, write_plan, write_reference
 from cusadi2.unrolled import write_unrolled_source
 
 INCLUDE_DIR = os.path.dirname(os.path.realpath(__file__))   # holds cusadi2.h (source checkout)
@@ -59,5 +61,5 @@ def cmake_dir() -> str:
 __all__ = ["CompiledPlan", "compile", "resolve_max_live", "ComposedFunction", "StageLayout", "rows_active", "row_numbers", "sparsity_coo",
            "LevelPlan", "SerialProgram", "extract_level_plan", "extract_serial_program",
            "verify_plan", "verify_serial_program", "write_kernel_source",
-           "device_max_live", "plan_bytes", "read_plan", "write_plan", "write_reference", "write_unrolled_source",
+           "cse_function", "gradient", "jacobian", "hessian", "weighted_hessian", "vector_hessian", "device_max_live", "plan_bytes", "read_plan", "write_plan", "write_reference", "write_unrolled_source",
            "get_include", "get_library", "cmake_dir", "INCLUDE_DIR", "HEADER"]

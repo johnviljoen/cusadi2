@@ -549,6 +549,6 @@ class ComposedFunction:
         M[self.coo[:, 0], self.coo[:, 1]] = self(*bufs)
         return M
 
-    def compile(self, *, cache_dir: str, max_live, block_size):
+    def compile(self, *, cache_dir: str, max_live, block_size, cse: bool = True):
         from cusadi2.cache import compile as compile_
-        return compile_(self, cache_dir=cache_dir, max_live=max_live, block_size=block_size)
+        return compile_(self, cache_dir=cache_dir, max_live=max_live, block_size=block_size, cse=cse)
