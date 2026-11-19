@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import contextlib
 from dataclasses import dataclass
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import casadi as ca
 import jax
@@ -30,7 +30,7 @@ from jax import lax
 from jax.extend.core import Literal
 
 from ..staging import StagingError
-from .interpret import RULES, _arr, _bind_constants, _is_sym, eval_jaxpr, sx_inputs, to_sx_vector
+from .interpret import RULES, _arr, _bind_constants, _is_sym, eval_jaxpr, recording, sx_inputs, to_sx_vector
 
 
 def _names(arr) -> List[str]:
@@ -182,6 +182,8 @@ class MXGraph:
     x_shapes: List[tuple]     # JAX shapes of the x leaves
     p_shapes: List[tuple]
     n_maps: int
+    g: Optional[ca.MX] = None     # lookups (cusadi2.loads): the values read, an input of the graph
+    idx: Optional[ca.MX] = None   # and their positions in the global p vector (concatenated leaves)
 
 
 def trace(fun, x, p):
@@ -207,13 +209,28 @@ def trace(fun, x, p):
     return closed, "\n".join(parts)
 
 
+def leaf_names(tree, kind: str, taken=()) -> List[str]:
+    """Symbol names for the leaves of a pytree: the tree path ("s" for x.s, "q" for x["q"]). A leaf
+    of a list / tuple, the root leaf, or a name already in `taken` (p's names are taken after x's:
+    the staging layout needs them distinct) is prefixed with `kind`: "x0", "p1", "pq"."""
+    out, used = [], set(taken)
+    for i, (k, _) in enumerate(jax.tree_util.tree_flatten_with_path(tree)[0]):
+        nm = jax.tree_util.keystr(k).strip(".[]'")
+        if not nm or nm[0].isdigit() or nm in used:
+            nm = f"{kind}{nm or i}"
+        while nm in used:
+            nm += "_"
+        used.add(nm)
+        out.append(nm)
+    return out
+
+
 def to_mx(fun, x, p, traced=None) -> MXGraph:
     """Trace fun(x, p) -> array or tuple of arrays (x, p: example pytrees; only shapes are used) into a
     CasADi MX graph; see the module docstring. `traced`: the closed jaxpr from `trace(fun, x, p)`
     (skips tracing again)."""
     x_leaves, x_tree = jax.tree_util.tree_flatten(x)
-    x_paths = [jax.tree_util.keystr(k) for k, _ in jax.tree_util.tree_flatten_with_path(x)[0]]
-    x_names = [s.strip(".[]'") or f"x{i}" for i, s in enumerate(x_paths)]
+    x_names = leaf_names(x, "x")
     p_leaves, p_tree = jax.tree_util.tree_flatten(p)
     p_size = int(sum(np.size(l) for l in p_leaves))
     closed = trace(fun, x, p)[0] if traced is None else traced
@@ -229,8 +246,7 @@ def to_mx(fun, x, p, traced=None) -> MXGraph:
             return 1, s[0]                    # an x leaf (L,): one scalar per horizon index
         return int(np.size(l)), 1
     X = [ca.MX.sym(nm, *mx_shape(l, True)) for nm, l in zip(x_names, x_leaves)]
-    p_paths = [jax.tree_util.keystr(k) for k, _ in jax.tree_util.tree_flatten_with_path(p)[0]]
-    p_names = [s.strip(".[]'") or f"p{i}" for i, s in enumerate(p_paths)]
+    p_names = leaf_names(p, "p", x_names)
     Pl = [ca.MX.sym(nm, *mx_shape(l, False)) for nm, l in zip(p_names, p_leaves)]   # one per p leaf
     Pm = ca.vertcat(*[ca.vec(v) for v in Pl]) if Pl else ca.MX(0, 1)
     T = _Translator(list(x_syms), p_sym, [ca.vec(v) for v in X], Pm)
@@ -239,11 +255,20 @@ def to_mx(fun, x, p, traced=None) -> MXGraph:
         k = int(np.size(l))
         p_parts.append(p_arr[at:at + k].reshape(np.shape(l)))
         at += k
-    outs = T.run(closed, list(x_arrs) + p_parts)
+    with recording(p_sym) as rec:            # lookups into p (gather / dynamic_slice at traced positions)
+        outs = T.run(closed, list(x_arrs) + p_parts)
     ph = [s for m in T.maps for s in m["ph"]]
     ys = [y for m in T.maps for y in m["y"]]
-    glue = ca.Function("glue", list(x_syms) + [p_sym] + ph, [to_sx_vector(o) for o in outs])
-    mx_outs = glue.call([ca.vec(v) for v in X] + [Pm] + ys)
-    return MXGraph(x=X, p=Pl, outs=list(mx_outs), x_names=x_names, x_tree=x_tree, p_tree=p_tree,
-                   x_shapes=[tuple(np.shape(l)) for l in x_leaves], p_shapes=[tuple(np.shape(l)) for l in p_leaves],
-                   n_maps=len(T.maps))
+    shapes = dict(x_shapes=[tuple(np.shape(l)) for l in x_leaves], p_shapes=[tuple(np.shape(l)) for l in p_leaves])
+    if not rec.ghosts:
+        glue = ca.Function("glue", list(x_syms) + [p_sym] + ph, [to_sx_vector(o) for o in outs])
+        mx_outs = glue.call([ca.vec(v) for v in X] + [Pm] + ys)
+        return MXGraph(x=X, p=Pl, outs=list(mx_outs), x_names=x_names, x_tree=x_tree, p_tree=p_tree,
+                       n_maps=len(T.maps), **shapes)
+    # each value read is an input g_j of the glue, its position in p an extra output (cusadi2.loads)
+    G = ca.vertcat(*rec.ghosts)
+    glue = ca.Function("glue", list(x_syms) + [p_sym] + ph + [G], [to_sx_vector(o) for o in outs] + [ca.vertcat(*rec.index)])
+    Gm = ca.MX.sym("G", G.numel())
+    mx_outs = glue.call([ca.vec(v) for v in X] + [Pm] + ys + [Gm])
+    return MXGraph(x=X, p=Pl, outs=list(mx_outs[:-1]), x_names=x_names, x_tree=x_tree, p_tree=p_tree,
+                   n_maps=len(T.maps), g=Gm, idx=mx_outs[-1], **shapes)

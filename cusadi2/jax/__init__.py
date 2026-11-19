@@ -11,9 +11,9 @@ dynamics (RNEA, ABA, kinematics) in JAX from a MuJoCo-parsed MJCF / URDF.
 """
 from cusadi2.jax import rbd
 from cusadi2.jax.interpret import Unsupported, eval_jaxpr, trace_to_sx
-from cusadi2.jax.to_mx import MXGraph, to_mx, trace, vmap_as_map
+from cusadi2.jax.to_mx import MXGraph, leaf_names, to_mx, trace, vmap_as_map
 
-__all__ = ["Unsupported", "eval_jaxpr", "trace_to_sx", "rbd", "MXGraph", "to_mx", "vmap_as_map"]
+__all__ = ["Unsupported", "eval_jaxpr", "trace_to_sx", "rbd", "MXGraph", "leaf_names", "to_mx", "vmap_as_map"]
 
 try:  # the FFI extension is optional (``pip install cusadi2[jax]``)
     from cusadi2.jax.function import GpuFunction, gpu_functions, jax_function  # noqa: F401

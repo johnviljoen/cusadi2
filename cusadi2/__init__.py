@@ -24,6 +24,7 @@ from cusadi2.derivatives import gradient, hessian, jacobian, vector_hessian, wei
 from cusadi2.dag import (LevelPlan, SerialProgram, extract_level_plan, extract_serial_program,
                          verify_plan, verify_serial_program)
 from cusadi2.kernel_template import write_kernel_source
+from cusadi2.order import OUTPUT_ORDERS
 from cusadi2.plan import cse_function, device_max_live, plan_bytes, read_plan, write_plan, write_reference
 from cusadi2.unrolled import write_unrolled_source
 
@@ -58,7 +59,7 @@ def cmake_dir() -> str:
     return _native_paths().CMAKE_DIR
 
 
-__all__ = ["CompiledPlan", "compile", "resolve_max_live", "ComposedFunction", "StageLayout", "rows_active", "row_numbers", "sparsity_coo",
+__all__ = ["OUTPUT_ORDERS", "CompiledPlan", "compile", "resolve_max_live", "ComposedFunction", "StageLayout", "rows_active", "row_numbers", "sparsity_coo",
            "LevelPlan", "SerialProgram", "extract_level_plan", "extract_serial_program",
            "verify_plan", "verify_serial_program", "write_kernel_source",
            "cse_function", "gradient", "jacobian", "hessian", "weighted_hessian", "vector_hessian", "device_max_live", "plan_bytes", "read_plan", "write_plan", "write_reference", "write_unrolled_source",

@@ -56,7 +56,7 @@ class _Plan:
     """One CasADi Function uploaded as one cusadi2 plan, callable on flat leaves."""
 
     def __init__(self, name: str, fun: ca.Function, out_shapes, coo, dtype, block_size, serial, max_live,
-                 composition=None, cse: bool = True):
+                 composition=None, cse: bool = True, output_order: str = "auto"):
         self.plan_id = next(_plan_ids)
         self.fun = fun
         self.dtype = np.dtype(dtype)
@@ -75,7 +75,7 @@ class _Plan:
         if max_live is None:   # window the levels to the device's shared memory (plans of big Jacobians / Hessians)
             max_live = device_max_live("float" if self.dtype == np.float32 else "double")
         self.serial = bool(serial)
-        kw = dict(block_size=block_size, composition=composition, cse=cse)
+        kw = dict(block_size=block_size, composition=composition, cse=cse, output_order=output_order)
         if serial:
             data = plan_bytes(fun, **kw)
         else:
@@ -304,7 +304,7 @@ class GpuFunction:
     level kernel did not fit and the serial one runs instead."""
 
     def __init__(self, name: str, fn, dtype=np.float64, max_live=None, block_size=None, serial: bool = False,
-                 cse: bool = True):
+                 cse: bool = True, output_order: str = "auto"):
         from cusadi2.compose import ComposedFunction
         if isinstance(fn, ComposedFunction):
             self.coo, self.nnz, composition, fn = fn.coo, fn.nnz_out, fn.composition, fn.fn
@@ -314,7 +314,7 @@ class GpuFunction:
             self.nnz, composition = int(fn.nnz_out(0)), None
         self.name = name
         self._plan = _Plan(name, fn, [(self.nnz,)], [self.coo], dtype, block_size, serial, max_live,
-                           composition=composition, cse=cse)
+                           composition=composition, cse=cse, output_order=output_order)
         self.serial = self._plan.serial
 
     def __call__(self, *args):
@@ -324,8 +324,9 @@ class GpuFunction:
         self._plan.free()
 
 
-def gpu_functions(fns, dtype=np.float64, max_live=None, block_size=None, serial: bool = False, cse: bool = True):
+def gpu_functions(fns, dtype=np.float64, max_live=None, block_size=None, serial: bool = False, cse: bool = True,
+                  output_order: str = "auto"):
     """{name: GpuFunction} for a dict of CasADi Functions / ComposedFunctions. Level plans are
     windowed to the device's shared memory (`max_live=None`) and fall back to the serial kernel
     when no window fits."""
-    return {name: GpuFunction(name, fn, dtype, max_live, block_size, serial, cse) for name, fn in fns.items()}
+    return {name: GpuFunction(name, fn, dtype, max_live, block_size, serial, cse, output_order) for name, fn in fns.items()}

@@ -72,8 +72,10 @@ enum CasadiOp {
     OP_SINH, OP_COSH, OP_TANH, OP_ASINH, OP_ACOSH, OP_ATANH,  // 37-42
     OP_ATAN2,                                                   // 43
     OP_CONST, OP_INPUT, OP_OUTPUT,                              // 44-46: IO moves
-    OP_ERFINV = 86, OP_LOG1P = 93, OP_EXPM1 = 94, OP_HYPOT = 95, OP_REMAINDER = 97
-};   // every scalar op an SX stream can carry (ops.py); the planner rejects others
+    OP_ERFINV = 86, OP_LOG1P = 93, OP_EXPM1 = 94, OP_HYPOT = 95, OP_REMAINDER = 97,
+    OP_LOAD = 1000                                              // cusadi2's traced lookup (cusadi2.ops.OP_LOAD)
+};   // every scalar op an SX stream can carry (ops.py), and LOAD; the planner rejects others
+enum { CUSADI2_LOAD_ARGS = 64 };   // a LOAD's in_b = n * CUSADI2_LOAD_ARGS + arg (cusadi2.ops.load_operand)
 
 __EXEC_OP__
 
@@ -128,6 +130,13 @@ struct cusadi2_val_ptrs {
         const int * __restrict__ node_in_a,                                    \
         const int * __restrict__ node_in_b
 
+// The element a LOAD reads for index value v in an argument of n entries: truncated toward
+// zero, clamped to [0, n - 1]; NaN reads element 0 (cusadi2.ops.load_index).
+__device__ __forceinline__ int cusadi2_index({dtype} v, int n) {
+    if (!(v >= ({dtype})0)) return 0;
+    return v >= ({dtype})(n - 1) ? n - 1 : (int)v;
+}
+
 template <class Ptrs, bool Direct>
 __device__ __forceinline__ {dtype} cusadi2_load(const Ptrs& ptrs, int inst, int stage, int a, int b,
         const int* in_src, const int* in_nnz, const int* in_off, const int* in_stride, const int* in_table,
@@ -180,6 +189,8 @@ __global__ void cusadi2_kernel(const Ptrs ptrs, CUSADI2_KERNEL_PARAMS) {
                 w[o] = cusadi2_load<Ptrs, Direct>(ptrs, inst, stage, a, b, in_src, in_nnz, in_off, in_stride, in_table, in_consts);
             } else if (op == OP_OUTPUT) {
                 cusadi2_store<Ptrs, Direct>(ptrs, inst, stage, a, b, w[o], out_dst, out_nnz, out_off, out_stride, out_table, scratch);
+            } else if (op == OP_LOAD) {           // a: index slot, b: packed arg and length
+                w[o] = cusadi2_load<Ptrs, Direct>(ptrs, inst, stage, b % CUSADI2_LOAD_ARGS, cusadi2_index(w[a], b / CUSADI2_LOAD_ARGS), in_src, in_nnz, in_off, in_stride, in_table, in_consts);
             } else {
                 w[o] = exec_op_late(op, w[a], w[b]);
             }
@@ -239,6 +250,8 @@ __global__ void cusadi2_kernel_serial(const Ptrs ptrs,
                 W(o) = cusadi2_load<Ptrs, Direct>(ptrs, inst, stage, a, b, in_src, in_nnz, in_off, in_stride, in_table, in_consts);
             } else if (op == OP_OUTPUT) {         // o read into arg a element b
                 cusadi2_store<Ptrs, Direct>(ptrs, inst, stage, a, b, W(o), out_dst, out_nnz, out_off, out_stride, out_table, scratch);
+            } else if (op == OP_LOAD) {           // a: index slot, b: packed arg and length
+                W(o) = cusadi2_load<Ptrs, Direct>(ptrs, inst, stage, b % CUSADI2_LOAD_ARGS, cusadi2_index(W(a), b / CUSADI2_LOAD_ARGS), in_src, in_nnz, in_off, in_stride, in_table, in_consts);
             } else {
                 W(o) = exec_op_late(op, W(a), W(b));
             }

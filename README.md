@@ -49,6 +49,16 @@ reuse old plans; `max_live="device"` is resolved to this GPU's slot budget
 first. Builds are written to a temporary file and renamed into place. The cache
 is safe to delete.
 
+`output_order` (`compile`, `write_plan`, `plan_bytes`; `"auto"` by default, `"row"`, `"col"`;
+`cusadi2.order`) is the order the planner computes each output's nonzeros in. The file layout is
+CCS either way. `"col"` plans the Function as built (CCS order). `"row"` rebuilds it with every
+output as a column of its nonzeros sorted by row, then column, and maps each OUTPUT back to its CCS
+position: a Jacobian's row (one constraint) is then computed with its derivatives and freed,
+where CCS order keeps every row's intermediates live from the first column to the last.
+`"auto"` extracts both level plans and keeps the one that fits `max_live`, then has fewer
+levels, then fewer peak live slots (ties: col). The requested order is part of the key; the
+chosen one is in `CompiledPlan.output_order` and the plan's `.json`.
+
 Stage modes per input: `"stage"` (one value per stage), `"shared"` (broadcast),
 `"coupled"` (stage k reads element k+offset of a buffer of length n_stages+span).
 Outputs are always `"stage"`. The horizon is baked into the plan file.

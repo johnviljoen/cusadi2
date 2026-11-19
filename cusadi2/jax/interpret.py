@@ -17,12 +17,19 @@ Boundaries (the same for any tracer): ``scan`` / ``fori_loop`` with a static
 trip count are unrolled, ``cond`` with a symbolic predicate becomes an
 elementwise ``if_else`` (union sparsity), and a ``while_loop`` or a ``gather``
 / ``scatter`` with symbolic indices has no SX form and raises
-:class:`Unsupported`.
+:class:`Unsupported`. The exception is a lookup (``gather`` / ``dynamic_slice``
+with symbolic positions) into a contiguous slice of a table vector while a
+:class:`LoadRecorder` is active (``cusadi2.jax.to_mx`` makes the global p vector
+the table): each element read becomes a fresh symbol, and the recorder keeps its
+position (an SX expression of the inputs, with XLA's clamping) so that
+``cusadi2.loads`` can plan the read as a LOAD.
 """
 from __future__ import annotations
 
+import contextlib
+import contextvars
 import math
-from typing import Callable, Dict, List, Sequence
+from typing import Callable, Dict, List, Optional, Sequence
 
 import casadi as ca
 import jax
@@ -33,6 +40,83 @@ from jax.extend.core import Literal
 
 class Unsupported(NotImplementedError):
     """The jaxpr contains something SX cannot express."""
+
+
+class LoadRecorder:
+    """Lookups with symbolic positions into one table vector (an SX symbol vector, e.g. the
+    global p): every element read becomes a scalar symbol in `ghosts` and its position in the
+    table, an SX expression of the traced inputs, the matching entry of `index`. Active inside
+    `recording(table)`; the interpreter raises `Unsupported` for lookups into anything else."""
+
+    def __init__(self, table: ca.SX):
+        self.table = table
+        self.position = {table[i].name(): i for i in range(table.numel())}
+        self.ghosts: List[ca.SX] = []
+        self.index: List[ca.SX] = []
+
+    def table_base(self, operand: np.ndarray) -> Optional[int]:
+        """Position of operand's first element in the table when operand (row-major) is a
+        contiguous slice of it, else None."""
+        flat = np.asarray(operand).reshape(-1)
+        if flat.size == 0 or not _is_sym(np.asarray(operand)):
+            return None
+        pos = []
+        for e in flat:
+            if not (isinstance(e, ca.SX) and e.is_symbolic()):
+                return None
+            q = self.position.get(e.name())
+            if q is None or not ca.is_equal(self.table[q], e):
+                return None
+            pos.append(q)
+        base = pos[0]
+        return base if all(q == base + j for j, q in enumerate(pos)) else None
+
+    def read(self, base: int, flat_index) -> ca.SX:
+        """A symbol for table[base + flat_index] (flat_index symbolic)."""
+        g = ca.SX.sym(f"G_{len(self.ghosts)}")
+        self.ghosts.append(g)
+        self.index.append(base + _as_sx(flat_index))
+        return g
+
+
+_RECORDER: contextvars.ContextVar = contextvars.ContextVar("cusadi2_load_recorder", default=None)
+
+
+@contextlib.contextmanager
+def recording(table: ca.SX):
+    """Within: lookups with symbolic positions into a slice of `table` are recorded (yields the
+    LoadRecorder) instead of raising Unsupported."""
+    rec = LoadRecorder(table)
+    tok = _RECORDER.set(rec)
+    try:
+        yield rec
+    finally:
+        _RECORDER.reset(tok)
+
+
+def _lookup(operand: np.ndarray, positions: np.ndarray, what: str) -> np.ndarray:
+    """operand.flat[positions] for an object array of (possibly symbolic) flat positions."""
+    rec = _RECORDER.get()
+    base = rec.table_base(operand) if rec is not None else None
+    if base is None:
+        raise Unsupported(f"{what} depends on the inputs; SX cannot index symbolically (a lookup is "
+                          "planned only from a contiguous slice of p, under cusadi2.jax.to_mx)")
+    flat = np.asarray(operand).reshape(-1)
+    out = np.empty(positions.shape, dtype=object)
+    for i, q in np.ndenumerate(positions):
+        if isinstance(q, ca.SX) and not q.is_constant():
+            out[i] = rec.read(base, q)
+        else:
+            out[i] = flat[int(float(q) if isinstance(q, ca.SX) else q)]
+    return out
+
+
+def _clamp_start(s, lo: int, hi: int):
+    """XLA's start-index clamp to [lo, hi], symbolic or not."""
+    if isinstance(s, ca.SX) and not s.is_constant():
+        return ca.fmin(ca.fmax(s, lo), hi)
+    v = int(float(s)) if isinstance(s, ca.SX) else int(s)
+    return min(max(v, lo), hi)
 
 
 # --------------------------------------------------------------------------- helpers
@@ -173,6 +257,11 @@ def _integer_pow(ins, eqn):
 def _convert(ins, eqn):
     a = ins[0]
     if _is_sym(a):
+        new = np.dtype(eqn.params["new_dtype"])
+        old = eqn.invars[0].aval.dtype
+        if np.issubdtype(new, np.integer) and np.issubdtype(old, np.floating):   # truncate toward zero
+            return _vec(lambda e: ca.if_else(_as_sx(e) >= 0, ca.floor(_as_sx(e)), ca.ceil(_as_sx(e)))
+                        if isinstance(e, ca.SX) else math.trunc(e))(a)
         return a
     new = eqn.params["new_dtype"]
     return np.asarray(a).astype(np.dtype(new))
@@ -288,6 +377,17 @@ def _slice(ins, eqn):
 @rule("dynamic_slice")
 def _dynamic_slice(ins, eqn):
     a = np.asarray(ins[0])
+    if any(_is_sym(i) for i in ins[1:]):       # a lookup: positions as SX
+        sizes = eqn.params["slice_sizes"]
+        starts = [_clamp_start(np.asarray(i).reshape(()).item(), 0, d - n) for i, d, n in zip(ins[1:], a.shape, sizes)]
+        strides = np.cumprod((a.shape[1:] + (1,))[::-1])[::-1] if a.ndim else np.array([], int)
+        pos = np.empty(tuple(sizes), dtype=object)
+        for oi in np.ndindex(*sizes):
+            q = 0
+            for s, o, st in zip(starts, oi, strides):
+                q = q + (s + o) * int(st)
+            pos[oi] = q
+        return _lookup(a, pos, "dynamic_slice start index")
     starts = [int(_static_int_array(i, "dynamic_slice start index")) for i in ins[1:]]
     sizes = eqn.params["slice_sizes"]
     starts = [min(max(s, 0), d - n) for s, d, n in zip(starts, a.shape, sizes)]  # JAX clamps
@@ -528,6 +628,8 @@ def _triangular_solve(ins, eqn):
 @rule("gather")
 def _gather(ins, eqn):
     operand = np.asarray(ins[0])
+    if _is_sym(np.asarray(ins[1])):
+        return _gather_lookup(operand, np.asarray(ins[1]), eqn)
     idx = _static_int_array(ins[1], "gather indices")
     dn, sizes = eqn.params["dimension_numbers"], eqn.params["slice_sizes"]
     offset_dims, collapsed, start_map = dn.offset_dims, dn.collapsed_slice_dims, dn.start_index_map
@@ -559,6 +661,46 @@ def _gather(ins, eqn):
             full[od] += oi[offset_dims[k]]
         out[oi] = operand[tuple(full)]
     return out
+
+
+def _gather_lookup(operand: np.ndarray, idx: np.ndarray, eqn) -> np.ndarray:
+    """`gather` with symbolic start indices: the flat positions (XLA's clamp of each start to
+    [0, dim - slice size]) as SX, read through the active LoadRecorder."""
+    mode = str(eqn.params.get("mode", ""))
+    if "FILL" in mode.upper():
+        raise Unsupported("gather with symbolic indices in fill mode (out-of-bounds reads give the fill value); "
+                          "use mode='clip' or 'promise_in_bounds' (jnp.take(..., mode='clip'))")
+    dn, sizes = eqn.params["dimension_numbers"], eqn.params["slice_sizes"]
+    offset_dims, collapsed, start_map = dn.offset_dims, dn.collapsed_slice_dims, dn.start_index_map
+    operand_bd = tuple(getattr(dn, "operand_batching_dims", ()))
+    idx_bd = tuple(getattr(dn, "start_indices_batching_dims", ()))
+    batch_shape = list(idx.shape[:-1])
+    offset_shape = [sizes[d] for d in range(operand.ndim) if d not in collapsed and d not in operand_bd]
+    out_rank = len(batch_shape) + len(offset_shape)
+    batch_dims_out = [d for d in range(out_rank) if d not in offset_dims]
+    out_shape = [0] * out_rank
+    for d, n in zip(batch_dims_out, batch_shape):
+        out_shape[d] = n
+    for d, n in zip(offset_dims, offset_shape):
+        out_shape[d] = n
+    window_operand_dims = [d for d in range(operand.ndim) if d not in collapsed and d not in operand_bd]
+    strides = np.cumprod((operand.shape[1:] + (1,))[::-1])[::-1]
+    pos = np.empty(out_shape, dtype=object)
+    for oi in np.ndindex(*out_shape):
+        g = tuple(oi[d] for d in batch_dims_out)
+        start = [0] * operand.ndim
+        for k, od in enumerate(start_map):
+            start[od] = idx[g + (k,)]
+        for od, bd in zip(operand_bd, idx_bd):
+            start[od] = g[bd]
+        start = [_clamp_start(s, 0, operand.shape[d] - sizes[d]) for d, s in enumerate(start)]
+        for k, od in enumerate(window_operand_dims):
+            start[od] = start[od] + oi[offset_dims[k]]
+        q = 0
+        for s, st in zip(start, strides):
+            q = q + s * int(st)
+        pos[oi] = q
+    return _lookup(operand, pos, "gather indices")
 
 
 @rule("scatter", "scatter-add", "scatter_add", "scatter-mul", "scatter_mul")

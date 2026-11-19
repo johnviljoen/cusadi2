@@ -275,7 +275,7 @@ inline Plan load_plan_from_memory(const void* data, size_t size, const std::stri
     if (std::string(magic, 4) != "CS2P")
         throw std::runtime_error("cusadi2: bad magic in " + what);
     int version = r.i();
-    if (version != 3 && version != 4)
+    if (version != 3 && version != 4 && version != 5)   // 5: a version-4 layout whose program has OP_LOAD
         throw std::runtime_error("cusadi2: unsupported plan version in " + what);
     Plan p;
     int name_len = r.i();

@@ -67,10 +67,15 @@ import casadi as ca
 import numpy as np
 
 from cusadi2.compose import Composition, DeclaredArg, Reduce, StageMap, evaluate_composition, legacy_composition
+from cusadi2.ops import OP_LOAD
+from cusadi2.order import plan_in_order
 from cusadi2.dag import (STAGE_MODES, LevelPlan, SerialProgram, extract_level_plan, extract_serial_program,
                          validate_specs)
 
 PLAN_MAGIC, REF_MAGIC, VERSION = b"CS2P", b"CS2R", 4
+# A plan whose program has OP_LOAD (cusadi2.loads) is written as version 5: the version-4 layout,
+# which a runtime without the LOAD instruction refuses instead of misreading. Others stay 4.
+LOAD_VERSION = 5
 
 
 def cse_function(fn: ca.Function) -> ca.Function:
@@ -81,6 +86,9 @@ def cse_function(fn: ca.Function) -> ca.Function:
     index output nonzeros stay valid. Plans are built from this by default (`cse=True` in
     `compile`, `write_plan`, `plan_bytes`). Go2 hopscotch window (2026-11-18): Lagrangian Hessian
     106k -> 92k nodes, 241 -> 172 levels, 2-9 % faster solves. Non-SX Functions are returned as is."""
+    from cusadi2.loads import LoadedFunction
+    if isinstance(fn, LoadedFunction):
+        return fn.cse()
     if not fn.is_a("SXFunction"):
         return fn
     ins = fn.sx_in()
@@ -160,14 +168,25 @@ def device_max_live(dtype: str = "double", device: int = 0) -> int:
     return v.value // {"double": 8, "float": 4}[dtype]
 
 
+def _ordered(fn, cse, plan, serial, output_order, max_live):
+    """(fn as planned, its level plan): CSE, then the output order (cusadi2.order); a caller that
+    passes `plan` / `serial` extracted them from the fn it chose, which is kept as is."""
+    if plan is not None or serial is not None:
+        return fn, plan
+    if cse:
+        fn = cse_function(fn)
+    fn, plan, _ = plan_in_order(fn, output_order, max_live)
+    return fn, plan
+
+
 def plan_bytes(fn: ca.Function, n_stages: int = 1, in_mode=None, in_offset=None,
                in_span=None, out_mode=None, block_size=None, max_live=None,
                plan: LevelPlan = None, serial: SerialProgram = None,
-               composition: Composition = None, cse: bool = True) -> bytes:
+               composition: Composition = None, cse: bool = True, output_order: str = "auto") -> bytes:
     """The plan file for `fn` as bytes (same format as `write_plan`), for consumers
-    that upload plans without touching the filesystem (cusadi2.jax). `cse`: as in `write_plan`."""
-    if cse and plan is None and serial is None:
-        fn = cse_function(fn)
+    that upload plans without touching the filesystem (cusadi2.jax). `cse`, `output_order`: as
+    in `write_plan`."""
+    fn, plan = _ordered(fn, cse, plan, serial, output_order, max_live)
     buf = io.BytesIO()
     _write_plan_stream(buf, fn, n_stages, in_mode, in_offset, in_span, out_mode, block_size,
                        max_live, plan, serial, composition)
@@ -177,17 +196,19 @@ def plan_bytes(fn: ca.Function, n_stages: int = 1, in_mode=None, in_offset=None,
 def write_plan(fn: ca.Function, path: str, n_stages: int = 1, in_mode=None,
                in_offset=None, in_span=None, out_mode=None, block_size=None,
                max_live=None, plan: LevelPlan = None, serial: SerialProgram = None,
-               composition: Composition = None, cse: bool = True) -> str:
+               composition: Composition = None, cse: bool = True, output_order: str = "auto") -> str:
     """Extract `fn`'s level-parallel plan and serial program and write them, with
     the stage specs and horizon baked in, to `path`. `max_live` (slots; see
     `device_max_live`) makes the planner window the levels until the plan fits.
     Pass `plan` / `serial` to reuse already extracted ones. A `composition`
     (`cusadi2.compose`) replaces the stage specs: `fn` runs per stage behind
     the composition's declared arguments. `cse` (default): plan `cse_function(fn)`;
-    False keeps `fn`'s graph as traced. Ignored when `plan` / `serial` are passed (they
-    were extracted from the Function the caller chose)."""
-    if cse and plan is None and serial is None:
-        fn = cse_function(fn)
+    False keeps `fn`'s graph as traced. `output_order` ("auto" / "row" / "col"): the order the
+    outputs' nonzeros are computed in (`cusadi2.order`; the file layout is CCS either way); "auto"
+    keeps the plan that fits `max_live`, then has fewer levels, then fewer peak live slots. `cse`
+    and `output_order` are ignored when `plan` / `serial` are passed (they were extracted from the
+    Function the caller chose, which is planned as given)."""
+    fn, plan = _ordered(fn, cse, plan, serial, output_order, max_live)
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
     with open(path, "wb") as f:
         _write_plan_stream(f, fn, n_stages, in_mode, in_offset, in_span, out_mode, block_size,
@@ -204,7 +225,7 @@ def _write_plan_stream(f, fn, n_stages, in_mode, in_offset, in_span, out_mode, b
     if True:
         w = _W(f)
         f.write(PLAN_MAGIC)
-        w.i(VERSION, len(name))
+        w.i(LOAD_VERSION if OP_LOAD in plan.node_ops or OP_LOAD in serial.ops else VERSION, len(name))
         f.write(name)
         w.i(len(comp.inputs), len(comp.outputs), comp.n_stages, block_size or 0, plan.peak_live_slots)
         for d in comp.inputs:
@@ -261,8 +282,8 @@ def read_plan(path: str) -> dict:
         raise ValueError(f"{path}: not a cusadi2 plan file")
     pos = 4
     version, name_len = i(), i()
-    if version not in (3, VERSION):
-        raise ValueError(f"{path}: plan version {version}, expected {VERSION}")
+    if version not in (3, VERSION, LOAD_VERSION):
+        raise ValueError(f"{path}: plan version {version}, expected {VERSION} or {LOAD_VERSION}")
     name = buf[pos:pos + name_len].decode(); pos += name_len
     d = dict(name=name, version=version)
     d["n_in"], d["n_out"], d["n_stages"], d["block_size"], d["peak_live_slots"] = i(5)

@@ -51,7 +51,7 @@ import casadi
 import numpy as np
 from casadi import OP_CONST, OP_INPUT, OP_OUTPUT, OP_SQ
 
-from cusadi2.ops import SUPPORTED_OPS
+from cusadi2.ops import OP_LOAD, SUPPORTED_OPS, load_arg, load_index
 
 IO_OPS = (OP_CONST, OP_INPUT, OP_OUTPUT)   # inline in SerialProgram; LevelPlan: CONST preamble, INPUT/OUTPUT nodes
 
@@ -60,7 +60,7 @@ def _check_op(f: casadi.Function, k: int, op: int) -> None:
     """Reject an op the kernel has no case for. Op ids are not range-checked on
     device (the level kernel's dispatch is INPUT / OUTPUT / exec_op), so an
     unknown id must never reach a plan file."""
-    if op not in SUPPORTED_OPS and op not in IO_OPS:
+    if op not in SUPPORTED_OPS and op not in IO_OPS and op != OP_LOAD:
         names = {getattr(casadi, n): n for n in dir(casadi) if n.startswith("OP_")}
         raise ValueError(f"{f.name()}: instruction {k} is {names.get(op, op)}, which cusadi2 does not "
                          "support (see cusadi2.ops.SUPPORTED_OPS)")
@@ -131,6 +131,8 @@ def extract_serial_program(f: casadi.Function) -> SerialProgram:
             o, a, b = out[0], inp[0], inp[1]
         elif op == OP_OUTPUT:
             o, a, b = inp[0], out[0], out[1]
+        elif op == OP_LOAD:                       # inputs (index slot, packed argument and length)
+            o, a, b = out[0], inp[0], inp[1]
         else:
             o = out[0] if out else 0
             a = inp[0] if inp else 0
@@ -158,6 +160,9 @@ def verify_serial_program(f: casadi.Function, prog: SerialProgram, n_samples: in
                 w[o] = float(args[a][b])
             elif op == OP_OUTPUT:
                 got[a][b] = w[o]
+            elif op == OP_LOAD:
+                arg, n = load_arg(b)
+                w[o] = float(args[arg][load_index(w[a], n)])
             else:
                 w[o] = OP_PY[op](w[a], w[b])
         ref = f(*[casadi.DM(x) for x in args])
@@ -211,6 +216,14 @@ def _extract_pass1(instrs, window: int = None):
         elif op == OP_OUTPUT:
             if inp[0] in slot_to_ssa:
                 pending.append((op, (slot_to_ssa[inp[0]],), out[0], out[1]))
+        elif op == OP_LOAD:                       # a compute node on its index slot; arg kept aside
+            d = max(floor, slot_depth.get(inp[0], 0) + 1)
+            nodes.append((op, ssa, (slot_to_ssa.get(inp[0], -1),), d, inp[1], 0))
+            slot_to_ssa[out[0]], slot_depth[out[0]] = ssa, d
+            ssa += 1
+            deepest, n_win = max(deepest, d), n_win + 1
+            if n_win == window:
+                close_window()
         else:
             dep_slots = inp[:1] if op == OP_SQ else inp[:2]
             d = max(floor, max((slot_depth.get(s, 0) for s in dep_slots), default=0) + 1)
@@ -310,6 +323,10 @@ def _level_plan(f: casadi.Function, instrs, window: int) -> LevelPlan:
                 node_outs.append(ssa_to_phys[sid] if sid >= 0 else phys[0])
                 node_in_a.append(arg)
                 node_in_b.append(elem)
+            elif op == OP_LOAD:                    # slot <- arg[(int) slot_a]
+                node_outs.append(ssa_to_phys[sid])
+                node_in_a.append(phys[0])
+                node_in_b.append(arg)
             else:
                 node_outs.append(ssa_to_phys[sid])
                 node_in_a.append(phys[0] if phys else 0)
@@ -353,11 +370,14 @@ def verify_plan(f: casadi.Function, plan: LevelPlan, n_samples: int = 3,
         for off, wid in zip(plan.level_offsets, plan.level_widths):
             nodes = [(plan.node_ops[i], plan.node_outs[i], plan.node_in_a[i], plan.node_in_b[i])
                      for i in range(off, off + wid)]
-            reads = [w[o] if op == OP_OUTPUT else None if op == OP_INPUT else (w[a], w[b])
-                     for op, o, a, b in nodes]
+            reads = [w[o] if op == OP_OUTPUT else None if op == OP_INPUT else (w[a], None) if op == OP_LOAD
+                     else (w[a], w[b]) for op, o, a, b in nodes]
             for (op, o, a, b), r in zip(nodes, reads):
                 if op == OP_INPUT:
                     w[o] = float(args[a][b])
+                elif op == OP_LOAD:
+                    arg, n = load_arg(b)
+                    w[o] = float(args[arg][load_index(r[0], n)])
                 elif op == OP_OUTPUT:
                     got[a][b] = r
                 else:

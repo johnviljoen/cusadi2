@@ -6,7 +6,8 @@ Function (optionally behind a composition) and builds it only when the cache has
     plan.path   # <cache_dir>/plans/<hash>.bin
 
 The key is a hash of everything the file depends on: the Function (`fn.serialize()`), the
-composition's tables, the resolved `max_live` and `block_size`, the plan format version and the
+composition's tables, the resolved `max_live` and `block_size`, `cse`, the requested
+`output_order` (the order chosen for "auto" is in the plan's metadata), the plan format version and the
 source of the cusadi2 package (`code_fingerprint`), so an edited cusadi2 checkout does not reuse
 plans written by the old code. `max_live="device"` is
 resolved to this GPU's slot budget before hashing: a plan is reused only where its window fits.
@@ -27,7 +28,7 @@ import casadi as ca
 import numpy as np
 
 from cusadi2.compose import Composition
-from cusadi2.dag import extract_level_plan
+from cusadi2.order import check_output_order, plan_in_order
 from cusadi2.plan import VERSION, cse_function, device_max_live, write_plan
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
@@ -97,34 +98,40 @@ class CompiledPlan:
     n_levels: int
     n_nodes: int
     built: bool          # False: taken from the cache
+    output_order: str = "col"   # the order the plan computes its outputs in ("row" / "col")
 
 
 def plan_key(fn: ca.Function, composition: Optional[Composition], max_live: Optional[int],
-             block_size: Optional[int], cse: bool = True) -> str:
+             block_size: Optional[int], cse: bool = True, output_order: str = "auto") -> str:
     h = hashlib.sha256()
     h.update(b"cusadi2-plan\0%d\0" % VERSION)
     h.update(code_fingerprint())
     h.update(fn.serialize().encode())
     _feed(h, composition)
-    _feed(h, (max_live, block_size, bool(cse)))
+    _feed(h, (max_live, block_size, bool(cse), check_output_order(output_order)))
     return h.hexdigest()
 
 
 def compile(fn, *, cache_dir: str, composition: Optional[Composition] = None,
-            max_live: Union[int, str, None], block_size: Optional[int], cse: bool = True) -> CompiledPlan:
+            max_live: Union[int, str, None], block_size: Optional[int], cse: bool = True,
+            output_order: str = "auto") -> CompiledPlan:
     """The plan of `fn` (a casadi.Function, behind `composition` if given, or a ComposedFunction)
     from `<cache_dir>/plans/`, built there first if missing. `max_live`: slot budget the level
     plan is windowed to (int), "device" for this GPU's, None for no windowing. `block_size`:
     threads per block recorded in the plan (None: the runtime's choice). `cse` (default): the plan
     is built from `cse_function(fn)` (common subexpressions computed once); False plans `fn` as
-    traced. The flag is part of the key; on a cache hit no CSE runs."""
+    traced. The flag is part of the key; on a cache hit no CSE runs. `output_order` ("auto" / "row"
+    / "col", cusadi2.order): the order the outputs' nonzeros are computed in; "auto" extracts
+    both and keeps the plan that fits `max_live`, then has fewer levels, then fewer peak live
+    slots. The requested order is part of the key, the chosen one in `CompiledPlan.output_order`
+    and the plan's `.json`."""
     from cusadi2.compose import ComposedFunction
     if isinstance(fn, ComposedFunction):
         if composition is not None:
             raise ValueError("cusadi2: a ComposedFunction carries its own composition")
         fn, composition = fn.fn, fn.composition
     max_live = resolve_max_live(max_live)
-    key = plan_key(fn, composition, max_live, block_size, cse)
+    key = plan_key(fn, composition, max_live, block_size, cse, output_order)
     plans = os.path.join(cache_dir, "plans")
     path, meta_path = os.path.join(plans, key + ".bin"), os.path.join(plans, key + ".json")
     if os.path.exists(path) and os.path.exists(meta_path):
@@ -134,9 +141,9 @@ def compile(fn, *, cache_dir: str, composition: Optional[Composition] = None,
     os.makedirs(plans, exist_ok=True)
     if cse:
         fn = cse_function(fn)
-    plan = extract_level_plan(fn, max_live=max_live)
+    fn, plan, chosen = plan_in_order(fn, output_order, max_live)
     meta = {"name": fn.name(), "peak_live_slots": plan.peak_live_slots, "n_levels": plan.n_levels,
-            "n_nodes": plan.n_nodes}
+            "n_nodes": plan.n_nodes, "output_order": chosen}
     tmp = f"{path}.tmp.{os.getpid()}"
     write_plan(fn, tmp, block_size=block_size, plan=plan, composition=composition, cse=False)
     with open(f"{meta_path}.tmp.{os.getpid()}", "w") as fh:

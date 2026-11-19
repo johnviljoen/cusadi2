@@ -128,6 +128,35 @@ OP_EXPR_FLOAT = {
 SUPPORTED_OPS = frozenset(OP_EXPR_DOUBLE)
 assert SUPPORTED_OPS == frozenset(OP_EXPR_FLOAT)
 
+# cusadi2's own instruction (no CasADi id; CasADi's scalar ops stay below 100): a traced
+# lookup into a function input, w[out] = arg[clamp((int) w[in_a], 0, n - 1)]. In a SerialProgram
+# and a LevelPlan in_a is the slot holding the element index and in_b packs the input argument
+# and its length n (per stage), in_b = n * LOAD_ARGS + arg (load_operand), since the direct
+# kernel has no per-argument length. CasADi never sees it: `cusadi2.loads.LoadedFunction` writes
+# it into the merged stream of an index function and a function of the loaded values.
+OP_LOAD = 1000
+LOAD_ARGS = 64                     # arguments a LOAD can address; n < 2**31 / LOAD_ARGS
+
+
+def load_operand(arg: int, n: int) -> int:
+    """in_b of a LOAD from argument `arg` of `n` entries per stage."""
+    if not 0 <= arg < LOAD_ARGS or not 0 < n < (1 << 31) // LOAD_ARGS:
+        raise ValueError(f"cusadi2: a LOAD addresses arguments < {LOAD_ARGS} of 1 .. {(1 << 31) // LOAD_ARGS - 1} entries")
+    return n * LOAD_ARGS + arg
+
+
+def load_arg(b: int):
+    """(arg, n) of a LOAD's in_b."""
+    return b % LOAD_ARGS, b // LOAD_ARGS
+
+
+def load_index(v: float, n: int) -> int:
+    """The element a LOAD reads for index value v in an argument of n entries (the kernel's
+    `cusadi2_index`): truncated toward zero, then clamped to [0, n - 1]; NaN reads element 0."""
+    if not (v >= 0):
+        return 0
+    return min(int(v), n - 1)
+
 
 def _erfinv(y: float) -> float:
     """Inverse error function: Giles' initial guess refined by Newton on math.erf."""
