@@ -22,7 +22,9 @@ arguments.
 
 Stage rule. Stage k is interval k with its end knot k + 1 (stage 0 also owns knot 0). A map iteration
 (or a glue row / term) goes to the smallest interval index it reads, or, when it reads only knots, to
-max(largest knot - 1, 0); every read is then at offset index - stage >= 0, and that offset, fixed per
+max(largest knot - 1, 0); a map that reads only knots and would put two iterations on one stage that
+way (a map over the start knots, x[:-1]) goes by its smallest knot instead (knot k at stage k). Every
+read is then at offset index - stage >= 0, and that offset, fixed per
 element across a map's iterations, picks the stage argument (variable, offset): "q" (offset 0), an
 alias "q+1" (offset 1), ...
 
@@ -190,6 +192,12 @@ class _Stager:
                         if nm in self.lookup:
                             reads_t[t].append(self.lookup[nm][:2])
         stages = [self.stage_of(reads_t[t], f"map {m} iteration {t}") for t in range(n)]
+        knot_only = all(reads_t[t] and all(self.leaves[l][2] for l, _ in reads_t[t]) for t in range(n))
+        if len(set(stages)) != n and knot_only:
+            # a map over start knots (x[:-1]: knots 0 .. N-1): knot k at stage k instead of k - 1
+            alt = [min(r for _, r in reads_t[t]) for t in range(n)]
+            if len(set(alt)) == n and max(alt) < self.N:
+                stages = alt
         if len(set(stages)) != n:
             raise StagingError(f"map {m}: two iterations fall on one stage ({stages})")
         # body inputs on stage arguments / constants
