@@ -207,33 +207,37 @@ with `cusadi2.compile`. `cusadi2.ComposedFunction` and `cusadi2.rows_active` /
 `row_numbers` are the generic pieces it uses; `cusadi2.jax.gpu_functions`
 uploads CasADi Functions or ComposedFunctions as plans for `jit` / `vmap`.
 
-### Stage-parallel plans for horizon problems (`cusadi2.jax.staged`)
+### Stage structure derived from the code (`cusadi2.staging`, `cusadi2.jax.to_mx`)
 
 ```python
-from cusadi2.jax.staged import StagedFunction
-sf = StagedFunction(c_stage, n_stages=N, specs=[           # c_stage(x_k, x_k1, u_k, p, c_k) -> (ny,)
-        dict(name="x_k",  size=37, mode="coupled", offset=0, span=1),
-        dict(name="x_k1", size=37, mode="coupled", offset=1, span=1, alias="x_k"),
-        dict(name="u_k",  size=42, mode="stage"),
-        dict(name="p",    size=49, mode="shared", param=True),
-        dict(name="c_k",  size=4,  mode="stage",  param=True)])
-y = sf(X, X, U, P, C)                     # (N*ny,), or (B, N*ny) under vmap; stage-major
-J = sf.jacobian()(X, X, U, P, C)          # (N*nnz,) values; .global_pattern() -> global (rows, cols)
-H = sf.hessian(weighted=True)(X, X, U, P, C, lam=LAM)
+import jax, cusadi2
+from cusadi2.jax import to_mx
+
+def nlp(x, p):                                  # x = (q (N+1, nq), u (N, nu)), p = (q0, xr (N+1, nq))
+    q, u = x
+    dyn = jax.vmap(step)(q[:-1], q[1:], u)      # per-stage work: vmap / lax.map over the horizon
+    cost = jax.vmap(lambda q1, r1, u: track(q1, r1) + effort(u))(q[1:], p.xr[1:], u)
+    return jnp.sum(cost), jnp.concatenate([q[0] - p.q0, dyn.ravel()]), jnp.zeros(0)
+
+g = to_mx(nlp, x_example, p_example)            # a CasADi MX graph: each map is F.map(n)
+st = cusadi2.staging.derive(g.x, g.p, sums={"f": g.outs[0]}, rows={"c": g.outs[1], "d": g.outs[2]})
+st.specs, st.functions["c"], st.active["c"], st.user_rows["c"]
 ```
 
-An MPC's constraints are N copies of one stage function. Tracing the whole
-horizon gives one graph whose derivative plans no longer fit the level-parallel
-kernel; `StagedFunction` traces the stage once and cusadi2's stage mode
-replicates it (`n_stages`, grid (batch, n_stages), per-argument "stage" /
-"coupled" / "shared" indexing). Go2 jump, N = 28, the dynamics stage block
-(67 rows): trace 1.2 s instead of 31 s, derivative plans built in a second and
-level-parallel; per call, batch 1: Jacobian 119 us and Lagrangian Hessian
-217 us instead of 14.5 ms and 377 ms (whole-horizon, serial fallback); batch
-1024: 18 ms and 48 ms instead of 179 ms and 922 ms. `global_pattern()` maps
-the stage-local pattern to the whole-horizon (row, col) for a knot-major
-global layout, in the stage-major order of the value stream, which is what an
-IPM needs to assemble its KKT system from staged plans.
+An MPC's constraints are N copies of one stage function. Tracing the whole horizon gives one graph
+whose derivative plans no longer fit the level-parallel kernel; a stage-wise problem traces the stage
+once and cusadi2's stage mode replicates it (`cusadi2.compose`: grid (batch, n_stages), per-argument
+"stage" / "coupled" / "shared" indexing). Go2 jump, N = 28, the dynamics stage block (67 rows): trace
+1.2 s instead of 31 s, derivative plans built in a second and level-parallel; per call, batch 1:
+Jacobian 119 us and Lagrangian Hessian 217 us instead of 14.5 ms and 377 ms (whole-horizon, serial
+fallback); batch 1024: 18 ms and 48 ms instead of 179 ms and 922 ms.
+
+The stage structure is not written by hand: `cusadi2.staging.derive` reads it off a CasADi MX graph
+whose per-stage work is `F.map(n)` (or one Function called once per stage), and `cusadi2.jax.to_mx`
+turns JAX code with `jax.vmap` / `lax.map` over the horizon into such a graph. It finds which stage
+owns which variables and rows (knots, intervals, the `x[k + 1]` coupling), the per-stage constants,
+and per-stage parameters (a p leaf a map reads row by row, e.g. a reference trajectory). cuipm's
+`Problem.from_jax` / `from_casadi` are built on it.
 
 Plans whose level windows do not fit the device's shared memory fall back to
 the serial (thread-per-instance) kernel automatically, with a warning;
@@ -256,7 +260,7 @@ NVCC=.venv/lib/python3.12/site-packages/nvidia/cu13/bin/nvcc uv run pytest tests
 - `cusadi2/compose.py` — compositions: declared buffers, per-element gather / scatter tables, reduces; host evaluator; `ComposedFunction`, stage row activity
 - `cusadi2/cache.py` — `compile`: plan files cached by content hash
 - `cusadi2/jax/rbd.py` — rigid-body dynamics (RNEA, ABA, kinematics) in JAX from a MuJoCo-parsed MJCF / URDF
-- `cusadi2/jax/staged.py` — stage-parallel plans from a per-stage JAX function (cusadi2 n_stages mode)
+- `cusadi2/staging.py` — the stage structure of a horizon problem derived from its CasADi MX graph; `cusadi2/jax/to_mx.py` — JAX (vmap / lax.map) to that graph
 - `cusadi2/unrolled.py` — original-cusadi-style unrolled kernel emitter (baseline)
 - `cusadi2/cusadi2.h` — loader and `Program` runtime
 - `cmake/` — the installed package's CMake config (`cusadi2Config.cmake`) and library locator (`_native.py`)

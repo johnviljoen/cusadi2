@@ -117,3 +117,42 @@ def test_to_mx_from_jax(mapping):
     got = G(xv["u"].T, xv["x"].T, pv)
     for a, b in zip(got, want):
         np.testing.assert_allclose(np.asarray(a).reshape(-1), np.asarray(b).reshape(-1), rtol=1e-12, atol=1e-14)
+
+
+def test_per_stage_parameters():
+    """A p leaf a map reads row by row (a reference trajectory) is a per-stage parameter, staged like x;
+    the other p leaves stay the shared parameter."""
+    from cusadi2.jax import to_mx
+
+    def nlp(x, p):
+        q, u = x["q"], x["u"]
+        dyn = jax.vmap(lambda a, b, w: b - a - 0.1 * jnp.stack([a[1], w[0]]))(q[:-1], q[1:], u)
+        track = jax.vmap(lambda b, r, w: jnp.sum((b - r) ** 2) + w[0] ** 2)(q[1:], p["xr"][1:], u)
+        return jnp.sum(track), jnp.concatenate([q[0] - p["q0"], dyn.ravel()]), jnp.zeros(0)
+    xe = {"q": jnp.zeros((N + 1, 2)), "u": jnp.zeros((N, 1))}
+    pe = {"q0": jnp.zeros(2), "xr": jnp.zeros((N + 1, 2))}
+    g = to_mx(nlp, xe, pe)
+    st = derive(g.x, g.p, {"f": g.outs[0]}, {"c": g.outs[1], "d": g.outs[2]}, x_names=g.x_names)
+    names = {sp["name"]: sp for sp in st.specs}
+    assert names["xr+1"].get("param") and names["xr+1"]["alias"] == "xr" and names["xr"].get("param")
+    assert names["p"]["size"] == 2                                   # only q0 is shared
+    assert st.p_leaves == [("q0", False, 2), ("xr", True, (N + 1, 2))]
+    assert [n for n, _ in st.leaves] == ["q", "u"]
+    # the stage functions reproduce the graph (stage k reads xr[k + 1] through the alias)
+    rng = np.random.default_rng(3)
+    q, u, q0, xr = rng.standard_normal((N + 1, 2)), rng.standard_normal((N, 1)), rng.standard_normal(2), rng.standard_normal((N + 1, 2))
+    G = ca.Function("G", g.x + g.p, g.outs)
+    f_ref = float(G(u.T, q.T, q0, xr.T)[0]) if g.x_names == ["u", "q"] else float(G(q.T, u.T, q0, xr.T)[0])
+    vals = {"q": q, "u": u, "xr": xr}
+    f = 0.0
+    for s in range(st.N):
+        args = []
+        for sp in st.specs:
+            if sp["name"] == "p":
+                args.append(q0)
+            elif sp["name"] == "consts":
+                args.append(st.consts[s])
+            else:
+                args.append(vals[sp.get("alias", sp["name"])][s + sp["offset"]])
+        f += float(st.functions["f"](*args))
+    np.testing.assert_allclose(f, f_ref, rtol=1e-12)

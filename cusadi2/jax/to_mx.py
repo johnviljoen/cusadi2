@@ -11,9 +11,10 @@ the map outputs. Nothing about stages is decided here: `cusadi2.staging.derive` 
 exactly as for a hand-written CasADi graph. Without any map the graph is a single glue call (a flat
 problem).
 
-Layout: an x leaf of JAX shape (L, *rest) is an MX symbol (prod(rest), L), column k = horizon index k
-(the same flat order as JAX's row-major array); a 0-d / 1-d leaf of size n is (n, 1). All of p is one
-MX column (its leaves flattened row-major, in tree order).
+Layout: an x or p leaf of JAX shape (L, *rest) is an MX symbol (prod(rest), L), column k = horizon
+index k (the same flat order as JAX's row-major array); a 1-d x leaf (L,) is (1, L), a 0-d / 1-d p leaf
+of size n is (n, 1). A p leaf that a map reads row by row ((L, k), k >= 1, write a per-stage scalar as
+(L, 1)) becomes a per-stage parameter in cusadi2.staging.
 """
 from __future__ import annotations
 
@@ -173,7 +174,7 @@ class _Translator:
 @dataclass
 class MXGraph:
     x: List[ca.MX]            # one MX symbol per x leaf
-    p: List[ca.MX]            # [all of p as one column]
+    p: List[ca.MX]            # one MX symbol per p leaf, shaped like the x leaves
     outs: List[ca.MX]         # fun's outputs, each flattened (row-major) to a column
     x_names: List[str]        # the leaves' tree paths
     x_tree: Any
@@ -220,11 +221,18 @@ def to_mx(fun, x, p, traced=None) -> MXGraph:
     x_syms, x_arrs = zip(*[sx_inputs(f"X{i}", np.shape(l)) for i, l in enumerate(x_leaves)]) if x_leaves else ((), ())
     p_sym, p_arr = sx_inputs("P", (p_size,))
 
-    def mx_shape(l):
+    def mx_shape(l, horizon_1d):
         s = np.shape(l)
-        return (int(np.prod(s[1:], dtype=np.int64)), s[0]) if len(s) >= 2 else (int(np.size(l)), 1)
-    X = [ca.MX.sym(nm, *mx_shape(l)) for nm, l in zip(x_names, x_leaves)]
-    Pm = ca.MX.sym("p", p_size)
+        if len(s) >= 2:
+            return int(np.prod(s[1:], dtype=np.int64)), s[0]
+        if len(s) == 1 and horizon_1d:
+            return 1, s[0]                    # an x leaf (L,): one scalar per horizon index
+        return int(np.size(l)), 1
+    X = [ca.MX.sym(nm, *mx_shape(l, True)) for nm, l in zip(x_names, x_leaves)]
+    p_paths = [jax.tree_util.keystr(k) for k, _ in jax.tree_util.tree_flatten_with_path(p)[0]]
+    p_names = [s.strip(".[]'") or f"p{i}" for i, s in enumerate(p_paths)]
+    Pl = [ca.MX.sym(nm, *mx_shape(l, False)) for nm, l in zip(p_names, p_leaves)]   # one per p leaf
+    Pm = ca.vertcat(*[ca.vec(v) for v in Pl]) if Pl else ca.MX(0, 1)
     T = _Translator(list(x_syms), p_sym, [ca.vec(v) for v in X], Pm)
     p_parts, at = [], 0
     for l in p_leaves:
@@ -236,6 +244,6 @@ def to_mx(fun, x, p, traced=None) -> MXGraph:
     ys = [y for m in T.maps for y in m["y"]]
     glue = ca.Function("glue", list(x_syms) + [p_sym] + ph, [to_sx_vector(o) for o in outs])
     mx_outs = glue.call([ca.vec(v) for v in X] + [Pm] + ys)
-    return MXGraph(x=X, p=[Pm], outs=list(mx_outs), x_names=x_names, x_tree=x_tree, p_tree=p_tree,
+    return MXGraph(x=X, p=Pl, outs=list(mx_outs), x_names=x_names, x_tree=x_tree, p_tree=p_tree,
                    x_shapes=[tuple(np.shape(l)) for l in x_leaves], p_shapes=[tuple(np.shape(l)) for l in p_leaves],
                    n_maps=len(T.maps))

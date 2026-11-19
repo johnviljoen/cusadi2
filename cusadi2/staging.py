@@ -5,8 +5,10 @@ from the whole-horizon expressions instead of written by hand.
     st.specs, st.functions["f"], st.active["c"], st.user_rows["d"], ...
 
 x is a list of MX symbols, one per variable, each (row size, horizon length): column k is knot k
-(length N + 1) or interval k (length N). p is a list of MX symbols of any shape (together the one
-shared parameter "p"). `sums` are scalar outputs summed over the stages (an objective), `rows` vector
+(length N + 1) or interval k (length N). p is a list of MX symbols of any shape: a p leaf that a map
+reads row by row (a reference trajectory, (row size, N or N + 1)) is a per-stage parameter, staged
+like x (parameter stage arguments "xr", "xr+1"); the other leaves together are the one shared
+parameter "p". `sums` are scalar outputs summed over the stages (an objective), `rows` vector
 outputs whose rows are distributed over the stages (constraints).
 
 Per-stage work is a call of a casadi.Function: `F.map(n)(...)` (one call node of a Map Function), or
@@ -41,7 +43,7 @@ apply it (default on).
 
 Not supported (StagingError): scans / maps with a carry (sequential), reduced map outputs
 (`map(..., reduce_out)`), a map input built from another map's output, an unmapped map input that
-depends on x, two iterations of one map on one stage, per-stage parameters (p mapped per stage).
+depends on x, two iterations of one map on one stage.
 A Function called once is inlined as glue, so a helper that wraps the whole horizon (maps inside)
 loses the structure.
 """
@@ -72,8 +74,9 @@ class Staging:
     active: Dict[str, np.ndarray]            # rows output name -> (N, stage rows) bool
     user_rows: Dict[str, list]               # rows output name -> [(stage, stage row)] per user row
     leaves: List[Tuple[str, tuple]]          # x variables: (name, (length, row size))
-    p_size: int
+    p_size: int                              # the shared parameter's size
     n_maps: int
+    p_leaves: list = field(default=None)     # per p leaf (user order): (name, staged?, (length, row size) or size)
     consts: np.ndarray = field(default=None)  # (N, n_consts), also in specs
 
 
@@ -99,7 +102,7 @@ def _names(arr) -> List[str]:
 
 
 class _Stager:
-    def __init__(self, x_leaves, x_names, p_size):
+    def __init__(self, x_leaves, x_names, p_size, params=None):
         lens = sorted({int(np.shape(l)[0]) for l in x_leaves})
         if len(lens) == 2 and lens[1] == lens[0] + 1:
             self.N = lens[0]
@@ -108,13 +111,14 @@ class _Stager:
         else:
             raise StagingError(f"x leaves need leading lengths N and N + 1, got {lens}")
         self.leaves = []                       # (name, shape, knot?)
+        self.param = list(params) if params is not None else [False] * len(x_leaves)   # per-stage parameter leaf?
         self.lookup: Dict[str, Tuple[int, int, int]] = {}   # x symbol name -> (leaf, row, col)
         self.x_syms, self.x_arrs = [], []
         for i, (l, nm) in enumerate(zip(x_leaves, x_names)):
             shape = tuple(np.shape(l))
             knot = len(lens) == 2 and shape[0] == self.N + 1
             self.leaves.append((nm, shape, knot))
-            sym, arr = sx_inputs(f"X{i}", shape)
+            sym, arr = sx_inputs(f"PS{i}" if self.param[i] else f"X{i}", shape)
             self.x_syms.append(sym)
             self.x_arrs.append(arr)
             rowsz = int(np.prod(shape[1:], dtype=np.int64))
@@ -372,6 +376,8 @@ def _specs(S: _Stager, sum_res, row_res) -> "Staging":
             sp = dict(name=nm if o == 0 else f"{nm}+{o}", size=int(sym.numel()), mode="coupled", offset=o, span=span)
             if o:
                 sp["alias"] = nm
+            if S.param[li]:
+                sp["param"] = True
             specs.append(sp)
             args.append(sym)
     if S.p_sym.numel():
@@ -391,8 +397,8 @@ def _specs(S: _Stager, sum_res, row_res) -> "Staging":
         functions[name] = ca.Function(f"stage_{name}", args, [ca.vertcat(*exprs) if exprs else ca.SX(0, 1)])
         active[name], user_rows[name] = act, user
     return Staging(N=N, specs=specs, functions=functions, active=active, user_rows=user_rows,
-                   leaves=[(nm, tuple(shape)) for nm, shape, _ in S.leaves], p_size=int(S.p_sym.numel()),
-                   n_maps=len(S.maps))
+                   leaves=[(nm, tuple(shape)) for (nm, shape, _), prm in zip(S.leaves, S.param) if not prm],
+                   p_size=int(S.p_sym.numel()), n_maps=len(S.maps))
 
 
 def _elems(sx: ca.SX) -> List:
@@ -475,13 +481,22 @@ def derive(x: Sequence[ca.MX], p: Sequence[ca.MX], sums: Dict[str, ca.MX], rows:
             groups.setdefault(nm, dict(body=fn, n=None, map=None, nodes=[]))["nodes"].append(node)
     if not groups:
         raise NotStaged("no stage maps: no F.map(n) call and no Function called more than once")
+    # per-stage parameters: p leaves some map reads row by row (different elements per iteration)
+    staged_p = _staged_parameters(x, p, groups)
+    p_names = [v.name() for v in p]
     # the stager wants row-major (length, row size) leaves: the same flat order as CasADi's (row size, length)
-    S = _Stager([np.zeros((v.size2(), v.size1())) for v in x], x_names, int(sum(v.numel() for v in p)))
-    x_sx = [ca.reshape(s, v.size1(), v.size2()) for s, v in zip(S.x_syms, x)]
-    p_sx, at = [], 0
-    for v in p:
-        p_sx.append(ca.reshape(S.p_sym[at:at + v.numel()], v.size1(), v.size2()))
-        at += v.numel()
+    leaves = list(x) + [v for v, s in zip(p, staged_p) if s]
+    S = _Stager([np.zeros((v.size2(), v.size1())) for v in leaves], x_names + [n for n, s in zip(p_names, staged_p) if s],
+                int(sum(v.numel() for v, s in zip(p, staged_p) if not s)), params=[False] * len(x) + [True] * sum(staged_p))
+    x_sx = [ca.reshape(s, v.size1(), v.size2()) for s, v in zip(S.x_syms[:len(x)], x)]
+    p_sx, at, k = [], 0, len(x)
+    for v, s in zip(p, staged_p):
+        if s:
+            p_sx.append(ca.reshape(S.x_syms[k], v.size1(), v.size2()))
+            k += 1
+        else:
+            p_sx.append(ca.reshape(S.p_sym[at:at + v.numel()], v.size1(), v.size2()))
+            at += v.numel()
     # replace every map call output by a placeholder symbol
     old, new, ph_mx = [], [], []
     for gi, (key, g) in enumerate(groups.items()):
@@ -562,7 +577,41 @@ def derive(x: Sequence[ca.MX], p: Sequence[ca.MX], sums: Dict[str, ca.MX], rows:
     st = _finish(S, {n: _to_obj([ca.densify(v)[0]]) for n, v in zip(sum_names, vals[:k])},
                  {n: _to_obj(_elems_all(v)) for n, v in zip(row_names, vals[k:])})
     st.consts = next((sp["const"] for sp in st.specs if sp["name"] == "consts"), np.zeros((S.N, 0)))
+    st.p_leaves = [(n, bool(s), (v.size2(), v.size1()) if s else int(v.numel())) for n, s, v in zip(p_names, staged_p, p)]
     return st
+
+
+def _staged_parameters(x, p, groups) -> List[bool]:
+    """Per p leaf: does some map read it row by row (an operand element that is a symbol of this leaf
+    and differs between iterations)? Such leaves are per-stage parameters, staged like x."""
+    if not p:
+        return []
+    tx = [ca.SX.sym(f"tx{i}", v.size1(), v.size2()) for i, v in enumerate(x)]
+    tp = [ca.SX.sym(f"tp{i}", v.size1(), v.size2()) for i, v in enumerate(p)]
+    owner = {tp[i].nz[j].name(): i for i in range(len(p)) for j in range(tp[i].nnz())}
+    staged = [False] * len(p)
+
+    def visit(columns):                        # columns: per iteration, the operand's elements
+        for elems in zip(*columns):
+            names = [e.name() if isinstance(e, ca.SX) and e.is_symbolic() else None for e in elems]
+            if all(n in owner for n in names) and len(set(names)) > 1 and len({owner[n] for n in names}) == 1:
+                staged[owner[names[0]]] = True
+    for g in groups.values():
+        body, nodes = g["body"], g["nodes"]
+        nin = body.n_in()
+        if g["map"] is not None:
+            n = g["n"]
+            vals = ca.Function("ins", list(x) + list(p), [nodes[0].dep(j) for j in range(nin)]).call(tx + tp)
+            for j, v in enumerate(vals):
+                w = body.sparsity_in(j).size2()
+                v = ca.densify(v)
+                if v.size2() == w * n:
+                    visit([_elems(v[:, t * w:(t + 1) * w]) for t in range(n)])
+        else:
+            per_call = [ca.Function("ins", list(x) + list(p), [nd.dep(j) for j in range(nin)]).call(tx + tp) for nd in nodes]
+            for j in range(nin):
+                visit([_elems(ca.densify(pc[j])) for pc in per_call])
+    return staged
 
 
 def _elems_all(sx: ca.SX) -> List:
