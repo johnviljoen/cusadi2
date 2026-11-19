@@ -156,3 +156,22 @@ def test_per_stage_parameters():
                 args.append(vals[sp.get("alias", sp["name"])][s + sp["offset"]])
         f += float(st.functions["f"](*args))
     np.testing.assert_allclose(f, f_ref, rtol=1e-12)
+
+
+def test_glue_blocks_merged_across_stages():
+    """Pins of x at several knots, each to its own p target (a landing event each): one stage block,
+    the targets selected per stage by one-hot constants, instead of one block per event that every stage
+    computes."""
+    x, p, f, c, d, (X, U, P, F, L) = toy(False)
+    T = ca.MX.sym("t", 2, 3)                       # a target per event
+    knots = [1, 3, 4]
+    pins = ca.vertcat(*[ca.sin(X[:, k]) - T[:, e] for e, k in enumerate(knots)])
+    st = derive(x, [P, T], {"f": f}, {"c": c, "d": ca.vertcat(d, pins)})
+    assert st.functions["d"].size1_out(0) == 1 + 2   # the map's u row + one pin block
+    G = ca.Function("G", x + [P, T], [ca.vertcat(d, pins)])
+    rng = np.random.default_rng(2)
+    xv = [rng.standard_normal(v.shape) for v in x]
+    pv, tv = rng.standard_normal(2), rng.standard_normal((2, 3))
+    want = np.asarray(G(*xv, pv, tv)).reshape(-1)
+    pflat = np.concatenate([pv, tv.reshape(-1, order="F")])
+    np.testing.assert_allclose(evaluate(st, xv, pflat)[2], want, rtol=1e-12, atol=1e-14)

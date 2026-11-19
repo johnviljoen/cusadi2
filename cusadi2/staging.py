@@ -313,6 +313,7 @@ def _finish(S: _Stager, sums: Dict[str, object], rows_out: Dict[str, object]) ->
             col[s, 0] = True
             b["active"] = np.concatenate([b["active"], col], axis=1)
             user.append((glue_open, s, len(b["rows"]) - 1))
+        blocks, user = _merge_glue(S, blocks, user, what)
         # stage output: blocks concatenated; user row u -> (stage, row of the stage output)
         offs = np.cumsum([0] + [len(b["rows"]) for b in blocks])
         exprs = [r for b in blocks for r in b["rows"]]
@@ -323,6 +324,79 @@ def _finish(S: _Stager, sums: Dict[str, object], rows_out: Dict[str, object]) ->
     row_res = {name: rows(out, name) for name, out in rows_out.items()}
     sum_res = {name: _sum(S, name, out, body_expr) for name, out in sums.items()}
     return _specs(S, sum_res, row_res)
+
+
+def _glue_template(S: _Stager, rows, gen):
+    """A glue block's rows with their p symbols replaced by the generic symbols gen[0], gen[1], ... (in
+    order of appearance) -> (key comparing the structure, the template rows, the p symbols replaced)."""
+    e = ca.vertcat(*rows)
+    ps = [v for v in ca.symvar(e) if v.name() in S.p_names]
+    while len(gen) < len(ps):
+        gen.append(ca.SX.sym(f"g{len(gen)}"))
+    t = ca.substitute(e, ca.vertcat(*ps), ca.vertcat(*gen[:len(ps)])) if ps else e
+    ins = sorted(ca.symvar(t), key=lambda v: v.name())
+    key = (len(rows), tuple(v.name() for v in ins),
+           ca.Function("t", [ca.vertcat(*ins)] if ins else [], [t]).serialize())
+    return key, [t[i] for i in range(t.numel())], ps
+
+
+def _merge_glue(S: _Stager, blocks, user, what):
+    """Glue blocks at different stages that are the same expression up to which p entries they read (a
+    pin of a foot at every landing event, each to its own target) -> one block: the template once, its
+    p entries selected per stage by one-hot stage constants. Otherwise every stage would compute every
+    such block (masked to its one stage). Returns the new blocks and the user rows renumbered."""
+    gen, groups = [], {}                     # key -> list of [member block indices] with distinct stages
+    tmpl = {}
+    for bi, b in enumerate(blocks):
+        if b["key"][0] != "glue":
+            continue
+        key, t, ps = _glue_template(S, b["rows"], gen)
+        tmpl[bi] = (t, ps)
+        for grp in groups.setdefault(key, []):
+            if all(blocks[j]["key"][1] != b["key"][1] for j in grp):
+                grp.append(bi)
+                break
+        else:
+            groups[key].append([bi])
+    merged = {}                                # first member -> group, for groups of 2 or more
+    for grps in groups.values():
+        for grp in grps:
+            if len(grp) > 1:
+                merged[grp[0]] = grp
+    if not merged:
+        return blocks, user
+    into = {}                                  # old block -> new block index
+    out = []
+    for bi, b in enumerate(blocks):
+        if bi in into:
+            continue
+        if bi not in merged:
+            into[bi] = len(out)
+            out.append(b)
+            continue
+        grp = merged[bi]
+        t, _ = tmpl[bi]
+        npar = len(tmpl[bi][1])
+        onehot = np.zeros((S.N, len(grp)))
+        for m, j in enumerate(grp):
+            onehot[blocks[j]["key"][1], m] = 1.0
+        k = None
+        sel = []
+        for i in range(npar):
+            cand = [tmpl[j][1][i] for j in grp]
+            if all(ca.is_equal(c, cand[0]) for c in cand[1:]):
+                sel.append(cand[0])
+                continue
+            if k is None:
+                k = S.const(f"{what}_glue{bi}_sel", onehot)
+            sel.append(sum((k[m] * c for m, c in enumerate(cand[1:], 1)), k[0] * cand[0]))
+        rows = ca.substitute(ca.vertcat(*t), ca.vertcat(*gen[:npar]), ca.vertcat(*sel)) if npar else ca.vertcat(*t)
+        active = np.zeros_like(b["active"])
+        for j in grp:
+            active |= blocks[j]["active"]
+            into[j] = len(out)
+        out.append(dict(key=("glue", "merged", bi), rows=[rows[i] for i in range(rows.numel())], active=active))
+    return out, [(into[bi], s, e) for bi, s, e in user]
 
 
 def _sum(S: _Stager, what: str, f_out, body_expr) -> ca.SX:
